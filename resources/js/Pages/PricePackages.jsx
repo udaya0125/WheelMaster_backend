@@ -291,3 +291,242 @@ const PricePackages = () => {
 };
 
 export default PricePackages;
+
+
+
+
+// import React, { useEffect, useState } from "react";
+// import axios from "axios";
+// import EditPriceForm from "@/EditFormComponents/EditPriceForm";
+// import AddPriceForm from "@/AddFormComponent/AddPriceForm";
+// import { FiPlus, FiX, FiEdit2, FiTrash2, FiClock, FiTag, FiDollarSign, FiEdit } from "react-icons/fi";
+// import Wrapper from "@/AdminWrapper/Wrapper";
+
+// const PricePackages = () => {
+//     const [allPrice, setAllPrice] = useState([]);
+//     const [reloadTrigger, setReloadTrigger] = useState(false);
+//     const [editingPrice, setEditingPrice] = useState(null);
+//     const [showEditForm, setShowEditForm] = useState(false);
+//     const [showAddForm, setShowAddForm] = useState(false);
+
+//     useEffect(() => {
+//         const fetchPrice = async () => {
+//             try {
+//                 const response = await axios.get(route("ourprice.index"));
+//                 setAllPrice(response.data.data || response.data);
+//             } catch (error) {
+//                 console.error("fetching error ", error);
+//             }
+//         };
+//         fetchPrice();
+//     }, [reloadTrigger]);
+
+//     const handleDelete = async (id) => {
+//         if (!confirm("Are you sure you want to delete this price package?")) {
+//             return;
+//         }
+
+//         try {
+//             await axios.delete(route("ourprice.destroy", { id: id }));
+//             setReloadTrigger((prev) => !prev);
+//         } catch (error) {
+//             console.log("Delete error:", error);
+//             alert("Error deleting price package");
+//         }
+//     };
+
+//     const handleEdit = (price) => {
+//         setEditingPrice(price);
+//         setShowEditForm(true);
+//     };
+
+//     const handleCloseEditForm = () => {
+//         setShowEditForm(false);
+//         setEditingPrice(null);
+//     };
+
+//     const handleOpenAddForm = () => {
+//         setShowAddForm(true);
+//     };
+
+//     const handleCloseAddForm = () => {
+//         setShowAddForm(false);
+//     };
+
+//     return (
+//         <Wrapper>
+//             {/* Add Form Modal - Minimalist Design */}
+//             {showAddForm && (
+//                 <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+//                     <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+//                         <div className="p-8">
+//                             <div className="flex justify-between items-center mb-8">
+//                                 <h2 className="text-2xl font-light tracking-tight text-gray-900">
+//                                     New Price Package
+//                                 </h2>
+//                                 <button
+//                                     onClick={handleCloseAddForm}
+//                                     className="text-gray-400 hover:text-gray-600 transition-colors"
+//                                 >
+//                                     <FiX size={24} />
+//                                 </button>
+//                             </div>
+//                             <AddPriceForm
+//                                 onClose={handleCloseAddForm}
+//                                 setReloadTrigger={setReloadTrigger}
+//                             />
+//                         </div>
+//                     </div>
+//                 </div>
+//             )}
+
+//             {/* Edit Form Modal - Minimalist Design */}
+//             {showEditForm && (
+//                 <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+//                     <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+//                         <div className="p-8">
+//                             <div className="flex justify-between items-center mb-8">
+//                                 <h2 className="text-2xl font-light tracking-tight text-gray-900">
+//                                     Edit Price Package
+//                                 </h2>
+//                                 <button
+//                                     onClick={handleCloseEditForm}
+//                                     className="text-gray-400 hover:text-gray-600 transition-colors"
+//                                 >
+//                                     <FiX size={24} />
+//                                 </button>
+//                             </div>
+//                             <EditPriceForm
+//                                 editingPrice={editingPrice}
+//                                 onClose={handleCloseEditForm}
+//                                 setReloadTrigger={setReloadTrigger}
+//                             />
+//                         </div>
+//                     </div>
+//                 </div>
+//             )}
+
+//             {/* Main Content */}
+//             <section className=" px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
+//                 {/* Header Section - Minimalist */}
+//                 <div className="max-w-7xl mx-auto">
+//                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-12">
+//                         <div className="mb-4 sm:mb-0">
+//                             <h1 className="text-3xl font-light text-gray-900 mb-2">
+//                                 Price Packages
+//                             </h1>
+//                             <p className="text-gray-500 font-light">
+//                                 Manage your pricing plans and packages
+//                             </p>
+//                         </div>
+                        
+//                         <button
+//                             onClick={handleOpenAddForm}
+//                             className="group flex items-center px-5 py-2.5 bg-white border border-gray-200 rounded-full text-sm font-medium text-gray-700 hover:border-gray-300 hover:shadow-sm transition-all duration-200"
+//                         >
+//                             <FiPlus className="mr-2 text-gray-400 group-hover:text-gray-600" />
+//                             New Package
+//                         </button>
+//                     </div>
+
+//                     {/* Price Packages Grid - Minimalist Cards */}
+//                     {allPrice.length > 0 ? (
+//                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+//                             {allPrice.map((price) => (
+//                                 <div
+//                                     key={price.id}
+//                                     className="group bg-white rounded-2xl border border-gray-100 hover:border-gray-200 hover:shadow-lg transition-all duration-300 overflow-hidden relative"
+//                                 >
+//                                     {/* Action Buttons - Top Right */}
+//                                     <div className="absolute top-4 right-4 flex space-x-2 z-10">
+//                                         <button
+//                                             onClick={() => handleEdit(price)}
+//                                             className="bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
+//                                             title="Edit package"
+//                                         >
+//                                             <FiEdit size={16} />
+//                                         </button>
+//                                         <button
+//                                             onClick={() => handleDelete(price.id)}
+//                                             className="bg-red-600 text-white p-2 rounded-full hover:bg-red-700 transition-colors shadow-sm hover:shadow-md"
+//                                             title="Delete package"
+//                                         >
+//                                             <FiTrash2 size={16} />
+//                                         </button>
+//                                     </div>
+
+//                                     {/* Card Header */}
+//                                     <div className="p-6 pb-4 border-b border-gray-50">
+//                                         <div className="flex items-start justify-between mb-3">
+//                                             <h3 className="text-lg font-medium text-gray-900">
+//                                                 {price.description}
+//                                             </h3>
+//                                             {price.category && (
+//                                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-50 text-gray-600">
+//                                                     {price.category}
+//                                                 </span>
+//                                             )}
+//                                         </div>
+                                        
+//                                         <div className="flex items-baseline">
+//                                             <span className="text-3xl font-light text-gray-900">
+//                                                 ${parseFloat(price.price).toFixed(2)}
+//                                             </span>
+//                                             {price.duration && (
+//                                                 <span className="ml-2 text-sm text-gray-400">
+//                                                     / {price.duration}
+//                                                 </span>
+//                                             )}
+//                                         </div>
+
+//                                         {price.discount && (
+//                                             <div className="mt-2 inline-flex items-center px-2 py-1 bg-green-50 rounded-md">
+//                                                 <span className="text-xs text-green-600">
+//                                                     {price.discount}
+//                                                 </span>
+//                                             </div>
+//                                         )}
+//                                     </div>
+
+//                                     {/* Features Section */}
+//                                     {price.features && (
+//                                         <div className="p-6">
+//                                             <div 
+//                                                 className="text-sm text-gray-600 leading-relaxed"
+//                                                 dangerouslySetInnerHTML={{
+//                                                     __html: price.features,
+//                                                 }}
+//                                             />
+//                                         </div>
+//                                     )}
+//                                 </div>
+//                             ))}
+//                         </div>
+//                     ) : (
+//                         // Empty State - Minimalist
+//                         <div className="text-center py-16">
+//                             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+//                                 <FiTag className="w-6 h-6 text-gray-400" />
+//                             </div>
+//                             <h3 className="text-lg font-medium text-gray-900 mb-2">
+//                                 No price packages
+//                             </h3>
+//                             <p className="text-gray-500 mb-6">
+//                                 Get started by creating your first price package.
+//                             </p>
+//                             <button
+//                                 onClick={handleOpenAddForm}
+//                                 className="inline-flex items-center px-5 py-2.5 bg-white border border-gray-200 rounded-full text-sm font-medium text-gray-700 hover:border-gray-300 hover:shadow-sm transition-all duration-200"
+//                             >
+//                                 <FiPlus className="mr-2" />
+//                                 Create Package
+//                             </button>
+//                         </div>
+//                     )}
+//                 </div>
+//             </section>
+//         </Wrapper>
+//     );
+// };
+
+// export default PricePackages;

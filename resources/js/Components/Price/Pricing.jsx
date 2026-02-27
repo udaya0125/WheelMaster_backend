@@ -436,7 +436,7 @@ const Pricing = ({ price }) => {
     }, []);
 
 
-    console.log("Prices:", prices);
+    //console.log("Prices:", prices);
 
     // Get pricing data for the active tab
     const getPricesByCategory = () => {
@@ -539,7 +539,7 @@ const Pricing = ({ price }) => {
         let tagColorClass = "bg-blue-500"; // Default blue
         
         // Check for 90 minutes duration
-        if (duration && duration.toLowerCase().includes("90")) {
+        if (duration && duration.toLowerCase().includes("2")) {
             tagType = "mostPopular";
             tagText = "Most Popular";
             tagIcon = <Star className="w-4 h-4 fill-current" />;

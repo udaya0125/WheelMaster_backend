@@ -904,7 +904,7 @@ const BlockReservation = () => {
                     <div className="flex gap-2">
                         <button
                             onClick={() => handleUnblockSlot(row.original.id)}
-                            className="px-2 py-1 text-xs sm:text-sm px-3 py-1 text-white bg-red-600 rounded hover:bg-red-700 transition-colors whitespace-nowrap"
+                            className="px-2 py-1 text-xs sm:text-sm  text-white bg-red-600 rounded hover:bg-red-700 transition-colors whitespace-nowrap"
                         >
                             Delete
                         </button>

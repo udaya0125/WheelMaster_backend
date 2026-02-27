@@ -18,6 +18,7 @@ use Spatie\Analytics\Period;
 use Illuminate\Support\Facades\Artisan;
 use App\Http\Controllers\DashboardController;
 use Illuminate\Http\Request;
+use App\Http\Controllers\TimeSlotController;
 
 
 Route::get('/', function () {
@@ -200,6 +201,7 @@ Route::middleware('auth')->group(function () {
     });
 
 
+
     // --------------------------------------------------------------------------
     // Notification routes for Dashboard
     // --------------------------------------------------------------------------
@@ -273,6 +275,15 @@ Route::middleware('auth')->group(function () {
         $data = Analytics::fetchMostVisitedPages(Period::days(30));
         return response()->json($data);
     });
+
+
+
+    Route::get('/ourtimeslots', [TimeSlotController::class, 'index'])->name('ourtimeslots.index');
+    Route::get('/ourtimeslots/get', [TimeSlotController::class, 'getSlotsForDate'])->name('ourtimeslots.get');
+    Route::post('/ourtimeslots/update', [TimeSlotController::class, 'updateAvailability'])->name('ourtimeslots.update');
+    Route::post('/ourtimeslots/reset', [TimeSlotController::class, 'resetToDefault'])->name('ourtimeslots.reset');
+    Route::post('/ourtimeslots/update-single', [TimeSlotController::class, 'updateSingleSlot'])->name('ourtimeslots.update-single');
+    Route::post('/ourtimeslots/update-single-with-subsequent', [TimeSlotController::class, 'updateSingleSlotWithSubsequent'])->name('ourtimeslots.update-single-with-subsequent');
 
 
 
