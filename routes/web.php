@@ -287,4 +287,10 @@ Route::middleware('auth')->group(function () {
 
 
 
+    Route::get('/calendar', function () {
+        return Inertia::render('PricePackages/CalendarIntegrationMobile');
+    });
+
+
+
 require __DIR__.'/auth.php';

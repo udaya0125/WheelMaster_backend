@@ -23,8 +23,8 @@ const BookingForm = ({
         test_location: "",
         test_type: "",
         license_number: "",
-        pickup_location: "", 
-        dropoff_location: "", 
+        pickup_location: "",
+        dropoff_location: "",
     });
 
     const [loading, setLoading] = useState(false);
@@ -37,12 +37,36 @@ const BookingForm = ({
         if (bookingDetails) {
             setBookingForm((prev) => ({
                 ...prev,
-                pickup_location: bookingDetails.pickup_location || bookingDetails.test_location || "",
-                dropoff_location: bookingDetails.dropoff_location || bookingDetails.test_location || "",
-                test_location: bookingDetails.test_location || bookingDetails.pickup_location || "",
+                pickup_location:
+                    bookingDetails.pickup_location ||
+                    bookingDetails.test_location ||
+                    "",
+                dropoff_location:
+                    bookingDetails.dropoff_location ||
+                    bookingDetails.test_location ||
+                    "",
+                test_location:
+                    bookingDetails.test_location ||
+                    bookingDetails.pickup_location ||
+                    "",
             }));
         }
     }, [bookingDetails]);
+
+    // Add this useEffect to lock body scroll when form mounts
+    useEffect(() => {
+        // Lock body scroll
+        document.body.style.overflow = "hidden";
+        document.body.style.position = "fixed";
+        document.body.style.width = "100%";
+
+        // Cleanup function to restore scroll when component unmounts
+        return () => {
+            document.body.style.overflow = "unset";
+            document.body.style.position = "static";
+            document.body.style.width = "auto";
+        };
+    }, []); // Empty dependency array means this runs once on mount
 
     // Parse duration to minutes
     const parseDuration = (durationString) => {
@@ -50,10 +74,10 @@ const BookingForm = ({
 
         const cleanString = durationString.trim().toLowerCase();
         const hourMatch = cleanString.match(
-            /(\d+(?:\.\d+)?)\s*(?:hrs|hr|hour|hours)/
+            /(\d+(?:\.\d+)?)\s*(?:hrs|hr|hour|hours)/,
         );
         const minuteMatch = cleanString.match(
-            /(\d+)\s*(?:min|mins|minute|minutes)/
+            /(\d+)\s*(?:min|mins|minute|minutes)/,
         );
 
         let totalMinutes = 0;
@@ -75,14 +99,14 @@ const BookingForm = ({
     // Extract package name from price description
     const extractPackageName = (description) => {
         if (!description) return "";
-        
+
         // If description contains colon, extract the category/package name
         if (description.includes(":")) {
             // Remove "Test Package: " or similar prefixes
             // Takes the part after the colon and trims whitespace
             return description.split(":").pop().trim();
         }
-        
+
         // If no colon, return the description as is
         return description.trim();
     };
@@ -104,8 +128,8 @@ const BookingForm = ({
     // Validate zip code - only allow 6210
     const validateZipCode = (zip) => {
         // Remove any non-digit characters
-        const cleanZip = zip.replace(/\D/g, '');
-        return cleanZip === '6210';
+        const cleanZip = zip.replace(/\D/g, "");
+        return cleanZip === "6210";
     };
 
     const handleSubmit = async (e) => {
@@ -116,7 +140,8 @@ const BookingForm = ({
         // Validate zip code
         if (!validateZipCode(bookingForm.zip_code)) {
             setErrors({
-                zip_code: "Sorry, we currently only serve areas with zip code 6210. Please enter a valid zip code.",
+                zip_code:
+                    "Sorry, we currently only serve areas with zip code 6210. Please enter a valid zip code.",
             });
             setLoading(false);
             return;
@@ -151,7 +176,9 @@ const BookingForm = ({
                 // For test packages, use the same structure as normal bookings
                 Object.assign(bookingData, {
                     start_time: bookingDetails?.start_time || selectedTime,
-                    end_time: bookingDetails?.end_time || calculateEndTime(selectedTime, price.duration),
+                    end_time:
+                        bookingDetails?.end_time ||
+                        calculateEndTime(selectedTime, price.duration),
                     test_time: testTime || selectedTime,
                     pickup_location: bookingForm.pickup_location,
                     dropoff_location: bookingForm.dropoff_location,
@@ -179,7 +206,7 @@ const BookingForm = ({
                 alert(
                     isTestPackage
                         ? "Test package booked successfully!"
-                        : "Booking confirmed successfully!"
+                        : "Booking confirmed successfully!",
                 );
                 await onBookingSuccess();
                 onClose();
@@ -230,7 +257,7 @@ const BookingForm = ({
         const endHours = Math.floor(totalMinutes / 60);
         const endMinutes = totalMinutes % 60;
         return `${String(endHours).padStart(2, "0")}:${String(
-            endMinutes
+            endMinutes,
         ).padStart(2, "0")}`;
     };
 
@@ -251,7 +278,7 @@ const BookingForm = ({
     // Determine the time to display based on booking type
     const displayTime = isTestPackage ? testTime || selectedTime : selectedTime;
     const displayEndTime = calculateEndTime(displayTime, price.duration);
-    
+
     // Extract display package name
     const displayPackageName = extractPackageName(price.description);
 
@@ -449,7 +476,10 @@ const BookingForm = ({
                             htmlFor="pickup_location"
                             className="block text-sm font-medium text-gray-700 mb-2"
                         >
-                            {isTestPackage ? "Test Location (Pickup)" : "Pickup Location"} *
+                            {isTestPackage
+                                ? "Pickup Location"
+                                : "Pickup Location"}{" "}
+                            *
                         </label>
                         <input
                             type="text"
@@ -478,7 +508,10 @@ const BookingForm = ({
                             htmlFor="dropoff_location"
                             className="block text-sm font-medium text-gray-700 mb-2"
                         >
-                            {isTestPackage ? "Test Location (Dropoff)" : "Dropoff Location"} *
+                            {isTestPackage
+                                ? "Dropoff Location"
+                                : "Dropoff Location"}{" "}
+                            *
                         </label>
                         <input
                             type="text"
