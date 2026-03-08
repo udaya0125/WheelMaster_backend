@@ -292,5 +292,11 @@ Route::middleware('auth')->group(function () {
     });
 
 
+    Route::get('/test-calendar', function () {
+        return Inertia::render('PricePackages/TestCalendarIntegrationMobile');
+    });
+
+
+
 
 require __DIR__.'/auth.php';

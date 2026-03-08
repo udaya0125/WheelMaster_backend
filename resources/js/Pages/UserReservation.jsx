@@ -648,6 +648,7 @@
 // export default UserReservation;
 
 
+
 import {
     ChevronUp,
     ChevronDown,
@@ -665,7 +666,6 @@ import Wrapper from "@/AdminWrapper/Wrapper";
 import MyTable from "@/MyTable/MyTable";
 import AddReservationForm from "@/AddFormComponent/AddReservationForm";
 
-
 const UserReservation = () => {
     const [reservations, setReservations] = useState([]);
     const [filteredReservations, setFilteredReservations] = useState([]);
@@ -674,7 +674,7 @@ const UserReservation = () => {
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [updatingId, setUpdatingId] = useState(null);
     const [filter, setFilter] = useState("all");
-    
+
     // Form states
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [selectedReservation, setSelectedReservation] = useState(null);
@@ -690,7 +690,12 @@ const UserReservation = () => {
                 const response = await axios.get(
                     route("ouruserreservations.index"),
                 );
-                setReservations(response.data.data);
+                //                 const sorted = [...response.data.data].sort((a, b) => b.id - a.id);
+                // setReservations(sorted);
+                const sorted = [...response.data.data].sort(
+                    (a, b) => new Date(b.created_at) - new Date(a.created_at),
+                );
+                setReservations(sorted);
                 setError(null);
             } catch (err) {
                 setError("Failed to load reservations");
@@ -787,7 +792,7 @@ const UserReservation = () => {
     const deleteReservation = async (id) => {
         try {
             setUpdatingId(id);
-            
+
             const response = await axios.delete(
                 route("ouruserreservations.destroy", { id: id }),
             );
@@ -798,8 +803,7 @@ const UserReservation = () => {
                 setRefreshTrigger((prev) => prev + 1);
             } else {
                 setError(
-                    response.data.message ||
-                        "Failed to delete reservation",
+                    response.data.message || "Failed to delete reservation",
                 );
             }
         } catch (err) {
@@ -830,7 +834,7 @@ const UserReservation = () => {
     // HANDLE FORM SUCCESS
     // ======================================
     const handleFormSuccess = (data) => {
-        setRefreshTrigger(prev => prev + 1);
+        setRefreshTrigger((prev) => prev + 1);
     };
 
     // ======================================
@@ -883,6 +887,11 @@ const UserReservation = () => {
                 Cell: ({ value }) => value || "-",
             },
             {
+                Header: "Test Location",
+                accessor: "test_location",
+                Cell: ({ value }) => value || "-",
+            },
+            {
                 Header: "Date",
                 accessor: "reservation_date",
                 Cell: ({ value }) => {
@@ -931,7 +940,9 @@ const UserReservation = () => {
                         {deleteConfirm === row.original.id ? (
                             <>
                                 <button
-                                    onClick={() => deleteReservation(row.original.id)}
+                                    onClick={() =>
+                                        deleteReservation(row.original.id)
+                                    }
                                     disabled={updatingId === row.original.id}
                                     className="px-3 py-1 text-white bg-red-600 rounded hover:bg-red-700 text-sm transition-colors"
                                 >
@@ -946,7 +957,9 @@ const UserReservation = () => {
                             </>
                         ) : (
                             <button
-                                onClick={() => setDeleteConfirm(row.original.id)}
+                                onClick={() =>
+                                    setDeleteConfirm(row.original.id)
+                                }
                                 disabled={updatingId === row.original.id}
                                 className="px-3 py-1 text-white bg-red-600 rounded hover:bg-red-700 text-sm transition-colors flex items-center gap-1"
                             >

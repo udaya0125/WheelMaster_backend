@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { X, Calendar, Clock, Mail, Phone, Home } from "lucide-react";
+import { X, Calendar, Clock, Mail, Phone, Home, MapPin } from "lucide-react";
 
 const AddReservationForm = ({ isOpen, onClose, reservationToEdit, onSuccess }) => {
     const [formData, setFormData] = useState({
@@ -10,15 +10,17 @@ const AddReservationForm = ({ isOpen, onClose, reservationToEdit, onSuccess }) =
         address: "",
         pickup_location: "",
         dropoff_location: "",
-        package_type: "",
+        package_type: "", // This should be a STRING (category)
         reservation_date: "",
         start_time: "",
         end_time: "",
-        price_id: "",
+        price_id: "", // This should be a NUMBER (package ID)
         test_time: "",
+        test_location: "Mandurah licensing center", // Pre-filled with default value
     });
 
     const [prices, setPrices] = useState([]);
+    const [categories, setCategories] = useState([]);
     const [filteredPackages, setFilteredPackages] = useState([]);
     const [selectedPackage, setSelectedPackage] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -26,12 +28,22 @@ const AddReservationForm = ({ isOpen, onClose, reservationToEdit, onSuccess }) =
     const [error, setError] = useState(null);
     const [successMessage, setSuccessMessage] = useState(null);
 
-    // Package categories from price model
-    const packageCategories = [
-        { value: "standard-lessons", label: "Standard Lessons" },
-        { value: "test-packages", label: "Test Packages" },
-        { value: "package-bundles", label: "Package Bundles" },
+    // Define test package categories (updated to use "packages" terminology)
+    const testPackageCategories = [
+        "Driving Test Packages",
+        "Test Packages",
+        "Driving Test",
+        "PDA Test Packages",
+        "Road Test Packages",
+        // Add any other test-related category names from your system
     ];
+
+    // Check if selected category is a test package
+    const isTestPackage = () => {
+        return testPackageCategories.some(
+            category => category.toLowerCase() === formData.package_type?.toLowerCase()
+        );
+    };
 
     // ======================================
     // FETCH PRICES FOR DROPDOWN
@@ -41,7 +53,16 @@ const AddReservationForm = ({ isOpen, onClose, reservationToEdit, onSuccess }) =
             try {
                 setFetchingPrices(true);
                 const response = await axios.get(route("ourprice.index"));
-                setPrices(response.data.data);
+                const pricesData = response.data.data;
+                setPrices(pricesData);
+                
+                // Extract unique categories from prices
+                const uniqueCategories = [...new Set(pricesData
+                    .map(price => price.category)
+                    .filter(category => category) // Remove null/undefined
+                )];
+                setCategories(uniqueCategories);
+                
             } catch (err) {
                 console.error("Error fetching prices:", err);
                 setError("Failed to load price packages");
@@ -55,32 +76,51 @@ const AddReservationForm = ({ isOpen, onClose, reservationToEdit, onSuccess }) =
         }
     }, [isOpen]);
 
+
+    
+
     // ======================================
-    // FILTER PACKAGES BASED ON SELECTED CATEGORY
+    // FILTER PACKAGES BASED ON SELECTED CATEGORY (package_type)
     // ======================================
     useEffect(() => {
         if (formData.package_type && prices.length > 0) {
             const filtered = prices.filter(price => 
-                price.category && price.category.toLowerCase() === formData.package_type.toLowerCase()
+                price.category && price.category === formData.package_type
             );
             setFilteredPackages(filtered);
             
             // Reset selected package when category changes
             setFormData(prev => ({ ...prev, price_id: "" }));
             setSelectedPackage(null);
+            
+            // Clear test fields if category is not a test package
+            if (!testPackageCategories.some(
+                category => category.toLowerCase() === formData.package_type?.toLowerCase()
+            )) {
+                setFormData(prev => ({
+                    ...prev,
+                    test_time: "",
+                    test_location: "Mandurah licensing center" // Reset to default
+                }));
+            }
         } else {
             setFilteredPackages([]);
         }
     }, [formData.package_type, prices]);
 
     // ======================================
-    // UPDATE SELECTED PACKAGE DETAILS WHEN PRICE_ID CHANGES
+    // UPDATE SELECTED PACKAGE DETAILS WHEN price_id CHANGES
     // ======================================
     useEffect(() => {
         if (formData.price_id && prices.length > 0) {
-            // Convert to number for comparison since price_id might be string from form
+            // Convert to number for comparison since price_id comes as string from form
             const package_ = prices.find(p => p.id === parseInt(formData.price_id));
             setSelectedPackage(package_ || null);
+            
+            // Debug log to see package details
+            if (package_) {
+                console.log("Selected package details:", package_);
+            }
         } else {
             setSelectedPackage(null);
         }
@@ -100,18 +140,18 @@ const AddReservationForm = ({ isOpen, onClose, reservationToEdit, onSuccess }) =
                 address: reservationToEdit.address || "",
                 pickup_location: reservationToEdit.pickup_location || "",
                 dropoff_location: reservationToEdit.dropoff_location || "",
-                package_type: reservationToEdit.package_type || "",
+                package_type: reservationToEdit.package_type || "", // String (category)
                 reservation_date: reservationToEdit.reservation_date 
                     ? new Date(reservationToEdit.reservation_date).toISOString().split('T')[0] 
                     : "",
                 start_time: reservationToEdit.start_time || "",
                 end_time: reservationToEdit.end_time || "",
-                // Ensure price_id is a string for the select element
-                price_id: reservationToEdit.price_id ? reservationToEdit.price_id.toString() : "",
+                price_id: reservationToEdit.price_id ? reservationToEdit.price_id.toString() : "", // Package ID as string for select element
                 test_time: reservationToEdit.test_time || "",
+                test_location: reservationToEdit.test_location || "Mandurah licensing center", // Use existing value or default
             });
         } else {
-            // Reset form when adding new
+            // Reset form when adding new - keep test_location default value
             setFormData({
                 user_name: "",
                 email: "",
@@ -119,12 +159,13 @@ const AddReservationForm = ({ isOpen, onClose, reservationToEdit, onSuccess }) =
                 address: "",
                 pickup_location: "",
                 dropoff_location: "",
-                package_type: "",
+                package_type: "", // Will store category (string)
                 reservation_date: "",
                 start_time: "",
                 end_time: "",
-                price_id: "",
+                price_id: "", // Will store package ID (number)
                 test_time: "",
+                test_location: "Mandurah licensing center", // Pre-filled default
             });
         }
         // Clear messages
@@ -142,9 +183,12 @@ const AddReservationForm = ({ isOpen, onClose, reservationToEdit, onSuccess }) =
             [name]: value
         }));
 
-        // Debug log for price_id changes
+        // Debug logs
+        if (name === 'package_type') {
+            console.log('Category (package_type) changed to:', value);
+        }
         if (name === 'price_id') {
-            console.log('Price ID changed to:', value);
+            console.log('Package ID (price_id) changed to:', value);
         }
     };
 
@@ -161,7 +205,10 @@ const AddReservationForm = ({ isOpen, onClose, reservationToEdit, onSuccess }) =
         
         for (let field of required) {
             if (!formData[field] || formData[field].trim() === '') {
-                setError(`${field.replace('_', ' ')} is required`);
+                let fieldName = field;
+                if (field === 'package_type') fieldName = 'category';
+                if (field === 'price_id') fieldName = 'package';
+                setError(`${fieldName.replace('_', ' ')} is required`);
                 return false;
             }
         }
@@ -192,10 +239,16 @@ const AddReservationForm = ({ isOpen, onClose, reservationToEdit, onSuccess }) =
             return false;
         }
 
-        // Ensure price_id is not empty
-        if (!formData.price_id) {
-            setError('Please select a package');
-            return false;
+        // Validate test fields if it's a test package
+        if (isTestPackage()) {
+            if (!formData.test_time) {
+                setError('Test time is required for test packages');
+                return false;
+            }
+            if (!formData.test_location || formData.test_location.trim() === '') {
+                setError('Test location is required for test packages');
+                return false;
+            }
         }
 
         return true;
@@ -215,12 +268,20 @@ const AddReservationForm = ({ isOpen, onClose, reservationToEdit, onSuccess }) =
         setError(null);
         setSuccessMessage(null);
 
-        // Prepare data for submission
+        // Prepare data for submission - matching backend expectations
         const submitData = {
             ...formData,
-            // Ensure price_id is sent as a number
-            price_id: parseInt(formData.price_id)
+            // price_id should be sent as a number (package ID)
+            price_id: parseInt(formData.price_id),
+            // package_type should be sent as a string (category)
+            package_type: formData.package_type // Already a string
         };
+
+        // If it's not a test package, clear test fields
+        if (!isTestPackage()) {
+            submitData.test_time = "";
+            submitData.test_location = "";
+        }
 
         console.log("Submitting data:", submitData); // Debug log
 
@@ -262,7 +323,14 @@ const AddReservationForm = ({ isOpen, onClose, reservationToEdit, onSuccess }) =
             console.error("Error saving reservation:", err);
             
             if (err.response && err.response.data) {
-                setError(err.response.data.message || "Failed to save reservation");
+                // Display validation errors
+                const errors = err.response.data.errors;
+                if (errors) {
+                    const errorMessages = Object.values(errors).flat().join(', ');
+                    setError(errorMessages);
+                } else {
+                    setError(err.response.data.message || "Failed to save reservation");
+                }
             } else {
                 setError("Failed to save reservation. Please try again.");
             }
@@ -275,7 +343,7 @@ const AddReservationForm = ({ isOpen, onClose, reservationToEdit, onSuccess }) =
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl my-8">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl my-8 h-[600px] overflow-y-auto">
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b">
                     <h2 className="text-xl font-semibold text-gray-800">
@@ -313,6 +381,7 @@ const AddReservationForm = ({ isOpen, onClose, reservationToEdit, onSuccess }) =
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="p-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Personal Information */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Full Name *
@@ -382,6 +451,7 @@ const AddReservationForm = ({ isOpen, onClose, reservationToEdit, onSuccess }) =
                             </div>
                         </div>
 
+                        {/* Location Information */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Pickup Location *
@@ -412,34 +482,38 @@ const AddReservationForm = ({ isOpen, onClose, reservationToEdit, onSuccess }) =
                             />
                         </div>
 
+                        {/* Package Category Selection - stored in package_type (string) */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Package Category *
                             </label>
                             <select
-                                name="package_type"
+                                name="package_type" // This stores the category (string)
                                 value={formData.package_type}
                                 onChange={handleChange}
                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 required
                             >
                                 <option value="">Select a package category</option>
-                                {packageCategories.map(category => (
-                                    <option key={category.value} value={category.value}>
-                                        {category.label}
+                                {categories.map(category => (
+                                    <option key={category} value={category}>
+                                        {category}
                                     </option>
                                 ))}
                             </select>
+                            {fetchingPrices && categories.length === 0 && (
+                                <p className="text-sm text-gray-500 mt-1">Loading categories...</p>
+                            )}
                         </div>
 
-                        {/* Price Package Selection - Only show after category is selected */}
+                        {/* Specific Package Selection - stored in price_id (number) */}
                         {formData.package_type && (
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Select Package *
                                 </label>
                                 <select
-                                    name="price_id"
+                                    name="price_id" // This stores the package ID (number)
                                     value={formData.price_id}
                                     onChange={handleChange}
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -449,7 +523,7 @@ const AddReservationForm = ({ isOpen, onClose, reservationToEdit, onSuccess }) =
                                     <option value="">Choose a package</option>
                                     {filteredPackages.map(pkg => (
                                         <option key={pkg.id} value={pkg.id}>
-                                            {pkg.description} - ${pkg.price} ({pkg.duration})
+                                            {pkg.description}
                                         </option>
                                     ))}
                                 </select>
@@ -462,41 +536,7 @@ const AddReservationForm = ({ isOpen, onClose, reservationToEdit, onSuccess }) =
                             </div>
                         )}
 
-                        {/* Package Details - Show when package is selected */}
-                        {selectedPackage && (
-                            <div className="md:col-span-2">
-                                <div className="bg-blue-50 p-4 rounded-lg">
-                                    <h4 className="font-medium text-blue-800 mb-2">Package Details:</h4>
-                                    <div className="grid grid-cols-2 gap-4 text-sm">
-                                        <div>
-                                            <span className="text-blue-600 font-medium">Description:</span>
-                                            <p className="text-blue-800">{selectedPackage.description}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-blue-600 font-medium">Price:</span>
-                                            <p className="text-blue-800">${selectedPackage.price}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-blue-600 font-medium">Duration:</span>
-                                            <p className="text-blue-800">{selectedPackage.duration}</p>
-                                        </div>
-                                        {selectedPackage.discount && (
-                                            <div>
-                                                <span className="text-blue-600 font-medium">Discount:</span>
-                                                <p className="text-blue-800">{selectedPackage.discount}</p>
-                                            </div>
-                                        )}
-                                        {selectedPackage.features && (
-                                            <div className="col-span-2">
-                                                <span className="text-blue-600 font-medium">Features:</span>
-                                                <p className="text-blue-800">{selectedPackage.features}</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
+                        {/* Date and Time Information */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Reservation Date *
@@ -515,20 +555,47 @@ const AddReservationForm = ({ isOpen, onClose, reservationToEdit, onSuccess }) =
                             </div>
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Test Time
-                            </label>
-                            <input
-                                type="text"
-                                name="test_time"
-                                value={formData.test_time}
-                                onChange={handleChange}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                placeholder="Enter test time (if applicable)"
-                            />
-                        </div>
+                        {/* Test fields - Only show for test packages */}
+                        {isTestPackage() && (
+                            <>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Test Location *
+                                    </label>
+                                    <div className="relative">
+                                        <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                                        <input
+                                            type="text"
+                                            name="test_location"
+                                            value={formData.test_location}
+                                            onChange={handleChange}
+                                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            placeholder="Enter test location"
+                                            required={isTestPackage()}
+                                        />
+                                    </div>
+                                </div>
 
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Test Time *
+                                    </label>
+                                    <div className="relative">
+                                        <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                                        <input
+                                            type="time"
+                                            name="test_time"
+                                            value={formData.test_time}
+                                            onChange={handleChange}
+                                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            required={isTestPackage()}
+                                        />
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        {/* Regular start and end times (always shown) */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Start Time *
