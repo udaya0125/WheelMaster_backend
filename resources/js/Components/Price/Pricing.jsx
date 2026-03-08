@@ -22,7 +22,7 @@
 //                         response.data.data.map((price) => price.category)
 //                     ),
 //                 ];
-//                 setCategories(uniqueCategories.filter(Boolean)); 
+//                 setCategories(uniqueCategories.filter(Boolean));
 
 //                 // Set initial active tab to first available category
 //                 if (uniqueCategories.length > 0 && uniqueCategories[0]) {
@@ -37,7 +37,6 @@
 
 //         fetchPrices();
 //     }, []);
-
 
 //     console.log("Prices:", prices);
 
@@ -131,7 +130,7 @@
 //     }) => {
 //         // Check if it's a package bundle category
 //         const isPackageBundle = category && category.toLowerCase().includes("package bundle");
-        
+
 //         // Check if it's Log Book Package
 //         const isLogBookPackage = description && description.toLowerCase().includes("log book package");
 
@@ -140,7 +139,7 @@
 //         let tagText = "";
 //         let tagIcon = null;
 //         let tagColorClass = "bg-blue-500"; // Default blue
-        
+
 //         // Check for 90 minutes duration
 //         if (duration && duration.toLowerCase().includes("90")) {
 //             tagType = "mostPopular";
@@ -220,7 +219,7 @@
 //                     </div>
 //                 );
 //             }
-            
+
 //             return (
 //                 <div className="text-center mb-6">
 //                     <div className="flex items-baseline justify-center gap-1">
@@ -240,7 +239,7 @@
 //         return (
 //             <div
 //                 className={`relative bg-white rounded-3xl shadow-md hover:shadow-2xl transition-all duration-300 flex flex-col h-full ${
-//                     tagType 
+//                     tagType
 //                         ? `${getBorderColor()} ${tagType === "mostPopular" ? "scale-105 md:scale-110" : ""}`
 //                         : "border border-gray-200"
 //                 }`}
@@ -257,7 +256,7 @@
 //                         {/* Don't show duration for package bundles */}
 //                         {!isPackageBundle && duration && (
 //                             <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
-//                                 {duration} 
+//                                 {duration}
 //                             </h3>
 //                         )}
 //                         {description && (
@@ -393,8 +392,6 @@
 
 // export default Pricing;
 
-
-
 // import React, { useEffect, useState } from "react";
 // import { Check, Star, Crown, Zap, ArrowRight, Phone, Mail } from "lucide-react";
 // import { Link } from "@inertiajs/react";
@@ -419,7 +416,7 @@
 //                         response.data.data.map((price) => price.category)
 //                     ),
 //                 ];
-//                 setCategories(uniqueCategories.filter(Boolean)); 
+//                 setCategories(uniqueCategories.filter(Boolean));
 
 //                 // Set initial active tab to first available category
 //                 if (uniqueCategories.length > 0 && uniqueCategories[0]) {
@@ -434,7 +431,6 @@
 
 //         fetchPrices();
 //     }, []);
-
 
 //     //console.log("Prices:", prices);
 
@@ -528,7 +524,7 @@
 //     }) => {
 //         // Check if it's a package bundle category
 //         const isPackageBundle = category && category.toLowerCase().includes("package bundle");
-        
+
 //         // Check if it's Log Book Package
 //         const isLogBookPackage = description && description.toLowerCase().includes("log book package");
 
@@ -537,7 +533,7 @@
 //         let tagText = "";
 //         let tagIcon = null;
 //         let tagColorClass = "bg-blue-500"; // Default blue
-        
+
 //         // Check for 90 minutes duration
 //         if (duration && duration.toLowerCase().includes("2")) {
 //             tagType = "mostPopular";
@@ -599,7 +595,7 @@
 //                     </div>
 //                 );
 //             }
-            
+
 //             return (
 //                 <div className="text-center mb-6">
 //                     <div className="flex items-baseline justify-center gap-1">
@@ -619,7 +615,7 @@
 //         return (
 //             <div
 //                 className={`relative bg-white rounded-3xl shadow-md hover:shadow-2xl transition-all duration-300 flex flex-col h-full ${
-//                     tagType 
+//                     tagType
 //                         ? `${getBorderColor()} ${tagType === "mostPopular" ? "scale-105 md:scale-110" : ""}`
 //                         : "border border-gray-200"
 //                 }`}
@@ -636,7 +632,7 @@
 //                         {/* Don't show duration for package bundles */}
 //                         {!isPackageBundle && duration && (
 //                             <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
-//                                 {duration} 
+//                                 {duration}
 //                             </h3>
 //                         )}
 //                         {description && (
@@ -772,7 +768,6 @@
 
 // export default Pricing;
 
-
 import React, { useEffect, useState } from "react";
 import { Check, Star, Crown, Zap, ArrowRight, Phone, Mail } from "lucide-react";
 import { Link } from "@inertiajs/react";
@@ -794,10 +789,10 @@ const Pricing = ({ price }) => {
                 // Extract unique categories from prices
                 const uniqueCategories = [
                     ...new Set(
-                        response.data.data.map((price) => price.category)
+                        response.data.data.map((price) => price.category),
                     ),
                 ];
-                setCategories(uniqueCategories.filter(Boolean)); 
+                setCategories(uniqueCategories.filter(Boolean));
 
                 // Set initial active tab to first available category
                 if (uniqueCategories.length > 0 && uniqueCategories[0]) {
@@ -813,12 +808,35 @@ const Pricing = ({ price }) => {
         fetchPrices();
     }, []);
 
-
     console.log("Prices:", prices);
 
-    // Get pricing data for the active tab
+    // Get pricing data for the active tab and reorder to put "Most Popular" in the middle
     const getPricesByCategory = () => {
-        return prices.filter((price) => price.category === activeTab);
+        const filteredPrices = prices.filter((price) => price.category === activeTab);
+        
+        // Only reorder for standard lessons category
+        if (activeTab.toLowerCase() === "standard lessons" && filteredPrices.length >= 3) {
+            // Find the index of the "Most Popular" card (120 minutes duration)
+            const mostPopularIndex = filteredPrices.findIndex(
+                (price) => price.duration && price.duration.toLowerCase().includes("2")
+            );
+            
+            if (mostPopularIndex !== -1) {
+                // Create a new array with the "Most Popular" card in the middle
+                const reorderedPrices = [...filteredPrices];
+                const [mostPopularCard] = reorderedPrices.splice(mostPopularIndex, 1);
+                
+                // Calculate middle index
+                const middleIndex = Math.floor(reorderedPrices.length / 2);
+                
+                // Insert the most popular card at the middle position
+                reorderedPrices.splice(middleIndex, 0, mostPopularCard);
+                
+                return reorderedPrices;
+            }
+        }
+        
+        return filteredPrices;
     };
 
     // Get the appropriate booking route based on category
@@ -905,32 +923,44 @@ const Pricing = ({ price }) => {
         slug,
     }) => {
         // Check if it's a package bundle category
-        const isPackageBundle = category && category.toLowerCase().includes("package bundles");
-        
+        const isPackageBundle =
+            category && category.toLowerCase().includes("package bundles");
+
         // Check if it's Log Book Package
-        const isLogBookPackage = description && description.toLowerCase().includes("log book package");
+        const isLogBookPackage =
+            description &&
+            description.toLowerCase().includes("log book package");
 
         // NEW CONDITION: Check if it's test packages category with Test Only duration
-        const isTestOnly = category && 
-                          category.toLowerCase() === "test packages" && 
-                          duration && 
-                          duration.toLowerCase().includes("test only");
+        const isTestOnly =
+            category &&
+            category.toLowerCase() === "test packages" &&
+            duration &&
+            duration.toLowerCase().includes("test only");
 
         // Determine which tag to show based on your criteria
         let tagType = null;
         let tagText = "";
         let tagIcon = null;
         let tagColorClass = "bg-blue-500"; // Default blue
-        
-        // Check for 90 minutes duration
-        if (duration && duration.toLowerCase().includes("90")) {
+
+        // Check for 120 minutes duration in standard lessons category
+        if (
+            category &&
+            category.toLowerCase() === "standard lessons" &&
+            duration &&
+            duration.toLowerCase().includes("2")
+        ) {
             tagType = "mostPopular";
             tagText = "Most Popular";
             tagIcon = <Star className="w-4 h-4 fill-current" />;
             tagColorClass = "bg-blue-500";
         }
         // Check for "10 x 1-Hour Lessons" description
-        else if (description && description.toLowerCase().includes("10 x 1-hour lessons")) {
+        else if (
+            description &&
+            description.toLowerCase().includes("10 x 1-hour lessons")
+        ) {
             tagType = "popular";
             tagText = "Popular";
             tagIcon = <Star className="w-4 h-4 fill-current" />;
@@ -949,21 +979,29 @@ const Pricing = ({ price }) => {
 
         // Determine border color based on tag type
         const getBorderColor = () => {
-            switch(tagType) {
-                case "mostPopular": return "border-blue-500";
-                case "popular": return "border-blue-400";
-                case "special": return "border-blue-600";
-                default: return "border-gray-200";
+            switch (tagType) {
+                case "mostPopular":
+                    return "border-blue-500";
+                case "popular":
+                    return "border-blue-400";
+                case "special":
+                    return "border-blue-600";
+                default:
+                    return "border-gray-200";
             }
         };
 
         // Determine button color based on tag type
         const getButtonColor = () => {
-            switch(tagType) {
-                case "mostPopular": return "bg-blue-500 hover:bg-blue-600";
-                case "popular": return "bg-blue-400 hover:bg-blue-500";
-                case "special": return "bg-blue-600 hover:bg-blue-700";
-                default: return "bg-blue-500 hover:bg-blue-600";
+            switch (tagType) {
+                case "mostPopular":
+                    return "bg-blue-500 hover:bg-blue-600";
+                case "popular":
+                    return "bg-blue-400 hover:bg-blue-500";
+                case "special":
+                    return "bg-blue-600 hover:bg-blue-700";
+                default:
+                    return "bg-blue-500 hover:bg-blue-600";
             }
         };
 
@@ -983,7 +1021,7 @@ const Pricing = ({ price }) => {
                     </div>
                 );
             }
-            
+
             return (
                 <div className="text-center mb-6">
                     <div className="flex items-baseline justify-center gap-1">
@@ -1015,7 +1053,7 @@ const Pricing = ({ price }) => {
                     </a>
                 );
             }
-            
+
             return (
                 <Link
                     href={bookingRoute}
@@ -1030,13 +1068,15 @@ const Pricing = ({ price }) => {
         return (
             <div
                 className={`relative bg-white rounded-3xl shadow-md hover:shadow-2xl transition-all duration-300 flex flex-col h-full ${
-                    tagType 
-                        ? `${getBorderColor()} ${tagType === "mostPopular" ? "scale-105 md:scale-110" : ""}`
+                    tagType
+                        ? `${getBorderColor()} ${tagType === "mostPopular" ? "scale-105 md:scale-110 z-10" : ""}`
                         : "border border-gray-200"
                 }`}
             >
                 {tagType && (
-                    <div className={`absolute -top-4 left-1/2 transform -translate-x-1/2 ${tagColorClass} text-white px-6 py-2 rounded-full text-sm font-bold shadow-lg flex items-center gap-1`}>
+                    <div
+                        className={`absolute -top-4 left-1/2 transform -translate-x-1/2 ${tagColorClass} text-white px-6 py-2 rounded-full text-sm font-bold shadow-lg flex items-center gap-1 whitespace-nowrap`}
+                    >
                         {tagIcon}
                         {tagText}
                     </div>
@@ -1047,11 +1087,13 @@ const Pricing = ({ price }) => {
                         {/* Don't show duration for package bundles */}
                         {!isPackageBundle && duration && (
                             <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
-                                {duration} 
+                                {duration}
                             </h3>
                         )}
                         {description && (
-                            <p className="text-gray-600 text-sm">{description}</p>
+                            <p className="text-gray-600 text-sm">
+                                {description}
+                            </p>
                         )}
                     </div>
 
@@ -1131,7 +1173,7 @@ const Pricing = ({ price }) => {
             <div className="max-w-7xl mx-auto px-4 py-8 sm:py-12">
                 {getPricesByCategory().length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-10">
-                        {getPricesByCategory().map((priceItem) => (
+                        {getPricesByCategory().map((priceItem, index) => (
                             <PricingCard
                                 key={priceItem.id}
                                 duration={priceItem.duration}
