@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\UserReservation;
+use App\Mail\ReservationCreated;
 use App\Models\BlockReservation;
+use App\Models\Notification;
 use App\Models\Price;
+use App\Models\UserReservation;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use App\Models\Notification;
 use Illuminate\Support\Facades\Mail;
-use App\Mail\ReservationCreated;
 
 class TestPackageController extends Controller
 {
@@ -22,7 +22,7 @@ class TestPackageController extends Controller
             'date' => 'required|date',
             'test_time' => 'required|date_format:H:i',
             'duration_minutes' => 'required|integer|min:30',
-            'price_id' => 'required|exists:prices,id'
+            'price_id' => 'required|exists:prices,id',
         ]);
 
         $date = $request->date;
@@ -31,19 +31,19 @@ class TestPackageController extends Controller
         $priceId = $request->price_id;
 
         // Calculate start and end times
-        $startTime = $testTime->copy()->subHour(); 
+        $startTime = $testTime->copy()->subHour();
         $endTime = $testTime->copy()->addMinutes($durationMinutes); // End at test completion
 
         // Check if within working hours (10:00 to 17:00)
         $workingStart = Carbon::createFromTime(10, 0, 0); // 10:00 AM
         $workingEnd = Carbon::createFromTime(17, 0, 0);   // 5:00 PM
-        
-        if ($startTime->format('H:i') < $workingStart->format('H:i') || 
+
+        if ($startTime->format('H:i') < $workingStart->format('H:i') ||
             $endTime->format('H:i') > $workingEnd->format('H:i')) {
             return response()->json([
                 'available' => false,
                 'message' => 'Time slot is outside working hours (10:00 - 17:00)',
-                'alternative_times' => $this->findAlternativeTestTimes($date, $durationMinutes, $priceId)
+                'alternative_times' => $this->findAlternativeTestTimes($date, $durationMinutes, $priceId),
             ]);
         }
 
@@ -51,21 +51,21 @@ class TestPackageController extends Controller
         $overlappingReservations = UserReservation::where('reservation_date', $date)
             ->where('price_id', $priceId) // Only check for this specific price
             ->where('status', '!=', 'Rejected')
-            ->where(function($query) use ($startTime, $endTime) {
-                $query->where(function($q) use ($startTime, $endTime) {
+            ->where(function ($query) use ($startTime, $endTime) {
+                $query->where(function ($q) use ($startTime, $endTime) {
                     // Check if reservation overlaps with our time period
                     $q->where('start_time', '<', $endTime->format('H:i:s'))
-                      ->where('end_time', '>', $startTime->format('H:i:s'));
+                        ->where('end_time', '>', $startTime->format('H:i:s'));
                 });
             })
             ->exists();
 
         // Check for blocked slots (block slots are universal for all prices)
         $blockedSlot = BlockReservation::where('date', $date)
-            ->where(function($query) use ($startTime, $endTime) {
-                $query->where(function($q) use ($startTime, $endTime) {
+            ->where(function ($query) use ($startTime, $endTime) {
+                $query->where(function ($q) use ($startTime, $endTime) {
                     $q->where('start_time', '<', $endTime->format('H:i:s'))
-                      ->where('end_time', '>', $startTime->format('H:i:s'));
+                        ->where('end_time', '>', $startTime->format('H:i:s'));
                 });
             })
             ->exists();
@@ -73,16 +73,16 @@ class TestPackageController extends Controller
         if ($overlappingReservations || $blockedSlot) {
             // Find alternative available times for this price
             $alternativeTimes = $this->findAlternativeTestTimes($date, $durationMinutes, $priceId);
-            
-            $message = $blockedSlot ? 
-                'Time slot is blocked' : 
+
+            $message = $blockedSlot ?
+                'Time slot is blocked' :
                 'Time slot not available for this test package';
-            
+
             return response()->json([
                 'available' => false,
                 'message' => $message,
                 'alternative_times' => $alternativeTimes,
-                'buffer_required' => true
+                'buffer_required' => true,
             ]);
         }
 
@@ -93,7 +93,7 @@ class TestPackageController extends Controller
             'start_time' => $startTime->format('H:i:s'),
             'end_time' => $endTime->format('H:i:s'),
             'duration_minutes' => $durationMinutes,
-            'price_id' => $priceId
+            'price_id' => $priceId,
         ]);
     }
 
@@ -104,13 +104,13 @@ class TestPackageController extends Controller
     {
         $workingHoursStart = Carbon::createFromTime(10, 0, 0); // 10:00 AM
         $workingHoursEnd = Carbon::createFromTime(17, 0, 0);   // 5:00 PM
-        
+
         $availableSlots = [];
-        
+
         // Start checking test times from 10:00, but need to ensure 1-hour buffer before
         // So first possible test time is 10:00 + 1 hour = 11:00
         $earliestTestTime = $workingHoursStart->copy()->addHour();
-        
+
         // Start checking from the earliest possible test time
         $currentTestTime = $earliestTestTime->copy();
 
@@ -122,11 +122,11 @@ class TestPackageController extends Controller
             if ($endTime <= $workingHoursEnd && $startTime >= $workingHoursStart) {
                 // Check if this slot is available for this specific price
                 $isAvailable = $this->isTestTimeAvailable($date, $startTime, $endTime, $priceId);
-                
+
                 if ($isAvailable) {
                     $availableSlots[] = [
                         'time' => $currentTestTime->format('H:i'),
-                        'formatted' => $currentTestTime->format('h:i A')
+                        'formatted' => $currentTestTime->format('h:i A'),
                     ];
                 }
             }
@@ -146,25 +146,25 @@ class TestPackageController extends Controller
         $hasReservation = UserReservation::where('reservation_date', $date)
             ->where('price_id', $priceId) // Only check for this specific price
             ->where('status', '!=', 'Rejected')
-            ->where(function($query) use ($startTime, $endTime) {
-                $query->where(function($q) use ($startTime, $endTime) {
+            ->where(function ($query) use ($startTime, $endTime) {
+                $query->where(function ($q) use ($startTime, $endTime) {
                     $q->where('start_time', '<', $endTime->format('H:i:s'))
-                      ->where('end_time', '>', $startTime->format('H:i:s'));
+                        ->where('end_time', '>', $startTime->format('H:i:s'));
                 });
             })
             ->exists();
 
         // Check blocks (block slots are universal for all prices)
         $hasBlock = BlockReservation::where('date', $date)
-            ->where(function($query) use ($startTime, $endTime) {
-                $query->where(function($q) use ($startTime, $endTime) {
+            ->where(function ($query) use ($startTime, $endTime) {
+                $query->where(function ($q) use ($startTime, $endTime) {
                     $q->where('start_time', '<', $endTime->format('H:i:s'))
-                      ->where('end_time', '>', $startTime->format('H:i:s'));
+                        ->where('end_time', '>', $startTime->format('H:i:s'));
                 });
             })
             ->exists();
 
-        return !$hasReservation && !$hasBlock;
+        return ! $hasReservation && ! $hasBlock;
     }
 
     /**
@@ -175,7 +175,7 @@ class TestPackageController extends Controller
         $request->validate([
             'date' => 'required|date',
             'price_id' => 'required|exists:prices,id',
-            'duration_minutes' => 'required|integer|min:30'
+            'duration_minutes' => 'required|integer|min:30',
         ]);
 
         $date = $request->date;
@@ -184,13 +184,13 @@ class TestPackageController extends Controller
 
         $workingHoursStart = Carbon::createFromTime(10, 0, 0); // 10:00 AM
         $workingHoursEnd = Carbon::createFromTime(17, 0, 0);   // 5:00 PM
-        
+
         $availableSlots = [];
-        
+
         // Start checking test times from 10:00, but need to ensure 1-hour buffer before
         // So first possible test time is 10:00 + 1 hour = 11:00
         $earliestTestTime = $workingHoursStart->copy()->addHour();
-        
+
         // Start checking from the earliest possible test time
         $currentTestTime = $earliestTestTime->copy();
 
@@ -202,13 +202,13 @@ class TestPackageController extends Controller
             if ($endTime <= $workingHoursEnd && $startTime >= $workingHoursStart) {
                 // Check if this slot is available for this specific price
                 $isAvailable = $this->isTestTimeAvailable($date, $startTime, $endTime, $priceId);
-                
+
                 if ($isAvailable) {
                     $availableSlots[] = [
                         'time' => $currentTestTime->format('H:i'),
                         'formatted' => $currentTestTime->format('h:i A'),
                         'start_buffer' => $startTime->format('h:i A'),
-                        'end_time' => $endTime->format('h:i A')
+                        'end_time' => $endTime->format('h:i A'),
                     ];
                 }
             }
@@ -222,7 +222,7 @@ class TestPackageController extends Controller
             'price_id' => $priceId,
             'duration_minutes' => $durationMinutes,
             'available_slots' => $availableSlots,
-            'total_slots' => count($availableSlots)
+            'total_slots' => count($availableSlots),
         ]);
     }
 
@@ -240,16 +240,17 @@ class TestPackageController extends Controller
             'reservation_date' => 'required|date',
             'price_id' => 'required|exists:prices,id',
             'duration_minutes' => 'required|integer',
+            'test_location' => 'required|string',
         ]);
 
         // Get test type from price table or use default
         $price = Price::find($request->price_id);
         $testType = $request->test_type ?? ($price->name ?? 'General Test');
-        
+
         // Calculate start and end times based on test time
         $testTime = Carbon::parse($request->test_time);
         $durationMinutes = $request->duration_minutes;
-        
+
         $startTime = $testTime->copy()->subHour(); // 1 hour before test
         $endTime = $testTime->copy()->addMinutes($durationMinutes); // End at test completion
 
@@ -258,16 +259,16 @@ class TestPackageController extends Controller
             'date' => $request->reservation_date,
             'test_time' => $request->test_time,
             'duration_minutes' => $request->duration_minutes,
-            'price_id' => $request->price_id // Include price_id in availability check
+            'price_id' => $request->price_id, // Include price_id in availability check
         ]));
 
         $availabilityData = $availabilityCheck->getData();
 
-        if (!$availabilityData->available) {
+        if (! $availabilityData->available) {
             return response()->json([
                 'success' => false,
                 'message' => 'Time slot no longer available',
-                'alternative_times' => $availabilityData->alternative_times ?? []
+                'alternative_times' => $availabilityData->alternative_times ?? [],
             ], 409);
         }
 
@@ -283,38 +284,39 @@ class TestPackageController extends Controller
             'start_time' => $startTime->format('H:i:s'), // Calculated start time (1 hour before test)
             'end_time' => $endTime->format('H:i:s'),     // Calculated end time (test completion)
             'test_time' => $request->test_time,          // Actual test time
+            'test_location' => $request->test_location, // Store test location
             'price_id' => $request->price_id,            // Store price_id for future reference
-            'package_type' => 'Test Package: ' . $testType,
+            'package_type' => 'Test Package: '.$testType,
             'test_type' => $testType,
             'status' => 'Pending',
             'notes' => json_encode([
                 'test_type' => $testType,
                 'actual_test_time' => $request->test_time,
-                'test_duration' => $durationMinutes . ' minutes',
+                'test_location' => $request->test_location,
+                'test_duration' => $durationMinutes.' minutes',
                 'buffer_before_test' => '1 hour',
                 'calculated_start_time' => $startTime->format('H:i:s'),
                 'calculated_end_time' => $endTime->format('H:i:s'),
-                'price_id' => $request->price_id
-            ])
+                'price_id' => $request->price_id,
+            ]),
         ]);
 
-
-         // Create notification for new reservation
+        // Create notification for new reservation
         // Create notification for new reservation - FIXED VERSION
-    $notification = Notification::create([
-        'message' => "New test package reservation from {$reservation->user_name} for {$reservation->reservation_date} " .
-                    "({$startTime->format('h:i A')} - {$endTime->format('h:i A')}) ",
-        'is_read' => false,
-        'type' => 'test_package', // Add type to differentiate from other notifications
-        'reservation_id' => $reservation->id,
-        'user_reservation_id' => $reservation->id // Link to the reservation
-    ]);
+        $notification = Notification::create([
+            'message' => "New test package reservation from {$reservation->user_name} for {$reservation->reservation_date} ".
+                        "({$startTime->format('h:i A')} - {$endTime->format('h:i A')}) ",
+            'is_read' => false,
+            'type' => 'test_package', // Add type to differentiate from other notifications
+            'reservation_id' => $reservation->id,
+            'user_reservation_id' => $reservation->id, // Link to the reservation
+        ]);
 
         // Send confirmation emails
         try {
             Mail::to($reservation->email)->send(new ReservationCreated($reservation, false));
         } catch (\Exception $e) {
-            \Log::error('Failed to send customer email: ' . $e->getMessage());
+            \Log::error('Failed to send customer email: '.$e->getMessage());
         }
 
         // Send email to admin
@@ -322,10 +324,8 @@ class TestPackageController extends Controller
             $adminEmail = env('ADMIN_EMAIL', 'Wheelmaster@outlook.com.au');
             Mail::to($adminEmail)->send(new ReservationCreated($reservation, true));
         } catch (\Exception $e) {
-            \Log::error('Failed to send admin email: ' . $e->getMessage());
+            \Log::error('Failed to send admin email: '.$e->getMessage());
         }
-
-
 
         return response()->json([
             'success' => true,
@@ -335,9 +335,9 @@ class TestPackageController extends Controller
                 'test_time' => $request->test_time,
                 'start_time' => $startTime->format('H:i:s'), // 1 hour before test
                 'end_time' => $endTime->format('H:i:s'),     // Test completion time
-                'duration' => $durationMinutes . ' minutes',
-                'price_id' => $request->price_id
-            ]
+                'duration' => $durationMinutes.' minutes',
+                'price_id' => $request->price_id,
+            ],
         ], 201);
     }
 
@@ -351,7 +351,7 @@ class TestPackageController extends Controller
             'test_time' => 'required|date_format:H:i',
             'duration_minutes' => 'required|integer|min:30',
             'price_ids' => 'required|array',
-            'price_ids.*' => 'exists:prices,id'
+            'price_ids.*' => 'exists:prices,id',
         ]);
 
         $date = $request->date;
@@ -360,13 +360,13 @@ class TestPackageController extends Controller
         $priceIds = $request->price_ids;
 
         $results = [];
-        
+
         foreach ($priceIds as $priceId) {
             $availability = $this->checkAvailabilityForPrice($date, $testTime, $durationMinutes, $priceId);
             $results[] = [
                 'price_id' => $priceId,
                 'available' => $availability['available'],
-                'message' => $availability['message']
+                'message' => $availability['message'],
             ];
         }
 
@@ -374,7 +374,7 @@ class TestPackageController extends Controller
             'success' => true,
             'date' => $date,
             'test_time' => $testTime->format('H:i'),
-            'results' => $results
+            'results' => $results,
         ]);
     }
 
@@ -383,18 +383,18 @@ class TestPackageController extends Controller
      */
     private function checkAvailabilityForPrice($date, $testTime, $durationMinutes, $priceId)
     {
-        $startTime = $testTime->copy()->subHour(); 
+        $startTime = $testTime->copy()->subHour();
         $endTime = $testTime->copy()->addMinutes($durationMinutes);
 
         // Check if within working hours
         $workingStart = Carbon::createFromTime(10, 0, 0);
         $workingEnd = Carbon::createFromTime(17, 0, 0);
-        
-        if ($startTime->format('H:i') < $workingStart->format('H:i') || 
+
+        if ($startTime->format('H:i') < $workingStart->format('H:i') ||
             $endTime->format('H:i') > $workingEnd->format('H:i')) {
             return [
                 'available' => false,
-                'message' => 'Outside working hours'
+                'message' => 'Outside working hours',
             ];
         }
 
@@ -402,20 +402,20 @@ class TestPackageController extends Controller
         $overlappingReservations = UserReservation::where('reservation_date', $date)
             ->where('price_id', $priceId)
             ->where('status', '!=', 'Rejected')
-            ->where(function($query) use ($startTime, $endTime) {
-                $query->where(function($q) use ($startTime, $endTime) {
+            ->where(function ($query) use ($startTime, $endTime) {
+                $query->where(function ($q) use ($startTime, $endTime) {
                     $q->where('start_time', '<', $endTime->format('H:i:s'))
-                      ->where('end_time', '>', $startTime->format('H:i:s'));
+                        ->where('end_time', '>', $startTime->format('H:i:s'));
                 });
             })
             ->exists();
 
         // Check blocks
         $blockedSlot = BlockReservation::where('date', $date)
-            ->where(function($query) use ($startTime, $endTime) {
-                $query->where(function($q) use ($startTime, $endTime) {
+            ->where(function ($query) use ($startTime, $endTime) {
+                $query->where(function ($q) use ($startTime, $endTime) {
                     $q->where('start_time', '<', $endTime->format('H:i:s'))
-                      ->where('end_time', '>', $startTime->format('H:i:s'));
+                        ->where('end_time', '>', $startTime->format('H:i:s'));
                 });
             })
             ->exists();
@@ -423,20 +423,20 @@ class TestPackageController extends Controller
         if ($overlappingReservations) {
             return [
                 'available' => false,
-                'message' => 'Slot booked for this price'
+                'message' => 'Slot booked for this price',
             ];
         }
 
         if ($blockedSlot) {
             return [
                 'available' => false,
-                'message' => 'Slot blocked'
+                'message' => 'Slot blocked',
             ];
         }
 
         return [
             'available' => true,
-            'message' => 'Available'
+            'message' => 'Available',
         ];
     }
 }

@@ -13,8 +13,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
-
-
 class UserReservationController extends Controller
 {
     // ---------------------------------------
@@ -47,6 +45,8 @@ class UserReservationController extends Controller
             'end_time' => 'required',
             'price_id' => 'required|exists:prices,id',
             'package_type' => 'required|string',
+            'test_time' => 'nullable',
+            'test_location' => 'nullable|string',
         ]);
 
         $requestStart = Carbon::parse($request->start_time);
@@ -101,6 +101,8 @@ class UserReservationController extends Controller
             'price_id' => $request->price_id,
             'status' => 'Pending',
             'package_type' => $request->package_type ?? 'Standard',
+            'test_time' => $request->test_time,
+            'test_location' => $request->test_location,
         ]);
 
         // $testinomials = Testimonial::create([
