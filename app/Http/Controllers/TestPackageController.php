@@ -34,15 +34,15 @@ class TestPackageController extends Controller
         $startTime = $testTime->copy()->subHour();
         $endTime = $testTime->copy()->addMinutes($durationMinutes); // End at test completion
 
-        // Check if within working hours (10:00 to 17:00)
-        $workingStart = Carbon::createFromTime(10, 0, 0); // 10:00 AM
-        $workingEnd = Carbon::createFromTime(17, 0, 0);   // 5:00 PM
+        // Check if within working hours (7:00 to 18:00)
+        $workingStart = Carbon::createFromTime(7, 0, 0); // 7:00 AM
+        $workingEnd = Carbon::createFromTime(18, 0, 0);   // 6:00 PM
 
         if ($startTime->format('H:i') < $workingStart->format('H:i') ||
             $endTime->format('H:i') > $workingEnd->format('H:i')) {
             return response()->json([
                 'available' => false,
-                'message' => 'Time slot is outside working hours (10:00 - 17:00)',
+                'message' => 'Time slot is outside working hours (7:00 - 18:00)',
                 'alternative_times' => $this->findAlternativeTestTimes($date, $durationMinutes, $priceId),
             ]);
         }
@@ -76,7 +76,7 @@ class TestPackageController extends Controller
 
             $message = $blockedSlot ?
                 'Time slot is blocked' :
-                'Time slot not available for this test package';
+                'The current time is not available. Please call 0481488216 to see if we can arrange something.';
 
             return response()->json([
                 'available' => false,
@@ -102,12 +102,12 @@ class TestPackageController extends Controller
      */
     private function findAlternativeTestTimes($date, $durationMinutes, $priceId)
     {
-        $workingHoursStart = Carbon::createFromTime(10, 0, 0); // 10:00 AM
-        $workingHoursEnd = Carbon::createFromTime(17, 0, 0);   // 5:00 PM
+        $workingHoursStart = Carbon::createFromTime(7, 0, 0); // 7:00 AM
+        $workingHoursEnd = Carbon::createFromTime(18, 0, 0);   // 6:00 PM
 
         $availableSlots = [];
 
-        // Start checking test times from 10:00, but need to ensure 1-hour buffer before
+        // Start checking test times from 7:00, but need to ensure 1-hour buffer before
         // So first possible test time is 10:00 + 1 hour = 11:00
         $earliestTestTime = $workingHoursStart->copy()->addHour();
 
@@ -182,12 +182,12 @@ class TestPackageController extends Controller
         $priceId = $request->price_id;
         $durationMinutes = $request->duration_minutes;
 
-        $workingHoursStart = Carbon::createFromTime(10, 0, 0); // 10:00 AM
-        $workingHoursEnd = Carbon::createFromTime(17, 0, 0);   // 5:00 PM
+        $workingHoursStart = Carbon::createFromTime(7, 0, 0); // 7:00 AM
+        $workingHoursEnd = Carbon::createFromTime(18, 0, 0);   // 6:00 PM
 
         $availableSlots = [];
 
-        // Start checking test times from 10:00, but need to ensure 1-hour buffer before
+        // Start checking test times from 7:00, but need to ensure 1-hour buffer before
         // So first possible test time is 10:00 + 1 hour = 11:00
         $earliestTestTime = $workingHoursStart->copy()->addHour();
 
@@ -387,8 +387,8 @@ class TestPackageController extends Controller
         $endTime = $testTime->copy()->addMinutes($durationMinutes);
 
         // Check if within working hours
-        $workingStart = Carbon::createFromTime(10, 0, 0);
-        $workingEnd = Carbon::createFromTime(17, 0, 0);
+        $workingStart = Carbon::createFromTime(7, 0, 0);
+        $workingEnd = Carbon::createFromTime(18, 0, 0);
 
         if ($startTime->format('H:i') < $workingStart->format('H:i') ||
             $endTime->format('H:i') > $workingEnd->format('H:i')) {

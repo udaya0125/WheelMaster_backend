@@ -15,6 +15,8 @@
 //     const [showBookingForm, setShowBookingForm] = useState(false);
 //     const [bookingDetails, setBookingDetails] = useState(null);
 //     const [timeError, setTimeError] = useState("");
+//     const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
+//     const [loadingSlots, setLoadingSlots] = useState(false);
 
 //     // Function to check if a date is in the past
 //     const isPastDate = (date) => {
@@ -104,6 +106,42 @@
 //             .padStart(2, "0")}`;
 //     };
 
+//     // Fetch available time slots when date changes
+//     useEffect(() => {
+//         if (selectedDate && !isPastDate(selectedDate)) {
+//             fetchAvailableTimeSlots();
+//         } else {
+//             setAvailableTimeSlots([]);
+//         }
+//     }, [selectedDate]);
+
+//     const fetchAvailableTimeSlots = async () => {
+//         setLoadingSlots(true);
+//         try {
+//             const response = await axios.get(
+//                 route("test-packages.available-slots"),
+//                 {
+//                     params: {
+//                         date: formatDateKey(selectedDate),
+//                         price_id: price.id,
+//                         duration_minutes: parseDuration(price.duration),
+//                     },
+//                 }
+//             );
+
+//             if (response.data.success) {
+//                 setAvailableTimeSlots(response.data.available_slots);
+//             } else {
+//                 setAvailableTimeSlots([]);
+//             }
+//         } catch (error) {
+//             console.error("Error fetching available slots:", error);
+//             setAvailableTimeSlots([]);
+//         } finally {
+//             setLoadingSlots(false);
+//         }
+//     };
+
 //     // Check availability for test time
 //     const checkTestAvailability = async () => {
 //         if (!selectedDate || !selectedTime) {
@@ -131,8 +169,9 @@
 //                 route("test-packages.check-availability"),
 //                 {
 //                     date: formatDateKey(selectedDate),
-//                     test_time: formattedTime, // Ensure H:i format
+//                     test_time: formattedTime,
 //                     duration_minutes: parseDuration(price.duration),
+//                     price_id: price.id, // ADD THIS LINE - pass price_id
 //                 }
 //             );
 
@@ -141,8 +180,8 @@
 //                 setBookingDetails({
 //                     start_time: response.data.start_time,
 //                     end_time: response.data.end_time,
-//                     buffer_start: response.data.buffer_start,
-//                     buffer_end: response.data.buffer_end,
+//                     buffer_start: response.data.start_time, // This is the buffer start
+//                     buffer_end: response.data.end_time, // This is the buffer end
 //                 });
 //                 setAvailabilityMessage(
 //                     "✓ This time slot is available! You can proceed to book."
@@ -150,20 +189,22 @@
 //             } else {
 //                 setIsAvailable(false);
 //                 let message =
-//                     "No test packages are available for the selected time slot. ";
-//                 message +=
-//                     "If you need help or wish to book manually, please contact our support team.\n\n";
+//                     response.data.message || "Time slot not available";
 
-//                 // if (response.data.alternative_times && response.data.alternative_times.length > 0) {
-//                 //     message += "Available alternative times:\n";
-//                 //     message += response.data.alternative_times.map(t => formatTimeForDisplay(t)).join(", ");
-//                 //     message += "\n\n";
-//                 //     setAlternativeTimes(response.data.alternative_times);
-//                 // } else {
-//                 //     message += "No alternative times available for this duration.\n\n";
-//                 // }
+//                 // If there are alternative times, show them
+//                 if (
+//                     response.data.alternative_times &&
+//                     response.data.alternative_times.length > 0
+//                 ) {
+//                     setAlternativeTimes(response.data.alternative_times);
+//                     message += "\n\nAlternative times available:";
+//                 } else {
+//                     message +=
+//                         "\n\nNo alternative times available for this duration.";
+//                 }
 
-//                 message += "Please contact us at:\n";
+//                 // Add contact information
+//                 message += "\n\nPlease contact us at:\n";
 //                 message += "Phone: 0481488216\n";
 //                 message += "Email: Wheelmaster@outlook.com.au";
 
@@ -181,6 +222,10 @@
 //                         `Validation error: ${errors.test_time[0]}`
 //                     );
 //                     setTimeError(errors.test_time[0]);
+//                 } else if (errors && errors.price_id) {
+//                     setAvailabilityMessage(
+//                         `Validation error: ${errors.price_id[0]}`
+//                     );
 //                 } else {
 //                     setAvailabilityMessage(
 //                         "Please check the time format (HH:MM) and try again."
@@ -196,7 +241,16 @@
 //         }
 //     };
 
-//     // Handle time selection
+//     // Handle time selection from dropdown
+//     const handleTimeSelect = (time24) => {
+//         setSelectedTime(time24);
+//         setAvailabilityMessage("");
+//         setIsAvailable(false);
+//         setAlternativeTimes([]);
+//         setTimeError("");
+//     };
+
+//     // Handle manual time input
 //     const handleTimeChange = (e) => {
 //         const value = e.target.value;
 //         setSelectedTime(value);
@@ -223,6 +277,8 @@
 //         setShowBookingForm(false);
 //         setBookingDetails(null);
 //         setTimeError("");
+//         // Refresh available slots after booking
+//         fetchAvailableTimeSlots();
 //     };
 
 //     // Custom day cell content
@@ -245,17 +301,33 @@
 
 //     // Set min and max times for the time input
 //     const getMinTime = () => {
-//         return "08:00"; // 8:00 AM
+//         return "10:00"; // 10:00 AM (working hours start)
 //     };
 
 //     const getMaxTime = () => {
-//         return "16:30"; // 4:30 PM (to allow for test duration + buffer)
+//         // Calculate max time based on duration
+//         const durationMinutes = parseDuration(price.duration);
+//         const maxTestTime = "16:00"; // Latest test start time to finish by 17:00
+
+//         // Account for buffer hour
+//         const [hours, minutes] = maxTestTime.split(":").map(Number);
+//         const maxInputTime = new Date();
+//         maxInputTime.setHours(hours, minutes - 60, 0, 0); // Subtract buffer hour
+
+//         return (
+//             maxInputTime.getHours().toString().padStart(2, "0") +
+//             ":" +
+//             maxInputTime.getMinutes().toString().padStart(2, "0")
+//         );
 //     };
 
 //     return (
 //         <div className="min-h-screen bg-gray-50">
 //             <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-//                 <Link href={'/'} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors">
+//                 <Link
+//                     href={"/"}
+//                     className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors"
+//                 >
 //                     <ChevronLeft size={20} />
 //                     <span className="font-medium">Back</span>
 //                 </Link>
@@ -341,11 +413,6 @@
 //                                         } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition appearance-none`}
 //                                         placeholder="HH:MM"
 //                                     />
-//                                     {/* {selectedTime && !timeError && (
-//                                         <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">
-//                                             {formatTimeForDisplay(selectedTime)}
-//                                         </span>
-//                                     )} */}
 //                                 </div>
 //                                 {timeError && (
 //                                     <p className="text-red-600 text-xs mt-1">
@@ -381,16 +448,18 @@
 //                                     Suggested Available Times:
 //                                 </h4>
 //                                 <div className="flex flex-wrap gap-2">
-//                                     {alternativeTimes.map((time, index) => (
+//                                     {alternativeTimes.map((slot, index) => (
 //                                         <button
 //                                             key={index}
 //                                             onClick={() =>
-//                                                 setSelectedTime(time)
+//                                                 handleTimeSelect(
+//                                                     slot.time || slot
+//                                                 )
 //                                             }
 //                                             className="px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md text-sm transition-colors"
 //                                         >
-//                                             {formatTimeForDisplay(time)} ({time}
-//                                             )
+//                                             {slot.formatted ||
+//                                                 formatTimeForDisplay(slot)}
 //                                         </button>
 //                                     ))}
 //                                 </div>
@@ -494,36 +563,37 @@
 //                                         ${price.price}
 //                                     </span>
 //                                 </div>
-
 //                                 {selectedDate &&
 //                                     selectedTime &&
 //                                     isAvailable &&
 //                                     bookingDetails && (
 //                                         <>
-//                                             <div className="flex justify-between text-xs sm:text-sm mt-4">
-//                                                 <span className="text-gray-600">
-//                                                     Total Booking:
-//                                                 </span>
-//                                                 <span className="font-medium text-gray-900 text-right">
-//                                                     {formatTimeForDisplay(
-//                                                         bookingDetails.buffer_start
-//                                                     )}{" "}
-//                                                     to{" "}
-//                                                     {formatTimeForDisplay(
-//                                                         bookingDetails.buffer_end
-//                                                     )}
-//                                                 </span>
-//                                             </div>
-//                                             <div className="flex justify-between text-xs sm:text-sm">
-//                                                 <span className="text-gray-600">
-//                                                     Actual Test:
-//                                                 </span>
-//                                                 <span className="font-medium text-blue-600 text-right">
-//                                                     {formatTimeForDisplay(
-//                                                         selectedTime
-//                                                     )}{" "}
-//                                                     ({price.duration})
-//                                                 </span>
+//                                             <div className="mt-4 pt-4 border-t">
+//                                                 <div className="flex justify-between text-xs sm:text-sm mb-2">
+//                                                     <span className="text-gray-600">
+//                                                         Total Booking Duration:
+//                                                     </span>
+//                                                     <span className="font-medium text-gray-900 text-right">
+//                                                         {formatTimeForDisplay(
+//                                                             bookingDetails.start_time
+//                                                         )}{" "}
+//                                                         to{" "}
+//                                                         {formatTimeForDisplay(
+//                                                             bookingDetails.end_time
+//                                                         )}
+//                                                     </span>
+//                                                 </div>
+//                                                 <div className="flex justify-between text-xs sm:text-sm">
+//                                                     <span className="text-gray-600">
+//                                                         Actual Test Time:
+//                                                     </span>
+//                                                     <span className="font-medium text-blue-600 text-right">
+//                                                         {formatTimeForDisplay(
+//                                                             selectedTime
+//                                                         )}{" "}
+//                                                         ({price.duration})
+//                                                     </span>
+//                                                 </div>
 //                                             </div>
 //                                         </>
 //                                     )}
@@ -543,13 +613,6 @@
 //                                 ? "Proceed to Booking"
 //                                 : "Select Available Time"}
 //                         </button>
-
-//                         {isAvailable && (
-//                             <p className="text-xs text-center text-gray-500 mt-3">
-//                                 You'll be asked to complete your details in the
-//                                 next step
-//                             </p>
-//                         )}
 //                     </div>
 //                 </div>
 
@@ -627,10 +690,10 @@ const TestCalendarIntegration = ({ price }) => {
 
         // Extract hours and minutes using regex
         const hourMatch = cleanString.match(
-            /(\d+(?:\.\d+)?)\s*(?:hrs|hr|hour|hours)/
+            /(\d+(?:\.\d+)?)\s*(?:hrs|hr|hour|hours)/,
         );
         const minuteMatch = cleanString.match(
-            /(\d+)\s*(?:min|mins|minute|minutes)/
+            /(\d+)\s*(?:min|mins|minute|minutes)/,
         );
 
         let totalMinutes = 0;
@@ -702,7 +765,7 @@ const TestCalendarIntegration = ({ price }) => {
                         price_id: price.id,
                         duration_minutes: parseDuration(price.duration),
                     },
-                }
+                },
             );
 
             if (response.data.success) {
@@ -747,8 +810,8 @@ const TestCalendarIntegration = ({ price }) => {
                     date: formatDateKey(selectedDate),
                     test_time: formattedTime,
                     duration_minutes: parseDuration(price.duration),
-                    price_id: price.id, // ADD THIS LINE - pass price_id
-                }
+                    price_id: price.id,
+                },
             );
 
             if (response.data.available) {
@@ -756,11 +819,11 @@ const TestCalendarIntegration = ({ price }) => {
                 setBookingDetails({
                     start_time: response.data.start_time,
                     end_time: response.data.end_time,
-                    buffer_start: response.data.start_time, // This is the buffer start
-                    buffer_end: response.data.end_time, // This is the buffer end
+                    buffer_start: response.data.start_time,
+                    buffer_end: response.data.end_time,
                 });
                 setAvailabilityMessage(
-                    "✓ This time slot is available! You can proceed to book."
+                    "✓ This time slot is available! You can proceed to book.",
                 );
             } else {
                 setIsAvailable(false);
@@ -773,16 +836,17 @@ const TestCalendarIntegration = ({ price }) => {
                     response.data.alternative_times.length > 0
                 ) {
                     setAlternativeTimes(response.data.alternative_times);
-                    message += "\n\nAlternative times available:";
+                    // message += "\n\nAlternative times available:";
                 } else {
                     message +=
                         "\n\nNo alternative times available for this duration.";
                 }
 
                 // Add contact information
-                message += "\n\nPlease contact us at:\n";
-                message += "Phone: 0481488216\n";
-                message += "Email: Wheelmaster@outlook.com.au";
+                // message += "\n\nPlease contact us at:\n";
+                // message += "Phone: 0481488216\n";
+                // message += "Email: Wheelmaster@outlook.com.au";
+                message += "\n\nPlease contact us for assistance.";
 
                 setAvailabilityMessage(message);
             }
@@ -795,21 +859,21 @@ const TestCalendarIntegration = ({ price }) => {
                 const errors = error.response.data.errors;
                 if (errors && errors.test_time) {
                     setAvailabilityMessage(
-                        `Validation error: ${errors.test_time[0]}`
+                        `Validation error: ${errors.test_time[0]}`,
                     );
                     setTimeError(errors.test_time[0]);
                 } else if (errors && errors.price_id) {
                     setAvailabilityMessage(
-                        `Validation error: ${errors.price_id[0]}`
+                        `Validation error: ${errors.price_id[0]}`,
                     );
                 } else {
                     setAvailabilityMessage(
-                        "Please check the time format (HH:MM) and try again."
+                        "Please check the time format (HH:MM) and try again.",
                     );
                 }
             } else {
                 setAvailabilityMessage(
-                    "Error checking availability. Please try again."
+                    "Error checking availability. Please try again.",
                 );
             }
         } finally {
@@ -875,25 +939,44 @@ const TestCalendarIntegration = ({ price }) => {
         );
     };
 
-    // Set min and max times for the time input
+    // Set min and max times for the time input - UPDATED TO MATCH CONTROLLER (7:00 AM - 6:00 PM)
     const getMinTime = () => {
-        return "10:00"; // 10:00 AM (working hours start)
+        return "07:00"; // 7:00 AM (working hours start)
     };
 
     const getMaxTime = () => {
         // Calculate max time based on duration
         const durationMinutes = parseDuration(price.duration);
-        const maxTestTime = "16:00"; // Latest test start time to finish by 17:00
 
-        // Account for buffer hour
-        const [hours, minutes] = maxTestTime.split(":").map(Number);
-        const maxInputTime = new Date();
-        maxInputTime.setHours(hours, minutes - 60, 0, 0); // Subtract buffer hour
+        // Latest possible test start time to finish by 18:00
+        // We need to account for the 1-hour buffer before the test
+        // So the latest test can start at 17:00 minus the duration?
+        // Let's calculate properly:
+
+        // Working hours end at 18:00
+        // Test must end by 18:00
+        // Test ends at: test_start_time + duration_minutes
+        // So test_start_time + duration_minutes <= 18:00
+        // Therefore test_start_time <= 18:00 - duration_minutes
+
+        const workingEnd = 18; // 6:00 PM
+        const [hours, minutes] = [workingEnd, 0];
+
+        // Calculate max test start time (must include 1-hour buffer before test)
+        // The buffer is before the test, so it doesn't affect the test end time
+        // We just need to ensure the test itself ends by 18:00
+        const maxTestStartTime = new Date();
+        maxTestStartTime.setHours(hours, minutes - durationMinutes, 0, 0);
+
+        // If the calculation goes below working hours, set to working hours start + 1 hour buffer
+        if (maxTestStartTime.getHours() < 7) {
+            return "08:00"; // Minimum test start time (7:00 + 1 hour buffer = 8:00 test start)
+        }
 
         return (
-            maxInputTime.getHours().toString().padStart(2, "0") +
+            maxTestStartTime.getHours().toString().padStart(2, "0") +
             ":" +
-            maxInputTime.getMinutes().toString().padStart(2, "0")
+            maxTestStartTime.getMinutes().toString().padStart(2, "0")
         );
     };
 
@@ -913,7 +996,8 @@ const TestCalendarIntegration = ({ price }) => {
                         Schedule Your Test Package
                     </h1>
                     <p className="text-gray-600 text-sm sm:text-base">
-                        Choose your test date and time.
+                        Choose your test date and time. Operating hours: 7:00 AM
+                        - 6:00 PM
                     </p>
                 </div>
 
@@ -961,6 +1045,41 @@ const TestCalendarIntegration = ({ price }) => {
                             {formatDisplayDate(selectedDate)}
                         </p>
 
+                        {/* Available Time Slots Dropdown */}
+                        {availableTimeSlots.length > 0 && (
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Quick Select Available Times
+                                </label>
+                                <select
+                                    onChange={(e) =>
+                                        handleTimeSelect(e.target.value)
+                                    }
+                                    value={selectedTime}
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                >
+                                    <option value="">Choose a time...</option>
+                                    {availableTimeSlots.map((slot, index) => (
+                                        <option key={index} value={slot.time}>
+                                            {slot.formatted}
+                                        </option>
+                                    ))}
+                                </select>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    {availableTimeSlots.length} available slots
+                                </p>
+                            </div>
+                        )}
+
+                        {loadingSlots && (
+                            <div className="text-center py-2">
+                                <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                <span className="text-sm text-gray-600 ml-2">
+                                    Loading available slots...
+                                </span>
+                            </div>
+                        )}
+
                         <div className="space-y-4">
                             <div>
                                 <label
@@ -969,6 +1088,9 @@ const TestCalendarIntegration = ({ price }) => {
                                 >
                                     Test Start Time (24-hour format) *
                                 </label>
+                                <p className="text-xs text-gray-500 mb-2">
+                                    Operating hours: 7:00 AM - 6:00 PM
+                                </p>
                                 <div className="relative">
                                     <input
                                         id="test-time"
@@ -1029,7 +1151,7 @@ const TestCalendarIntegration = ({ price }) => {
                                             key={index}
                                             onClick={() =>
                                                 handleTimeSelect(
-                                                    slot.time || slot
+                                                    slot.time || slot,
                                                 )
                                             }
                                             className="px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md text-sm transition-colors"
@@ -1089,7 +1211,7 @@ const TestCalendarIntegration = ({ price }) => {
                                             </svg>
                                         )}
                                     </div>
-                                    <div className="ml-3">
+                                    {/* <div className="ml-3">
                                         <p
                                             className={`text-sm ${
                                                 isAvailable
@@ -1099,6 +1221,39 @@ const TestCalendarIntegration = ({ price }) => {
                                         >
                                             {availabilityMessage}
                                         </p>
+                                    </div> */}
+                                    <div
+                                        className={`text-sm ${
+                                            isAvailable
+                                                ? "text-green-800"
+                                                : "text-red-800"
+                                        } whitespace-pre-line`}
+                                    >
+                                        <p>{availabilityMessage}</p>
+
+                                        {!isAvailable && (
+                                            <div className="mt-2">
+                                                <p>
+                                                    Phone:{" "}
+                                                    <a
+                                                        href="tel:0481488216"
+                                                        className="text-blue-600 underline hover:text-blue-800"
+                                                    >
+                                                        0481488216
+                                                    </a>
+                                                </p>
+
+                                                <p>
+                                                    Email:{" "}
+                                                    <a
+                                                        href="mailto:Wheelmaster@outlook.com.au"
+                                                        className="text-blue-600 underline hover:text-blue-800"
+                                                    >
+                                                        Wheelmaster@outlook.com.au
+                                                    </a>
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -1123,6 +1278,14 @@ const TestCalendarIntegration = ({ price }) => {
                             </div>
 
                             <div className="border-t pt-4">
+                                <div className="flex justify-between text-xs sm:text-sm mb-2">
+                                    <span className="text-gray-600">
+                                        Operating Hours:
+                                    </span>
+                                    <span className="font-medium text-gray-900">
+                                        7:00 AM - 6:00 PM
+                                    </span>
+                                </div>
                                 <div className="flex justify-between text-xs sm:text-sm mb-2">
                                     <span className="text-gray-600">
                                         Test Duration:
@@ -1151,11 +1314,11 @@ const TestCalendarIntegration = ({ price }) => {
                                                     </span>
                                                     <span className="font-medium text-gray-900 text-right">
                                                         {formatTimeForDisplay(
-                                                            bookingDetails.start_time
+                                                            bookingDetails.start_time,
                                                         )}{" "}
                                                         to{" "}
                                                         {formatTimeForDisplay(
-                                                            bookingDetails.end_time
+                                                            bookingDetails.end_time,
                                                         )}
                                                     </span>
                                                 </div>
@@ -1165,7 +1328,7 @@ const TestCalendarIntegration = ({ price }) => {
                                                     </span>
                                                     <span className="font-medium text-blue-600 text-right">
                                                         {formatTimeForDisplay(
-                                                            selectedTime
+                                                            selectedTime,
                                                         )}{" "}
                                                         ({price.duration})
                                                     </span>
