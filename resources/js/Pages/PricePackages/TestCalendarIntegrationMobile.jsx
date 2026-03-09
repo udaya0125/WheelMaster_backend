@@ -915,6 +915,7 @@ import {
     X,
 } from "lucide-react";
 import axios from "axios";
+import toast, { Toaster } from "react-hot-toast";
 import { Link } from "@inertiajs/react";
 
 const TestCalendarIntegrationMobile = ({ price }) => {
@@ -1395,6 +1396,7 @@ const TestCalendarIntegrationMobile = ({ price }) => {
 
     return (
         <div className="min-h-screen bg-gray-100">
+          
             <div className="max-w-screen-lg mx-auto px-4 py-6">
                 {/* Back Button */}
                 <Link
@@ -1408,13 +1410,13 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                 {/* Page Header */}
                 <div className="mb-6">
                     <div className="flex items-center gap-3 mb-1">
-                        <BookOpen className="h-7 w-7 text-blue-600" />
-                        <h1 className="text-2xl font-bold text-gray-900">
+                        {/* <BookOpen className="h-7 w-7 text-blue-600" /> */}
+                        <h1 className="text-2xl font-bold text-gray-900 ml-6">
                             Schedule Your Test Package
                         </h1>
                     </div>
-                    <p className="text-gray-500 text-sm ml-10">
-                        Choose your test date and time. Operating hours: 7:00 AM
+                    <p className="text-gray-500 text-sm ml-6">
+                        Choose your date and time. Operating hours: 7:00 AM
                         - 6:00 PM
                     </p>
                 </div>
