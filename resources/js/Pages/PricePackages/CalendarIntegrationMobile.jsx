@@ -1340,7 +1340,7 @@ const CalendarIntegrationMobile = ({ price }) => {
                                 <button
                                     type="button"
                                     onClick={handleNextAvailabilityClick}
-                                    className="w-full py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition-colors duration-200 text-sm"
+                                    className="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors duration-200 text-sm"
                                 >
                                     Check Next Availability
                                 </button>
@@ -1364,7 +1364,7 @@ const CalendarIntegrationMobile = ({ price }) => {
                                                             date,
                                                         )
                                                     }
-                                                    className="w-full py-2 px-3 text-left bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors duration-200"
+                                                    className="w-full py-2 px-3 text-left bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors duration-200"
                                                 >
                                                     <div className="text-sm font-medium text-gray-900">
                                                         {date.toLocaleDateString(
@@ -1630,7 +1630,7 @@ const CalendarIntegrationMobile = ({ price }) => {
                             disabled={
                                 submitting || !selectedDate || !selectedTime
                             }
-                            className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-4 px-4 rounded-xl transition duration-200 text-base"
+                            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-4 px-4 rounded-xl transition duration-200 text-base"
                         >
                             {submitting ? (
                                 <div className="flex items-center justify-center gap-2">

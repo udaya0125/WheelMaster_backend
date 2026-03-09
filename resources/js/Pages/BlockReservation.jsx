@@ -1060,10 +1060,10 @@ const BlockReservation = () => {
                     <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">Time Slot Management</h1>
                     <button
                         onClick={openBlockSlotForm}
-                        className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-800 transition-colors w-full sm:w-auto"
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 rounded-full text-white  hover:bg-blue-800 transition-colors w-full sm:w-auto"
                     >
                         <Clock size={18} />
-                        <span>Block Time Slot</span>
+                        <span>Block</span>
                     </button>
                 </div>
 

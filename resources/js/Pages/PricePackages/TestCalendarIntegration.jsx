@@ -1706,7 +1706,7 @@ const TestCalendarIntegration = ({ price }) => {
                     {date.getDate()}
                 </span>
                 {!isSelected && !isPast && (
-                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-100 rounded-full"></div>
+                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-100 rounded-full"></div>
                 )}
             </div>
         );
@@ -1839,7 +1839,7 @@ const TestCalendarIntegration = ({ price }) => {
                                 }
                             }}
                             disabled={isPastDate}
-                            className="rounded-md border [&_.rdp-day_selected]:bg-blue-600 [&_.rdp-day_selected]:text-white [&_.rdp-day_selected:hover]:bg-blue-700 [&_.rdp-button:hover]:bg-blue-50 [&_.rdp-day_today]:bg-gray-100 [&_.rdp-day_disabled]:text-gray-400 [&_.rdp-day_disabled]:cursor-not-allowed"
+                            className="rounded-md border [&_.rdp-day_selected]:bg-indigo-600 [&_.rdp-day_selected]:text-white [&_.rdp-day_selected:hover]:bg-indigo-700 [&_.rdp-button:hover]:bg-indigo-50 [&_.rdp-day_today]:bg-gray-100 [&_.rdp-day_disabled]:text-gray-400 [&_.rdp-day_disabled]:cursor-not-allowed"
                             components={{
                                 DayContent: ({ date }) =>
                                     renderDayContent(date),
@@ -1867,7 +1867,7 @@ const TestCalendarIntegration = ({ price }) => {
                                         handleTimeSelect(e.target.value)
                                     }
                                     value={selectedTime}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
                                 >
                                     <option value="">Choose a time...</option>
                                     {availableTimeSlots.map((slot, index) => (
@@ -1884,7 +1884,7 @@ const TestCalendarIntegration = ({ price }) => {
 
                         {loadingSlots && (
                             <div className="text-center py-2">
-                                <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600"></div>
                                 <span className="text-sm text-gray-600 ml-2">
                                     Loading available slots...
                                 </span>
@@ -1919,7 +1919,7 @@ const TestCalendarIntegration = ({ price }) => {
                                             timeError
                                                 ? "border-red-300"
                                                 : "border-gray-300"
-                                        } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition appearance-none`}
+                                        } rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition appearance-none`}
                                         placeholder="HH:MM"
                                     />
                                 </div>
@@ -1935,7 +1935,7 @@ const TestCalendarIntegration = ({ price }) => {
                                 disabled={!selectedTime || loading}
                                 className={`w-full py-3 px-6 rounded-lg font-semibold transition-all duration-200 text-sm sm:text-base ${
                                     selectedTime && !loading
-                                        ? "bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg"
+                                        ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md hover:shadow-lg"
                                         : "bg-gray-200 text-gray-400 cursor-not-allowed"
                                 }`}
                             >
@@ -1952,8 +1952,8 @@ const TestCalendarIntegration = ({ price }) => {
 
                         {/* Alternative Times Suggestion */}
                         {alternativeTimes.length > 0 && (
-                            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                                <h4 className="font-medium text-blue-800 mb-2">
+                            <div className="mt-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+                                <h4 className="font-medium text-indigo-800 mb-2">
                                     Suggested Available Times:
                                 </h4>
                                 <div className="flex flex-wrap gap-2">
@@ -1965,14 +1965,14 @@ const TestCalendarIntegration = ({ price }) => {
                                                     slot.time || slot,
                                                 )
                                             }
-                                            className="px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md text-sm transition-colors"
+                                            className="px-3 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-md text-sm transition-colors"
                                         >
                                             {slot.formatted ||
                                                 formatTimeForDisplay(slot)}
                                         </button>
                                     ))}
                                 </div>
-                                <p className="text-xs text-blue-600 mt-2">
+                                <p className="text-xs text-indigo-600 mt-2">
                                     Click on a suggested time to select it, then
                                     check availability again.
                                 </p>
@@ -2037,7 +2037,7 @@ const TestCalendarIntegration = ({ price }) => {
                                                     Phone:{" "}
                                                     <a
                                                         href="tel:0481488216"
-                                                        className="text-blue-600 underline hover:text-blue-800"
+                                                        className="text-indigo-600 underline hover:text-indigo-800"
                                                     >
                                                         0481488216
                                                     </a>
@@ -2046,7 +2046,7 @@ const TestCalendarIntegration = ({ price }) => {
                                                     Email:{" "}
                                                     <a
                                                         href="mailto:Wheelmaster@outlook.com.au"
-                                                        className="text-blue-600 underline hover:text-blue-800"
+                                                        className="text-indigo-600 underline hover:text-indigo-800"
                                                     >
                                                         Wheelmaster@outlook.com.au
                                                     </a>
@@ -2125,7 +2125,7 @@ const TestCalendarIntegration = ({ price }) => {
                                                     <span className="text-gray-600">
                                                         Actual Test Time:
                                                     </span>
-                                                    <span className="font-medium text-blue-600 text-right">
+                                                    <span className="font-medium text-indigo-600 text-right">
                                                         {formatTimeForDisplay(
                                                             selectedTime,
                                                         )}{" "}
@@ -2143,7 +2143,7 @@ const TestCalendarIntegration = ({ price }) => {
                             disabled={!isAvailable}
                             className={`w-full py-3 px-6 rounded-lg font-semibold transition-all duration-200 text-sm sm:text-base ${
                                 isAvailable
-                                    ? "bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transform hover:scale-105"
+                                    ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md hover:shadow-lg transform hover:scale-105"
                                     : "bg-gray-200 text-gray-400 cursor-not-allowed"
                             }`}
                         >

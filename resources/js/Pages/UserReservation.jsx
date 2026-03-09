@@ -927,14 +927,14 @@ const UserReservation = () => {
                 Cell: ({ row }) => (
                     <div className="flex gap-2">
                         {/* Edit Button */}
-                        <button
+                        {/* <button
                             onClick={() => handleEditReservation(row.original)}
                             disabled={updatingId === row.original.id}
                             className="px-3 py-1 text-white bg-blue-600 rounded hover:bg-blue-700 text-sm transition-colors flex items-center gap-1"
                         >
                             <Edit size={14} />
                             Edit
-                        </button>
+                        </button> */}
 
                         {/* Delete Button */}
                         {deleteConfirm === row.original.id ? (
@@ -964,7 +964,7 @@ const UserReservation = () => {
                                 className="px-3 py-1 text-white bg-red-600 rounded hover:bg-red-700 text-sm transition-colors flex items-center gap-1"
                             >
                                 <Trash2 size={14} />
-                                Delete
+                               
                             </button>
                         )}
 

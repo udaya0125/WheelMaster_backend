@@ -2037,7 +2037,7 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                     <button
                                         type="submit"
                                         disabled={submitting}
-                                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         {submitting ? (
                                             <div className="flex items-center justify-center">

@@ -64,9 +64,12 @@ const SideBar = ({
                     }`}
                 >
                     {!isCollapsed && (
-                        <div className="text-lg font-bold text-gray-800 whitespace-nowrap">
-                           Wheel Master
-                        </div>
+                        <Link
+                            href="/"
+                            className="text-lg font-bold text-gray-800 whitespace-nowrap"
+                        >
+                            Wheel Master
+                        </Link>
                     )}
                     <div className="flex items-center space-x-1">
                         {/* Collapse Toggle Button - Only show on desktop */}
@@ -311,7 +314,6 @@ const SideBar = ({
                             </div>
                         )}
                     </Link>
-
 
                     {/* Time Management */}
                     <Link

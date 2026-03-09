@@ -919,9 +919,7 @@ const BookingForm = ({
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                 {/* Header */}
                 <div
-                    className={`p-6 rounded-t-lg ${
-                        isTestPackage ? "bg-blue-600" : "bg-emerald-600"
-                    } text-white`}
+                    className={`p-6 rounded-t-lg bg-indigo-600 text-white`}
                 >
                     <div className="flex justify-between items-center">
                         <h2 className="text-2xl font-bold">
@@ -1213,11 +1211,7 @@ const BookingForm = ({
                         <button
                             type="submit"
                             disabled={loading}
-                            className={`flex-1 ${
-                                isTestPackage
-                                    ? "bg-blue-600 hover:bg-blue-700"
-                                    : "bg-emerald-600 hover:bg-emerald-700"
-                            } text-white font-semibold py-3 px-6 rounded-lg transition duration-200 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed`}
+                            className={`flex-1 bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed`}
                         >
                             {loading ? (
                                 <div className="flex items-center justify-center">

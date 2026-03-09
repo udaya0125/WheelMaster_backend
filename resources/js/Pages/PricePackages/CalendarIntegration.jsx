@@ -1819,7 +1819,7 @@ const CalendarIntegration = ({ price }) => {
 
                         {loading ? (
                             <div className="flex flex-col items-center justify-center py-8">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
                                 <p className="text-gray-500 text-sm mt-3">
                                     Loading time slots...
                                 </p>
@@ -1838,8 +1838,8 @@ const CalendarIntegration = ({ price }) => {
                                                 }
                                                 className={`py-2 sm:py-3 px-3 sm:px-4 rounded-lg border-2 transition-all duration-200 font-medium text-sm sm:text-base ${
                                                     selectedTime === time
-                                                        ? "border-emerald-600 bg-emerald-600 text-white shadow-md"
-                                                        : "border-gray-200 hover:border-emerald-300 text-gray-700 hover:bg-emerald-50"
+                                                        ? "border-indigo-600 bg-indigo-600 text-white shadow-md"
+                                                        : "border-gray-200 hover:border-indigo-300 text-gray-700 hover:bg-indigo-50"
                                                 }`}
                                             >
                                                 {timeDisplay}
@@ -1879,7 +1879,7 @@ const CalendarIntegration = ({ price }) => {
                                 {!showNextAvailability ? (
                                     <button
                                         onClick={handleNextAvailabilityClick}
-                                        className="w-full py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors duration-200 text-sm"
+                                        className="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors duration-200 text-sm"
                                     >
                                         Check Next Availability
                                     </button>
@@ -1898,7 +1898,7 @@ const CalendarIntegration = ({ price }) => {
                                                                 date,
                                                             )
                                                         }
-                                                        className="w-full py-2 px-3 text-left bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors duration-200"
+                                                        className="w-full py-2 px-3 text-left bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors duration-200"
                                                     >
                                                         <div className="text-sm font-medium text-gray-900">
                                                             {date.toLocaleDateString(
@@ -1995,7 +1995,7 @@ const CalendarIntegration = ({ price }) => {
                                             <span className="text-gray-600">
                                                 End Time:
                                             </span>
-                                            <span className="font-medium text-emerald-600 text-right">
+                                            <span className="font-medium text-indigo-600 text-right">
                                                 {calculateEndTime(
                                                     selectedTime,
                                                     price.duration,
@@ -2012,7 +2012,7 @@ const CalendarIntegration = ({ price }) => {
                             disabled={!selectedTime || isPastDate(selectedDate)}
                             className={`w-full py-3 px-6 rounded-lg font-semibold transition-all duration-200 text-sm sm:text-base ${
                                 selectedTime && !isPastDate(selectedDate)
-                                    ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-md hover:shadow-lg transform hover:scale-105"
+                                    ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md hover:shadow-lg transform hover:scale-105"
                                     : "bg-gray-200 text-gray-400 cursor-not-allowed"
                             }`}
                         >
