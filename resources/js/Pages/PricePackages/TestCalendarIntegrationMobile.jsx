@@ -1084,12 +1084,17 @@ const TestCalendarIntegrationMobile = ({ price }) => {
 
             if (response.data.success) {
                 setAvailableTimeSlots(response.data.available_slots);
+                toast.success(`Found ${response.data.available_slots.length} available slots`, {
+                    duration: 3000,
+                });
             } else {
                 setAvailableTimeSlots([]);
+                toast.error("No available slots found for this date");
             }
         } catch (error) {
             console.error("Error fetching available slots:", error);
             setAvailableTimeSlots([]);
+          
         } finally {
             setLoadingSlots(false);
         }
@@ -1100,12 +1105,14 @@ const TestCalendarIntegrationMobile = ({ price }) => {
         if (!price) {
             setAvailabilityMessage("Price information not available");
             setIsAvailable(false);
+            toast.error("Price information not available");
             return;
         }
 
         if (!selectedDate || !selectedTime) {
             setAvailabilityMessage("Please select both date and time");
             setIsAvailable(false);
+            toast.error("Please select both date and time");
             return;
         }
 
@@ -1113,6 +1120,7 @@ const TestCalendarIntegrationMobile = ({ price }) => {
         if (!validateTimeFormat(selectedTime)) {
             setTimeError("Please enter a valid time in HH:MM format");
             setIsAvailable(false);
+            toast.error("Please enter a valid time in HH:MM format");
             return;
         }
 
@@ -1120,6 +1128,8 @@ const TestCalendarIntegrationMobile = ({ price }) => {
         setAvailabilityMessage("");
         setAlternativeTimes([]);
         setTimeError("");
+
+        const loadingToast = toast.loading("Checking availability...");
 
         try {
             const formattedTime = formatTimeForApi(selectedTime);
@@ -1134,6 +1144,8 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                 },
             );
 
+            toast.dismiss(loadingToast);
+
             if (response.data.available) {
                 setIsAvailable(true);
                 setBookingDetails({
@@ -1145,6 +1157,7 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                 setAvailabilityMessage(
                     "✓ This time slot is available! You can proceed to book.",
                 );
+                toast.success("Time slot is available! You can proceed to book.");
             } else {
                 setIsAvailable(false);
                 let message =
@@ -1156,9 +1169,15 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                     response.data.alternative_times.length > 0
                 ) {
                     setAlternativeTimes(response.data.alternative_times);
+                    toast.error("Selected time not available. Check suggested times below.", {
+                        duration: 5000,
+                    });
                 } else {
                     message +=
                         "\n\nNo alternative times available for this duration.";
+                    toast.error("Time slot not available. Please contact us for assistance.", {
+                        duration: 5000,
+                    });
                 }
 
                 message += "\n\nPlease contact us for assistance.";
@@ -1166,6 +1185,7 @@ const TestCalendarIntegrationMobile = ({ price }) => {
             }
         } catch (error) {
             console.error("Error checking availability:", error);
+            toast.dismiss(loadingToast);
             setIsAvailable(false);
 
             // Check if it's a validation error
@@ -1176,19 +1196,23 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                         `Validation error: ${errors.test_time[0]}`,
                     );
                     setTimeError(errors.test_time[0]);
+                    toast.error(errors.test_time[0]);
                 } else if (errors && errors.price_id) {
                     setAvailabilityMessage(
                         `Validation error: ${errors.price_id[0]}`,
                     );
+                    toast.error(errors.price_id[0]);
                 } else {
                     setAvailabilityMessage(
                         "Please check the time format (HH:MM) and try again.",
                     );
+                    toast.error("Please check the time format (HH:MM) and try again.");
                 }
             } else {
                 setAvailabilityMessage(
                     "Error checking availability. Please try again.",
                 );
+                toast.error("Error checking availability. Please try again.");
             }
         } finally {
             setLoading(false);
@@ -1202,6 +1226,9 @@ const TestCalendarIntegrationMobile = ({ price }) => {
         setIsAvailable(false);
         setAlternativeTimes([]);
         setTimeError("");
+        toast.success(`Selected time: ${formatTimeForDisplay(time24)}`, {
+            duration: 2000,
+        });
     };
 
     // Handle manual time input
@@ -1261,22 +1288,49 @@ const TestCalendarIntegrationMobile = ({ price }) => {
         e.preventDefault();
 
         if (!isAvailable || !bookingDetails) {
-            alert("Please check availability first");
+            toast.error("Please check availability first");
+            return;
+        }
+
+        // Validate required fields
+        const requiredFields = [
+            "user_name",
+            "email",
+            "phone",
+            "address",
+            "zip_code",
+            "pickup_location",
+            "dropoff_location",
+        ];
+        const newErrors = {};
+
+        requiredFields.forEach((field) => {
+            if (!bookingForm[field]?.trim()) {
+                newErrors[field] = `${field.replace("_", " ")} is required`;
+            }
+        });
+
+        // Validate email format
+        if (bookingForm.email && !/\S+@\S+\.\S+/.test(bookingForm.email)) {
+            newErrors.email = "Please enter a valid email address";
+        }
+
+        // Validate zip code
+        if (bookingForm.zip_code && !validateZipCode(bookingForm.zip_code)) {
+            newErrors.zip_code =
+                "Sorry, we currently only serve areas with zip code 6210";
+        }
+
+        if (Object.keys(newErrors).length > 0) {
+            setFormErrors(newErrors);
+            toast.error("Please fill in all required fields correctly");
             return;
         }
 
         setSubmitting(true);
         setFormErrors({});
 
-        // Validate zip code
-        if (!validateZipCode(bookingForm.zip_code)) {
-            setFormErrors({
-                zip_code:
-                    "Sorry, we currently only serve areas with zip code 6210.",
-            });
-            setSubmitting(false);
-            return;
-        }
+        const submittingToast = toast.loading("Processing your booking...");
 
         try {
             const durationMinutes = parseDuration(price.duration);
@@ -1305,8 +1359,12 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                 bookingData,
             );
 
+            toast.dismiss(submittingToast);
+
             if (response.data.success || response.data.message) {
-                alert("Test package booked successfully!");
+                toast.success("Test package booked successfully!", {
+                    duration: 5000,
+                });
 
                 // Reset form
                 setSelectedDate("");
@@ -1335,18 +1393,19 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                     fetchAvailableTimeSlots();
                 }
             } else {
-                alert("Error confirming booking: " + response.data.message);
+                toast.error("Error confirming booking: " + response.data.message);
             }
         } catch (error) {
             console.error("Booking error:", error);
+            toast.dismiss(submittingToast);
 
             if (error.response?.data?.errors) {
                 setFormErrors(error.response.data.errors);
-                alert("Please fix the errors in the form.");
+                toast.error("Please fix the errors in the form.");
             } else if (error.response?.data?.message) {
-                alert("Booking error: " + error.response.data.message);
+                toast.error(error.response.data.message);
             } else {
-                alert("Error confirming booking. Please try again.");
+                toast.error("Error confirming booking. Please try again.");
             }
         } finally {
             setSubmitting(false);
@@ -1396,7 +1455,46 @@ const TestCalendarIntegrationMobile = ({ price }) => {
 
     return (
         <div className="min-h-screen bg-gray-100">
-          
+            <Toaster
+                position="top-right"
+                toastOptions={{
+                    duration: 4000,
+                    style: {
+                        background: "#363636",
+                        color: "#fff",
+                    },
+                    success: {
+                        duration: 3000,
+                        style: {
+                            background: "#10b981",
+                            color: "#fff",
+                        },
+                        iconTheme: {
+                            primary: "#fff",
+                            secondary: "#10b981",
+                        },
+                    },
+                    error: {
+                        duration: 4000,
+                        style: {
+                            background: "#ef4444",
+                            color: "#fff",
+                        },
+                        iconTheme: {
+                            primary: "#fff",
+                            secondary: "#ef4444",
+                        },
+                    },
+                    loading: {
+                        duration: 5000,
+                        style: {
+                            background: "#3b82f6",
+                            color: "#fff",
+                        },
+                    },
+                }}
+            />
+            
             <div className="max-w-screen-lg mx-auto px-4 py-6">
                 {/* Back Button */}
                 <Link
@@ -1444,6 +1542,11 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                     setIsAvailable(false);
                                     setAlternativeTimes([]);
                                     setTimeError("");
+                                    // if (e.target.value) {
+                                    //     toast.success(`Selected date: ${formatDisplayDate(e.target.value)}`, {
+                                    //         duration: 2000,
+                                    //     });
+                                    // }
                                 }}
                                 className="w-full appearance-none bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 p-3 pl-10 pr-10 transition"
                             >
