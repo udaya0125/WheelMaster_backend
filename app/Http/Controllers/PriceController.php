@@ -55,7 +55,7 @@ class PriceController extends Controller
         try {
             $price = Price::where('slug', $slug)->firstOrFail();
 
-            return Inertia::render('PricePackages/TestCalendarIntegration', [
+            return Inertia::render('PricePackages/TestCalendarIntegrationWrapper', [
                 'price' => $price,
             ]);    
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
