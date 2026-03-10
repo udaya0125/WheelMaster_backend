@@ -11,18 +11,39 @@ const PricePackages = () => {
     const [editingPrice, setEditingPrice] = useState(null);
     const [showEditForm, setShowEditForm] = useState(false);
     const [showAddForm, setShowAddForm] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
         const fetchPrice = async () => {
             try {
+                setLoading(true);
+                setError(null);
                 const response = await axios.get(route("ourprice.index"));
-                // setAllPrice(response.data.data || response.data);
-                const sorted = [...response.data.data].sort(
+                
+                // Handle different response structures
+                let priceData = [];
+                
+                if (Array.isArray(response.data)) {
+                    priceData = response.data;
+                } else if (response.data && Array.isArray(response.data.data)) {
+                    priceData = response.data.data;
+                } else if (response.data && response.data.prices) {
+                    priceData = response.data.prices;
+                } else {
+                    console.warn("Unexpected API response structure:", response.data);
+                    priceData = [];
+                }
+                
+                const sorted = [...priceData].sort(
                     (a, b) => new Date(b.created_at) - new Date(a.created_at),
                 );
                 setAllPrice(sorted);
             } catch (error) {
                 console.error("fetching error ", error);
+                setError("Failed to load price packages");
+            } finally {
+                setLoading(false);
             }
         };
         fetchPrice();
@@ -62,6 +83,52 @@ const PricePackages = () => {
     const handleCloseAddForm = () => {
         setShowAddForm(false);
     };
+
+    // Error state
+    if (error) {
+        return (
+            <Wrapper>
+                <section className="px-2 sm:px-6 lg:px-8 py-6 lg:py-8">
+                    <div className="flex justify-end items-start px-4 mb-12">
+                        <div className="flex flex-col items-end gap-4">
+                            <button
+                                onClick={handleOpenAddForm}
+                                className="bg-indigo-600 text-white px-6 py-3 rounded-full font-medium hover:bg-indigo-700 transition-colors flex items-center"
+                            >
+                                <FiPlus className="mr-2" />
+                                Add Price
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="text-center mb-16">
+                        <span className="inline-block px-3 py-1 text-sm font-semibold text-blue-700 bg-blue-100 rounded-full mb-4">
+                            Pricing Plans
+                        </span>
+                        <h2 className="text-4xl font-bold text-gray-900 sm:text-5xl">
+                            Transparent{" "}
+                            <span className="text-blue-600">Pricing</span>
+                        </h2>
+                        <div className="mt-6 max-w-2xl mx-auto">
+                            <p className="text-lg text-gray-700">
+                                Choose the perfect driving lesson package that suits your needs and budget
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg text-center">
+                        {error}
+                        <button
+                            onClick={() => setError(null)}
+                            className="ml-4 text-red-800 hover:text-red-900 font-bold"
+                        >
+                            <FiX />
+                        </button>
+                    </div>
+                </section>
+            </Wrapper>
+        );
+    }
 
     const handleLogout = () => {
         axios
@@ -130,78 +197,10 @@ const PricePackages = () => {
                 </div>
             )}
 
-            {/* <section className="relative overflow-hidden h-[60vh]">
-                <div className="absolute inset-0 w-full h-full">
-                    <img
-                        src="/images/bg.webp"
-                        alt="Banner background"
-                        className="w-full h-full object-cover object-center"
-                        loading="eager"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-r from-gray-900/90 via-gray-900/70 to-transparent" />
-                </div>
-
-                <div className="relative container mx-auto h-full flex justify-center items-center px-4">
-                    <div className="max-w-2xl text-white text-center">
-                        <Link
-                            href={"/dashboard"}
-                            className="text-4xl md:text-5xl font-bold mb-4 underline"
-                        >
-                            Price Packages
-                        </Link>
-                        <p className="text-xl mb-6">
-                            Manage your pricing plans and packages
-                        </p>
-
-                        <button
-                            onClick={handleOpenAddForm}
-                            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center mx-auto"
-                        >
-                            <FiPlus className="mr-2" />
-                            Add New Price Package
-                        </button>
-                    </div>
-                </div>
-            </section> */}
-
             {/* Price Packages List */}
-            <section className=" px-2 sm:px-6 lg:px-8 py-6 lg:py-8">
-                {/* <Link href={'/dashboard'} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors">
-                    <ChevronLeft size={20} />
-                    <span className="font-medium">Back to Dashboard</span>
-                </Link>
-                
-                <div className="mb-8">
-                    <button
-                        onClick={handleOpenAddForm}
-                        className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
-                    >
-                        <FiPlus className="mr-2" />
-                        Add New Price Package
-                    </button>
-                </div> */}
-
+            <section className="px-2 sm:px-6 lg:px-8 py-6 lg:py-8">
                 <div className="flex justify-end items-start px-4 mb-12">
-                    {/* Back Button */}
-                    {/* <Link
-                        href="/dashboard"
-                        className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
-                    >
-                        <ChevronLeft size={20} />
-                        <span className="font-medium">Back to Dashboard</span>
-                    </Link> */}
-
-                    {/* Right Section (Logout on top, Add button below) */}
                     <div className="flex flex-col items-end gap-4">
-                        {/* Logout Button */}
-                        {/* <button
-                            onClick={handleLogout}
-                            className="bg-gray-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors"
-                        >
-                            Log Out
-                        </button> */}
-
-                        {/* Add Gallery Button */}
                         <button
                             onClick={handleOpenAddForm}
                             className="bg-indigo-600 text-white px-6 py-3 rounded-full font-medium hover:bg-indigo-700 transition-colors flex items-center"
@@ -212,82 +211,113 @@ const PricePackages = () => {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {allPrice.map((price) => (
-                        <div
-                            key={price.id}
-                            className="bg-white rounded-lg shadow-lg border border-gray-200 p-6"
-                        >
-                            {/* Category and Description Header */}
-                            <div className="flex justify-between items-start mb-2">
-                                <h3 className="text-xl font-bold text-gray-800">
-                                    {price.description}
-                                </h3>
-                                <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                                    {price.category || "Uncategorized"}
-                                </span>
-                            </div>
-
-                            {/* Price and Discount */}
-                            <div className="text-3xl font-bold text-blue-600 mb-2">
-                                ${parseFloat(price.price).toFixed(2)}
-                            </div>
-
-                            {/* Display discount if available */}
-                            {price.discount && (
-                                <div className="text-green-600 font-semibold mb-2">
-                                    {price.discount}
-                                </div>
-                            )}
-
-                            <div className="text-gray-600 mb-4">
-                                <span className="font-semibold">Duration:</span>{" "}
-                                {price.duration}
-                            </div>
-
-                            <div className="mb-6">
-                                <h4 className="font-semibold text-gray-700 mb-2">
-                                    Features:
-                                </h4>
-                                <div
-                                    className="text-gray-600 whitespace-pre-line"
-                                    dangerouslySetInnerHTML={{
-                                        __html: price.features,
-                                    }}
-                                />
-                            </div>
-
-                            <div className="flex space-x-2">
-                                <button
-                                    onClick={() => handleEdit(price)}
-                                    className="flex-1 bg-gray-300 hover:bg-gray-400 text-white py-2 px-4 rounded transition duration-200"
-                                >
-                                    Edit
-                                </button>
-                                <button
-                                    onClick={() => handleDelete(price.id)}
-                                    className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded transition duration-200"
-                                >
-                                    Delete
-                                </button>
-                            </div>
-                        </div>
-                    ))}
+                {/* Section Header */}
+                <div className="text-center mb-16">
+                    <span className="inline-block px-3 py-1 text-sm font-semibold text-blue-700 bg-blue-100 rounded-full mb-4">
+                        Pricing Plans
+                    </span>
+                    <h2 className="text-4xl font-bold text-gray-900 sm:text-5xl">
+                        Transparent{" "}
+                        <span className="text-blue-600">Pricing</span>
+                    </h2>
+                    <div className="mt-6 max-w-2xl mx-auto">
+                        <p className="text-lg text-gray-700">
+                            Choose the perfect driving lesson package that suits your needs and budget
+                        </p>
+                    </div>
                 </div>
 
-                {allPrice.length === 0 && (
+                {/* Loading State - Matches other components pattern */}
+                {loading && (
                     <div className="text-center py-12">
-                        <p className="text-gray-500 text-lg">
-                            No price packages found.
+                        <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+                        <p className="mt-4 text-gray-600">
+                            Loading price packages...
                         </p>
-                        <button
-                            onClick={handleOpenAddForm}
-                            className="mt-4 bg-indigo-600 text-white px-6 py-3 rounded-full hover:bg-indigo-700 transition-colors flex items-center justify-center mx-auto"
-                        >
-                            <FiPlus className="mr-2" />
-                            Add  Price Package
-                        </button>
                     </div>
+                )}
+
+                {/* Price Packages Content - Only show when not loading */}
+                {!loading && (
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {allPrice.map((price) => (
+                                <div
+                                    key={price.id}
+                                    className="bg-white rounded-lg shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-shadow duration-300"
+                                >
+                                    {/* Category and Description Header */}
+                                    <div className="flex justify-between items-start mb-2">
+                                        <h3 className="text-xl font-bold text-gray-800">
+                                            {price.description}
+                                        </h3>
+                                        <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                                            {price.category || "Uncategorized"}
+                                        </span>
+                                    </div>
+
+                                    {/* Price and Discount */}
+                                    <div className="text-3xl font-bold text-blue-600 mb-2">
+                                        ${parseFloat(price.price).toFixed(2)}
+                                    </div>
+
+                                    {/* Display discount if available */}
+                                    {price.discount && (
+                                        <div className="text-green-600 font-semibold mb-2">
+                                            {price.discount}
+                                        </div>
+                                    )}
+
+                                    <div className="text-gray-600 mb-4">
+                                        <span className="font-semibold">Duration:</span>{" "}
+                                        {price.duration}
+                                    </div>
+
+                                    <div className="mb-6">
+                                        <h4 className="font-semibold text-gray-700 mb-2">
+                                            Features:
+                                        </h4>
+                                        <div
+                                            className="text-gray-600 whitespace-pre-line"
+                                            dangerouslySetInnerHTML={{
+                                                __html: price.features,
+                                            }}
+                                        />
+                                    </div>
+
+                                    <div className="flex space-x-2">
+                                        <button
+                                            onClick={() => handleEdit(price)}
+                                            className="flex-1 bg-gray-300 hover:bg-gray-400 text-white py-2 px-4 rounded transition duration-200"
+                                        >
+                                            Edit
+                                        </button>
+                                        <button
+                                            onClick={() => handleDelete(price.id)}
+                                            className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded transition duration-200"
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {allPrice.length === 0 && (
+                            <div className="text-center py-12">
+                                <p className="text-gray-500 text-lg">
+                                    No price packages found.
+                                </p>
+                                <button
+                                    onClick={handleOpenAddForm}
+                                    className="mt-4 bg-indigo-600 text-white px-6 py-3 rounded-full hover:bg-indigo-700 transition-colors flex items-center justify-center mx-auto"
+                                >
+                                    <FiPlus className="mr-2" />
+                                    Add Price Package
+                                </button>
+                            </div>
+                        )}
+                    </>
                 )}
             </section>
         </Wrapper>
@@ -295,6 +325,308 @@ const PricePackages = () => {
 };
 
 export default PricePackages;
+
+
+
+
+
+// import React, { useEffect, useState } from "react";
+// import axios from "axios";
+// import EditPriceForm from "@/EditFormComponents/EditPriceForm";
+// import AddPriceForm from "@/AddFormComponent/AddPriceForm";
+// import { FiPlus, FiX } from "react-icons/fi";
+// import Wrapper from "@/AdminWrapper/Wrapper";
+
+// const PricePackages = () => {
+//     const [allPrice, setAllPrice] = useState([]);
+//     const [reloadTrigger, setReloadTrigger] = useState(false);
+//     const [editingPrice, setEditingPrice] = useState(null);
+//     const [showEditForm, setShowEditForm] = useState(false);
+//     const [showAddForm, setShowAddForm] = useState(false);
+
+//     useEffect(() => {
+//         const fetchPrice = async () => {
+//             try {
+//                 const response = await axios.get(route("ourprice.index"));
+//                 // setAllPrice(response.data.data || response.data);
+//                 const sorted = [...response.data.data].sort(
+//                     (a, b) => new Date(b.created_at) - new Date(a.created_at),
+//                 );
+//                 setAllPrice(sorted);
+//             } catch (error) {
+//                 console.error("fetching error ", error);
+//             }
+//         };
+//         fetchPrice();
+//     }, [reloadTrigger]);
+
+//     // handleDelete
+//     const handleDelete = async (id) => {
+//         if (!confirm("Are you sure you want to delete this price package?")) {
+//             return;
+//         }
+
+//         try {
+//             await axios.delete(route("ourprice.destroy", { id: id }));
+//             setReloadTrigger((prev) => !prev);
+//         } catch (error) {
+//             console.log("Delete error:", error);
+//             alert("Error deleting price package");
+//         }
+//     };
+
+//     // handleEdit
+//     const handleEdit = (price) => {
+//         setEditingPrice(price);
+//         setShowEditForm(true);
+//     };
+
+//     const handleCloseEditForm = () => {
+//         setShowEditForm(false);
+//         setEditingPrice(null);
+//     };
+
+//     // Added these functions for Add Form
+//     const handleOpenAddForm = () => {
+//         setShowAddForm(true);
+//     };
+
+//     const handleCloseAddForm = () => {
+//         setShowAddForm(false);
+//     };
+
+//     const handleLogout = () => {
+//         axios
+//             .post(route("logout"))
+//             .then((response) => {
+//                 if (response.data.redirect) {
+//                     window.location.href = response.data.redirect;
+//                 } else {
+//                     window.location.href = "/login";
+//                 }
+//             })
+//             .catch((error) => {
+//                 console.error("logout error:", error);
+//                 console.error("Failed to logout. Please try again.");
+//             });
+//     };
+
+//     return (
+//         <Wrapper>
+//             {/* Add Form Modal - Moved to top */}
+//             {showAddForm && (
+//                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+//                     <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+//                         <div className="p-6">
+//                             <div className="flex justify-between items-center mb-6">
+//                                 <h2 className="text-2xl font-bold">
+//                                     Add New Price Package
+//                                 </h2>
+//                                 <button
+//                                     onClick={handleCloseAddForm}
+//                                     className="text-gray-500 hover:text-gray-700 text-2xl"
+//                                 >
+//                                     <FiX />
+//                                 </button>
+//                             </div>
+//                             <AddPriceForm
+//                                 onClose={handleCloseAddForm}
+//                                 setReloadTrigger={setReloadTrigger}
+//                             />
+//                         </div>
+//                     </div>
+//                 </div>
+//             )}
+
+//             {/* Edit Form Modal */}
+//             {showEditForm && (
+//                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+//                     <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+//                         <div className="flex justify-between items-center mb-6">
+//                             <h2 className="text-2xl font-bold">
+//                                 Edit Price Package
+//                             </h2>
+//                             <button
+//                                 onClick={handleCloseEditForm}
+//                                 className="text-gray-500 hover:text-gray-700 text-2xl"
+//                             >
+//                                 <FiX />
+//                             </button>
+//                         </div>
+//                         <EditPriceForm
+//                             editingPrice={editingPrice}
+//                             onClose={handleCloseEditForm}
+//                             setReloadTrigger={setReloadTrigger}
+//                         />
+//                     </div>
+//                 </div>
+//             )}
+
+//             {/* <section className="relative overflow-hidden h-[60vh]">
+//                 <div className="absolute inset-0 w-full h-full">
+//                     <img
+//                         src="/images/bg.webp"
+//                         alt="Banner background"
+//                         className="w-full h-full object-cover object-center"
+//                         loading="eager"
+//                     />
+//                     <div className="absolute inset-0 bg-gradient-to-r from-gray-900/90 via-gray-900/70 to-transparent" />
+//                 </div>
+
+//                 <div className="relative container mx-auto h-full flex justify-center items-center px-4">
+//                     <div className="max-w-2xl text-white text-center">
+//                         <Link
+//                             href={"/dashboard"}
+//                             className="text-4xl md:text-5xl font-bold mb-4 underline"
+//                         >
+//                             Price Packages
+//                         </Link>
+//                         <p className="text-xl mb-6">
+//                             Manage your pricing plans and packages
+//                         </p>
+
+//                         <button
+//                             onClick={handleOpenAddForm}
+//                             className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center mx-auto"
+//                         >
+//                             <FiPlus className="mr-2" />
+//                             Add New Price Package
+//                         </button>
+//                     </div>
+//                 </div>
+//             </section> */}
+
+//             {/* Price Packages List */}
+//             <section className=" px-2 sm:px-6 lg:px-8 py-6 lg:py-8">
+//                 {/* <Link href={'/dashboard'} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors">
+//                     <ChevronLeft size={20} />
+//                     <span className="font-medium">Back to Dashboard</span>
+//                 </Link>
+                
+//                 <div className="mb-8">
+//                     <button
+//                         onClick={handleOpenAddForm}
+//                         className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
+//                     >
+//                         <FiPlus className="mr-2" />
+//                         Add New Price Package
+//                     </button>
+//                 </div> */}
+
+//                 <div className="flex justify-end items-start px-4 mb-12">
+//                     {/* Back Button */}
+//                     {/* <Link
+//                         href="/dashboard"
+//                         className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+//                     >
+//                         <ChevronLeft size={20} />
+//                         <span className="font-medium">Back to Dashboard</span>
+//                     </Link> */}
+
+//                     {/* Right Section (Logout on top, Add button below) */}
+//                     <div className="flex flex-col items-end gap-4">
+//                         {/* Logout Button */}
+//                         {/* <button
+//                             onClick={handleLogout}
+//                             className="bg-gray-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors"
+//                         >
+//                             Log Out
+//                         </button> */}
+
+//                         {/* Add Gallery Button */}
+//                         <button
+//                             onClick={handleOpenAddForm}
+//                             className="bg-indigo-600 text-white px-6 py-3 rounded-full font-medium hover:bg-indigo-700 transition-colors flex items-center"
+//                         >
+//                             <FiPlus className="mr-2" />
+//                             Add Price
+//                         </button>
+//                     </div>
+//                 </div>
+
+//                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+//                     {allPrice.map((price) => (
+//                         <div
+//                             key={price.id}
+//                             className="bg-white rounded-lg shadow-lg border border-gray-200 p-6"
+//                         >
+//                             {/* Category and Description Header */}
+//                             <div className="flex justify-between items-start mb-2">
+//                                 <h3 className="text-xl font-bold text-gray-800">
+//                                     {price.description}
+//                                 </h3>
+//                                 <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
+//                                     {price.category || "Uncategorized"}
+//                                 </span>
+//                             </div>
+
+//                             {/* Price and Discount */}
+//                             <div className="text-3xl font-bold text-blue-600 mb-2">
+//                                 ${parseFloat(price.price).toFixed(2)}
+//                             </div>
+
+//                             {/* Display discount if available */}
+//                             {price.discount && (
+//                                 <div className="text-green-600 font-semibold mb-2">
+//                                     {price.discount}
+//                                 </div>
+//                             )}
+
+//                             <div className="text-gray-600 mb-4">
+//                                 <span className="font-semibold">Duration:</span>{" "}
+//                                 {price.duration}
+//                             </div>
+
+//                             <div className="mb-6">
+//                                 <h4 className="font-semibold text-gray-700 mb-2">
+//                                     Features:
+//                                 </h4>
+//                                 <div
+//                                     className="text-gray-600 whitespace-pre-line"
+//                                     dangerouslySetInnerHTML={{
+//                                         __html: price.features,
+//                                     }}
+//                                 />
+//                             </div>
+
+//                             <div className="flex space-x-2">
+//                                 <button
+//                                     onClick={() => handleEdit(price)}
+//                                     className="flex-1 bg-gray-300 hover:bg-gray-400 text-white py-2 px-4 rounded transition duration-200"
+//                                 >
+//                                     Edit
+//                                 </button>
+//                                 <button
+//                                     onClick={() => handleDelete(price.id)}
+//                                     className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded transition duration-200"
+//                                 >
+//                                     Delete
+//                                 </button>
+//                             </div>
+//                         </div>
+//                     ))}
+//                 </div>
+
+//                 {allPrice.length === 0 && (
+//                     <div className="text-center py-12">
+//                         <p className="text-gray-500 text-lg">
+//                             No price packages found.
+//                         </p>
+//                         <button
+//                             onClick={handleOpenAddForm}
+//                             className="mt-4 bg-indigo-600 text-white px-6 py-3 rounded-full hover:bg-indigo-700 transition-colors flex items-center justify-center mx-auto"
+//                         >
+//                             <FiPlus className="mr-2" />
+//                             Add  Price Package
+//                         </button>
+//                     </div>
+//                 )}
+//             </section>
+//         </Wrapper>
+//     );
+// };
+
+// export default PricePackages;
 
 // import React, { useEffect, useState } from "react";
 // import axios from "axios";
