@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 
 const AddGalleryForm = ({ onClose, setReloadTrigger }) => {
@@ -6,20 +6,35 @@ const AddGalleryForm = ({ onClose, setReloadTrigger }) => {
     const [imagePreviews, setImagePreviews] = useState([]);
     const [submitting, setSubmitting] = useState(false);
 
+    // Add this useEffect to lock body scroll when form mounts
+    useEffect(() => {
+        // Lock body scroll
+        document.body.style.overflow = "hidden";
+        document.body.style.position = "fixed";
+        document.body.style.width = "100%";
+
+        // Cleanup function to restore scroll when component unmounts
+        return () => {
+            document.body.style.overflow = "unset";
+            document.body.style.position = "static";
+            document.body.style.width = "auto";
+        };
+    }, []); // Empty dependency array means this runs once on mount
+
     // Handle image selection
     const handleImageChange = (e) => {
         const files = Array.from(e.target.files || e.dataTransfer.files);
-        
+
         if (files.length > 0) {
             const newImages = [...selectedImages, ...files];
             setSelectedImages(newImages);
 
             // Create preview URLs
-            const newPreviews = files.map(file => ({
+            const newPreviews = files.map((file) => ({
                 file,
-                previewUrl: URL.createObjectURL(file)
+                previewUrl: URL.createObjectURL(file),
             }));
-            setImagePreviews(prev => [...prev, ...newPreviews]);
+            setImagePreviews((prev) => [...prev, ...newPreviews]);
         }
     };
 
@@ -41,28 +56,28 @@ const AddGalleryForm = ({ onClose, setReloadTrigger }) => {
     // Handle Submit
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
         if (selectedImages.length === 0) {
             alert("Please select at least one image");
             return;
         }
 
         const formData = new FormData();
-        
+
         // Append all images
         selectedImages.forEach((image) => {
-            formData.append('images[]', image);
+            formData.append("images[]", image);
         });
 
         try {
             setSubmitting(true);
             await handleCreate(formData);
-            
+
             // Clean up preview URLs
-            imagePreviews.forEach(preview => {
+            imagePreviews.forEach((preview) => {
                 URL.revokeObjectURL(preview.previewUrl);
             });
-            
+
             // Reset form
             setSelectedImages([]);
             setImagePreviews([]);
@@ -78,9 +93,13 @@ const AddGalleryForm = ({ onClose, setReloadTrigger }) => {
     const handleRemoveImage = (indexToRemove) => {
         // Revoke the object URL to avoid memory leaks
         URL.revokeObjectURL(imagePreviews[indexToRemove].previewUrl);
-        
-        setSelectedImages(prev => prev.filter((_, index) => index !== indexToRemove));
-        setImagePreviews(prev => prev.filter((_, index) => index !== indexToRemove));
+
+        setSelectedImages((prev) =>
+            prev.filter((_, index) => index !== indexToRemove),
+        );
+        setImagePreviews((prev) =>
+            prev.filter((_, index) => index !== indexToRemove),
+        );
     };
 
     const handleRemoveAllImages = () => {
@@ -225,7 +244,9 @@ const AddGalleryForm = ({ onClose, setReloadTrigger }) => {
                                 : "bg-blue-400 cursor-not-allowed"
                         } transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
                     >
-                        {submitting ? "Uploading..." : `Add ${selectedImages.length} Image${selectedImages.length !== 1 ? 's' : ''} to Gallery`}
+                        {submitting
+                            ? "Uploading..."
+                            : `Add ${selectedImages.length} Image${selectedImages.length !== 1 ? "s" : ""} to Gallery`}
                     </button>
                 </div>
             </form>

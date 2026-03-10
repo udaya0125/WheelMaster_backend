@@ -310,10 +310,10 @@ const BlogList = () => {
                             {/* Add Gallery Button */}
                             <button
                                 onClick={() => setShowAddForm(true)}
-                                className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center"
+                                className="bg-indigo-600 text-white px-6 py-3 rounded-full font-medium hover:bg-indigo-700 transition-colors flex items-center"
                             >
                                 <FiPlus className="mr-2" />
-                                Add New Blog Post
+                                Add Blog
                             </button>
                         </div>
                     </div>

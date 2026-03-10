@@ -287,14 +287,14 @@ Route::middleware('auth')->group(function () {
 
 
 
-    Route::get('/calendar', function () {
-        return Inertia::render('PricePackages/CalendarIntegrationMobile');
-    });
+    // Route::get('/calendar', function () {
+    //     return Inertia::render('PricePackages/CalendarIntegrationMobile');
+    // });
 
 
-    Route::get('/test-calendar', function () {
-        return Inertia::render('PricePackages/TestCalendarIntegrationMobile');
-    });
+    // Route::get('/test-calendar', function () {
+    //     return Inertia::render('PricePackages/TestCalendarIntegrationMobile');
+    // });
 
 
 

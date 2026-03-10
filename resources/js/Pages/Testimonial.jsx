@@ -37,12 +37,16 @@ const Testimonial = () => {
                 } else {
                     console.warn(
                         "Unexpected API response structure:",
-                        response.data
+                        response.data,
                     );
                     testimonialsData = [];
                 }
 
-                setAllTestimonials(testimonialsData);
+                // setAllTestimonials(testimonialsData);
+                const sorted = [...response.data.data].sort(
+                    (a, b) => new Date(b.created_at) - new Date(a.created_at),
+                );
+                setAllTestimonials(sorted);
                 setError(null);
             } catch (error) {
                 console.error("Fetching error ", error);
@@ -93,7 +97,7 @@ const Testimonial = () => {
                     headers: {
                         "Content-Type": "multipart/form-data",
                     },
-                }
+                },
             );
             setReloadTrigger((prev) => !prev);
             setShowForm(false);
@@ -164,8 +168,7 @@ const Testimonial = () => {
         return testimonial.rating || 5;
     };
 
-
-     const handleLogout = () => {
+    const handleLogout = () => {
         axios
             .post(route("logout"))
             .then((response) => {
@@ -330,10 +333,10 @@ const Testimonial = () => {
                             {/* Add Gallery Button */}
                             <button
                                 onClick={handleAddNew}
-                                className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center"
+                                className="bg-indigo-600 text-white px-6 py-3 rounded-full font-medium hover:bg-indigo-700 transition-colors flex items-center"
                             >
                                 <FiPlus className="mr-2" />
-                                Add Price Package
+                                Add Testimonial
                             </button>
                         </div>
                     </div>
@@ -402,7 +405,7 @@ const Testimonial = () => {
                                               <button
                                                   onClick={() =>
                                                       handleDelete(
-                                                          testimonial.id
+                                                          testimonial.id,
                                                       )
                                                   }
                                                   className="bg-red-600 text-white p-2 rounded-lg hover:bg-red-700"
@@ -422,7 +425,9 @@ const Testimonial = () => {
                                               <div className="flex mb-4">
                                                   {[
                                                       ...Array(
-                                                          getRating(testimonial)
+                                                          getRating(
+                                                              testimonial,
+                                                          ),
                                                       ),
                                                   ].map((_, i) => (
                                                       <svg
@@ -439,7 +444,7 @@ const Testimonial = () => {
                                               {/* Testimonial Content */}
                                               <blockquote className="text-gray-700 mb-6 leading-relaxed relative z-10 line-clamp-4">
                                                   {getTestimonialContent(
-                                                      testimonial
+                                                      testimonial,
                                                   )}
                                               </blockquote>
 
@@ -448,10 +453,10 @@ const Testimonial = () => {
                                                   <div className="relative">
                                                       <img
                                                           src={getAuthorImage(
-                                                              testimonial
+                                                              testimonial,
                                                           )}
                                                           alt={getAuthorName(
-                                                              testimonial
+                                                              testimonial,
                                                           )}
                                                           className="h-12 w-12 rounded-full object-cover border-2 border-white shadow-sm"
                                                       />
@@ -473,7 +478,7 @@ const Testimonial = () => {
                                                   <div className="ml-4">
                                                       <p className="font-semibold text-gray-900">
                                                           {getAuthorName(
-                                                              testimonial
+                                                              testimonial,
                                                           )}
                                                       </p>
                                                       {/* <p className="text-sm text-blue-600 font-medium">

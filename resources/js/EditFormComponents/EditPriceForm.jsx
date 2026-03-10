@@ -1,7 +1,7 @@
 import axios from "axios";
 import React, { useState, useEffect, useRef } from "react";
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
 
 const EditPriceForm = ({ editingPrice, onClose, setReloadTrigger }) => {
     const [priceForm, setPriceForm] = useState({
@@ -19,20 +19,23 @@ const EditPriceForm = ({ editingPrice, onClose, setReloadTrigger }) => {
     // Quill modules configuration
     const modules = {
         toolbar: [
-            [{ 'header': [1, 2, 3, false] }],
-            ['bold', 'italic', 'underline'],
-            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-            ['link'],
-            ['clean']
+            [{ header: [1, 2, 3, false] }],
+            ["bold", "italic", "underline"],
+            [{ list: "ordered" }, { list: "bullet" }],
+            ["link"],
+            ["clean"],
         ],
     };
 
     // Quill formats configuration
     const formats = [
-        'header',
-        'bold', 'italic', 'underline',
-        'list', 'bullet',
-        'link'
+        "header",
+        "bold",
+        "italic",
+        "underline",
+        "list",
+        "bullet",
+        "link",
     ];
 
     // Category options for dropdown
@@ -42,6 +45,21 @@ const EditPriceForm = ({ editingPrice, onClose, setReloadTrigger }) => {
         { value: "test packages", label: "Test Packages" },
         { value: "package bundles", label: "Package Bundles" },
     ];
+
+    // Add this useEffect to lock body scroll when form mounts
+    useEffect(() => {
+        // Lock body scroll
+        document.body.style.overflow = "hidden";
+        document.body.style.position = "fixed";
+        document.body.style.width = "100%";
+
+        // Cleanup function to restore scroll when component unmounts
+        return () => {
+            document.body.style.overflow = "unset";
+            document.body.style.position = "static";
+            document.body.style.width = "auto";
+        };
+    }, []); // Empty dependency array means this runs once on mount
 
     // Populate form with editing data
     useEffect(() => {
@@ -61,8 +79,8 @@ const EditPriceForm = ({ editingPrice, onClose, setReloadTrigger }) => {
     // Handle Update Price
     const handleUpdate = async (formData, id) => {
         try {
-            formData.append('_method', 'PUT');
-            
+            formData.append("_method", "PUT");
+
             const response = await axios.post(
                 route("ourprice.update", { id }),
                 formData,
@@ -70,7 +88,7 @@ const EditPriceForm = ({ editingPrice, onClose, setReloadTrigger }) => {
                     headers: {
                         "Content-Type": "multipart/form-data",
                     },
-                }
+                },
             );
             setReloadTrigger((prev) => !prev);
             return response.data;
@@ -113,7 +131,7 @@ const EditPriceForm = ({ editingPrice, onClose, setReloadTrigger }) => {
             setError(
                 error.response?.data?.message ||
                     error.message ||
-                    "An error occurred while updating. Please try again."
+                    "An error occurred while updating. Please try again.",
             );
         } finally {
             setSubmitting(false);

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { FiEye, FiEyeOff, FiX } from "react-icons/fi"; // Using Feather icons
 // Alternative: You could also use other icon libraries like:
@@ -19,6 +19,21 @@ const AddUserForm = ({ onClose, onSuccess }) => {
     const [submitting, setSubmitting] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+    // Add this useEffect to lock body scroll when form mounts
+    useEffect(() => {
+        // Lock body scroll
+        document.body.style.overflow = "hidden";
+        document.body.style.position = "fixed";
+        document.body.style.width = "100%";
+
+        // Cleanup function to restore scroll when component unmounts
+        return () => {
+            document.body.style.overflow = "unset";
+            document.body.style.position = "static";
+            document.body.style.width = "auto";
+        };
+    }, []); // Empty dependency array means this runs once on mount
 
     const handleChange = (e) => {
         const { name, value } = e.target;

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 const AddTestimonialForm = ({ onClose, onCreate }) => {
     const [testimonialForm, setTestimonialForm] = useState({
@@ -10,11 +10,26 @@ const AddTestimonialForm = ({ onClose, onCreate }) => {
     const [imagePreview, setImagePreview] = useState(null);
     const [submitting, setSubmitting] = useState(false);
 
+    // Add this useEffect to lock body scroll when form mounts
+    useEffect(() => {
+        // Lock body scroll
+        document.body.style.overflow = "hidden";
+        document.body.style.position = "fixed";
+        document.body.style.width = "100%";
+
+        // Cleanup function to restore scroll when component unmounts
+        return () => {
+            document.body.style.overflow = "unset";
+            document.body.style.position = "static";
+            document.body.style.width = "auto";
+        };
+    }, []); // Empty dependency array means this runs once on mount
+
     // Handle Submit
     const handleSubmit = async (e) => {
         e.preventDefault();
         const formData = new FormData();
-        
+
         // Append all form data
         for (const key in testimonialForm) {
             if (testimonialForm[key] !== null && testimonialForm[key] !== "") {
@@ -25,7 +40,7 @@ const AddTestimonialForm = ({ onClose, onCreate }) => {
         try {
             setSubmitting(true);
             await onCreate(formData);
-            
+
             // Reset form
             setTestimonialForm({
                 comment: "",
@@ -34,7 +49,7 @@ const AddTestimonialForm = ({ onClose, onCreate }) => {
                 author_role: "",
             });
             setImagePreview(null);
-            
+
             onClose();
         } catch (error) {
             console.log("Error creating testimonial", error);
@@ -47,7 +62,7 @@ const AddTestimonialForm = ({ onClose, onCreate }) => {
     // Handle change for inputs
     const handleChange = (e) => {
         const { name, value, type, files } = e.target;
-        
+
         if (type === "file" && name === "author_image") {
             const file = files[0];
             if (file) {
@@ -55,7 +70,7 @@ const AddTestimonialForm = ({ onClose, onCreate }) => {
                     ...prev,
                     author_image: file,
                 }));
-                
+
                 // Create preview for new image
                 const reader = new FileReader();
                 reader.onloadend = () => {
@@ -78,11 +93,11 @@ const AddTestimonialForm = ({ onClose, onCreate }) => {
             author_image: null,
         }));
         setImagePreview(null);
-        
+
         // Reset file input
-        const fileInput = document.getElementById('author_image');
+        const fileInput = document.getElementById("author_image");
         if (fileInput) {
-            fileInput.value = '';
+            fileInput.value = "";
         }
     };
 
@@ -146,11 +161,13 @@ const AddTestimonialForm = ({ onClose, onCreate }) => {
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         required={!testimonialForm.author_image}
                     />
-                    
+
                     {/* Image Preview */}
                     {imagePreview && (
                         <div className="mt-2">
-                            <p className="text-sm text-gray-600 mb-1">Image Preview:</p>
+                            <p className="text-sm text-gray-600 mb-1">
+                                Image Preview:
+                            </p>
                             <div className="flex items-center space-x-4">
                                 <img
                                     src={imagePreview}
@@ -167,7 +184,7 @@ const AddTestimonialForm = ({ onClose, onCreate }) => {
                             </div>
                         </div>
                     )}
-                    
+
                     {!imagePreview && (
                         <p className="text-xs text-gray-500 mt-1">
                             Please upload an image file (JPG, PNG, WEBP, etc.)

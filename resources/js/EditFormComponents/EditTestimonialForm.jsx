@@ -12,19 +12,45 @@ const EditTestimonialForm = ({ onClose, editingTestimonial, onUpdate }) => {
     const [submitting, setSubmitting] = useState(false);
     const imgurl = import.meta.env.VITE_IMAGE_PATH;
 
+    // Add this useEffect to lock body scroll when form mounts
+    useEffect(() => {
+        // Lock body scroll
+        document.body.style.overflow = "hidden";
+        document.body.style.position = "fixed";
+        document.body.style.width = "100%";
+
+        // Cleanup function to restore scroll when component unmounts
+        return () => {
+            document.body.style.overflow = "unset";
+            document.body.style.position = "static";
+            document.body.style.width = "auto";
+        };
+    }, []); // Empty dependency array means this runs once on mount
+
     // Use Effect to populate form when editing
     useEffect(() => {
         if (editingTestimonial) {
             setTestimonialForm({
-                comment: editingTestimonial.comment || editingTestimonial.comment || "",
-                author_name: editingTestimonial.name || editingTestimonial.author_name || "",
+                comment:
+                    editingTestimonial.comment ||
+                    editingTestimonial.comment ||
+                    "",
+                author_name:
+                    editingTestimonial.name ||
+                    editingTestimonial.author_name ||
+                    "",
                 author_image: null,
-                author_role: editingTestimonial.role || editingTestimonial.author_role || "",
+                author_role:
+                    editingTestimonial.role ||
+                    editingTestimonial.author_role ||
+                    "",
             });
-            
+
             // Store existing image separately for display
             if (editingTestimonial.avatar || editingTestimonial.author_image) {
-                const imagePath = editingTestimonial.avatar || editingTestimonial.author_image;
+                const imagePath =
+                    editingTestimonial.avatar ||
+                    editingTestimonial.author_image;
                 setExistingImage(imagePath);
                 setImagePreview(`${imgurl}/${imagePath}`);
             }
@@ -35,30 +61,33 @@ const EditTestimonialForm = ({ onClose, editingTestimonial, onUpdate }) => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         const formData = new FormData();
-        
+
         // Append all form data except author_image if it's not changed
         for (const key in testimonialForm) {
-            if (key === 'author_image') {
+            if (key === "author_image") {
                 // Only append author_image if it's a new file (not null)
                 if (testimonialForm.author_image instanceof File) {
                     formData.append(key, testimonialForm[key]);
                 }
-            } else if (testimonialForm[key] !== null && testimonialForm[key] !== "") {
+            } else if (
+                testimonialForm[key] !== null &&
+                testimonialForm[key] !== ""
+            ) {
                 formData.append(key, testimonialForm[key]);
             }
         }
 
         // Rename comment to content for backend if needed
-        if (formData.has('comment')) {
-            const comment = formData.get('comment');
-            formData.delete('comment');
-            formData.append('comment', comment);
+        if (formData.has("comment")) {
+            const comment = formData.get("comment");
+            formData.delete("comment");
+            formData.append("comment", comment);
         }
 
         try {
             setSubmitting(true);
             await onUpdate(formData, editingTestimonial.id);
-            
+
             // Reset form
             setTestimonialForm({
                 comment: "",
@@ -68,7 +97,7 @@ const EditTestimonialForm = ({ onClose, editingTestimonial, onUpdate }) => {
             });
             setImagePreview(null);
             setExistingImage(null);
-            
+
             onClose();
         } catch (error) {
             console.log("Error updating testimonial", error);
@@ -81,7 +110,7 @@ const EditTestimonialForm = ({ onClose, editingTestimonial, onUpdate }) => {
     // Handle change for inputs
     const handleChange = (e) => {
         const { name, value, type, files } = e.target;
-        
+
         if (type === "file" && name === "author_image") {
             const file = files[0];
             if (file) {
@@ -89,7 +118,7 @@ const EditTestimonialForm = ({ onClose, editingTestimonial, onUpdate }) => {
                     ...prev,
                     author_image: file,
                 }));
-                
+
                 // Create preview for new image
                 const reader = new FileReader();
                 reader.onloadend = () => {
@@ -112,11 +141,11 @@ const EditTestimonialForm = ({ onClose, editingTestimonial, onUpdate }) => {
             author_image: null,
         }));
         setImagePreview(existingImage ? `${imgurl}/${existingImage}` : null);
-        
+
         // Reset file input
-        const fileInput = document.getElementById('author_image');
+        const fileInput = document.getElementById("author_image");
         if (fileInput) {
-            fileInput.value = '';
+            fileInput.value = "";
         }
     };
 
@@ -189,12 +218,15 @@ const EditTestimonialForm = ({ onClose, editingTestimonial, onUpdate }) => {
                         accept="image/*"
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
-                    
+
                     {/* Image Display */}
                     <div className="mt-2">
-                        {existingImage && !(testimonialForm.author_image instanceof File) ? (
+                        {existingImage &&
+                        !(testimonialForm.author_image instanceof File) ? (
                             <div>
-                                <p className="text-sm text-gray-600 mb-1">Current Image:</p>
+                                <p className="text-sm text-gray-600 mb-1">
+                                    Current Image:
+                                </p>
                                 <div className="flex items-center space-x-4">
                                     <img
                                         src={`${imgurl}/${existingImage}`}
@@ -213,12 +245,16 @@ const EditTestimonialForm = ({ onClose, editingTestimonial, onUpdate }) => {
                                     </button>
                                 </div>
                                 <p className="text-xs text-gray-500 mt-1">
-                                    Upload a new image to replace the current one.
+                                    Upload a new image to replace the current
+                                    one.
                                 </p>
                             </div>
-                        ) : imagePreview && testimonialForm.author_image instanceof File ? (
+                        ) : imagePreview &&
+                          testimonialForm.author_image instanceof File ? (
                             <div>
-                                <p className="text-sm text-gray-600 mb-1">New Image Preview:</p>
+                                <p className="text-sm text-gray-600 mb-1">
+                                    New Image Preview:
+                                </p>
                                 <div className="flex items-center space-x-4">
                                     <img
                                         src={imagePreview}
@@ -236,7 +272,8 @@ const EditTestimonialForm = ({ onClose, editingTestimonial, onUpdate }) => {
                             </div>
                         ) : (
                             <p className="text-xs text-gray-500 mt-1">
-                                No image selected. Upload a new image or keep the current one (if any).
+                                No image selected. Upload a new image or keep
+                                the current one (if any).
                             </p>
                         )}
                     </div>

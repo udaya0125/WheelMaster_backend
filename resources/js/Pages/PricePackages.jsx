@@ -16,7 +16,11 @@ const PricePackages = () => {
         const fetchPrice = async () => {
             try {
                 const response = await axios.get(route("ourprice.index"));
-                setAllPrice(response.data.data || response.data);
+                // setAllPrice(response.data.data || response.data);
+                const sorted = [...response.data.data].sort(
+                    (a, b) => new Date(b.created_at) - new Date(a.created_at),
+                );
+                setAllPrice(sorted);
             } catch (error) {
                 console.error("fetching error ", error);
             }
@@ -59,7 +63,7 @@ const PricePackages = () => {
         setShowAddForm(false);
     };
 
-     const handleLogout = () => {
+    const handleLogout = () => {
         axios
             .post(route("logout"))
             .then((response) => {
@@ -90,7 +94,7 @@ const PricePackages = () => {
                                     onClick={handleCloseAddForm}
                                     className="text-gray-500 hover:text-gray-700 text-2xl"
                                 >
-                                    <FiX/>
+                                    <FiX />
                                 </button>
                             </div>
                             <AddPriceForm
@@ -114,7 +118,7 @@ const PricePackages = () => {
                                 onClick={handleCloseEditForm}
                                 className="text-gray-500 hover:text-gray-700 text-2xl"
                             >
-                               <FiX/>
+                                <FiX />
                             </button>
                         </div>
                         <EditPriceForm
@@ -200,10 +204,10 @@ const PricePackages = () => {
                         {/* Add Gallery Button */}
                         <button
                             onClick={handleOpenAddForm}
-                            className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center"
+                            className="bg-indigo-600 text-white px-6 py-3 rounded-full font-medium hover:bg-indigo-700 transition-colors flex items-center"
                         >
                             <FiPlus className="mr-2" />
-                            Add New Price Package
+                            Add Price
                         </button>
                     </div>
                 </div>
@@ -278,10 +282,10 @@ const PricePackages = () => {
                         </p>
                         <button
                             onClick={handleOpenAddForm}
-                            className="mt-4 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center mx-auto"
+                            className="mt-4 bg-indigo-600 text-white px-6 py-3 rounded-full hover:bg-indigo-700 transition-colors flex items-center justify-center mx-auto"
                         >
                             <FiPlus className="mr-2" />
-                            Add Your First Price Package
+                            Add  Price Package
                         </button>
                     </div>
                 )}
@@ -291,9 +295,6 @@ const PricePackages = () => {
 };
 
 export default PricePackages;
-
-
-
 
 // import React, { useEffect, useState } from "react";
 // import axios from "axios";
@@ -419,7 +420,7 @@ export default PricePackages;
 //                                 Manage your pricing plans and packages
 //                             </p>
 //                         </div>
-                        
+
 //                         <button
 //                             onClick={handleOpenAddForm}
 //                             className="group flex items-center px-5 py-2.5 bg-white border border-gray-200 rounded-full text-sm font-medium text-gray-700 hover:border-gray-300 hover:shadow-sm transition-all duration-200"
@@ -467,7 +468,7 @@ export default PricePackages;
 //                                                 </span>
 //                                             )}
 //                                         </div>
-                                        
+
 //                                         <div className="flex items-baseline">
 //                                             <span className="text-3xl font-light text-gray-900">
 //                                                 ${parseFloat(price.price).toFixed(2)}
@@ -491,7 +492,7 @@ export default PricePackages;
 //                                     {/* Features Section */}
 //                                     {price.features && (
 //                                         <div className="p-6">
-//                                             <div 
+//                                             <div
 //                                                 className="text-sm text-gray-600 leading-relaxed"
 //                                                 dangerouslySetInnerHTML={{
 //                                                     __html: price.features,

@@ -38,7 +38,9 @@ const Gallery = () => {
                 setLoading(true);
                 setError(null);
                 const response = await axios.get(route("ourgallery.index"));
-                setImages(Array.isArray(response.data) ? response.data : []);
+                // setImages(Array.isArray(response.data) ? response.data : []);
+                const data = Array.isArray(response.data) ? response.data : [];
+                setImages([...data].sort((a, b) => b.id - a.id));
             } catch (err) {
                 setError("Failed to load gallery images");
                 console.error("Error fetching gallery images:", err);
@@ -134,7 +136,7 @@ const Gallery = () => {
         );
     }
 
-     const handleLogout = () => {
+    const handleLogout = () => {
         axios
             .post(route("logout"))
             .then((response) => {
@@ -159,13 +161,13 @@ const Gallery = () => {
                         <div className="p-6">
                             <div className="flex justify-between items-center mb-6">
                                 <h2 className="text-2xl font-bold">
-                                    Add New Gallery Images
+                                    Add Gallery
                                 </h2>
                                 <button
                                     onClick={handleCloseAddForm}
                                     className="text-gray-500 hover:text-gray-700 text-2xl"
                                 >
-                                    <FiX/>
+                                    <FiX />
                                 </button>
                             </div>
                             <AddGalleryForm
@@ -235,10 +237,10 @@ const Gallery = () => {
                         {/* Add Gallery Button */}
                         <button
                             onClick={handleOpenAddForm}
-                            className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center"
+                            className="bg-indigo-600 text-white px-6 py-3 rounded-full font-medium hover:bg-indigo-700 transition-colors flex items-center"
                         >
                             <FiPlus className="mr-2" />
-                            Add New Gallery Item
+                            Add Gallery
                         </button>
                     </div>
                 </div>
@@ -284,10 +286,10 @@ const Gallery = () => {
                             </p>
                             <button
                                 onClick={handleOpenAddForm}
-                                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center mx-auto"
+                                className="bg-indigo-600 text-white px-6 py-3 rounded-full hover:bg-indigo-700 transition-colors flex items-center justify-center mx-auto"
                             >
                                 <FiPlus className="mr-2" />
-                                Add Your First Gallery Image
+                                Add  Gallery Image
                             </button>
                         </div>
                     </div>
@@ -323,13 +325,13 @@ const Gallery = () => {
                                             className="absolute inset-0 bg-cover bg-center transition-transform duration-500 ease-in-out group-hover:scale-110"
                                             style={{
                                                 backgroundImage: `url(${getImageUrl(
-                                                    image.image_path
+                                                    image.image_path,
                                                 )})`,
                                             }}
                                         >
                                             <img
                                                 src={getImageUrl(
-                                                    image.image_path
+                                                    image.image_path,
                                                 )}
                                                 alt={
                                                     image.alt ||

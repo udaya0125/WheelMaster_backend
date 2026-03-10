@@ -1,7 +1,7 @@
 import axios from "axios";
-import React, { useState, useRef } from "react";
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import React, { useState, useRef, useEffect } from "react";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
 
 const AddPriceForm = ({ onClose, setReloadTrigger }) => {
     const [priceForm, setPriceForm] = useState({
@@ -16,23 +16,41 @@ const AddPriceForm = ({ onClose, setReloadTrigger }) => {
     const [error, setError] = useState("");
     const quillRef = useRef(null);
 
+    // Add this useEffect to lock body scroll when form mounts
+    useEffect(() => {
+        // Lock body scroll
+        document.body.style.overflow = "hidden";
+        document.body.style.position = "fixed";
+        document.body.style.width = "100%";
+
+        // Cleanup function to restore scroll when component unmounts
+        return () => {
+            document.body.style.overflow = "unset";
+            document.body.style.position = "static";
+            document.body.style.width = "auto";
+        };
+    }, []); // Empty dependency array means this runs once on mount
+
     // Quill modules configuration
     const modules = {
         toolbar: [
-            [{ 'header': [1, 2, 3, false] }],
-            ['bold', 'italic', 'underline'],
-            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-            ['link'],
-            ['clean']
+            [{ header: [1, 2, 3, false] }],
+            ["bold", "italic", "underline"],
+            [{ list: "ordered" }, { list: "bullet" }],
+            ["link"],
+            ["clean"],
         ],
     };
 
     // Quill formats configuration
     const formats = [
-        'header',
-        'bold', 'italic', 'underline',
-        'list', 'bullet',
-        'link'
+        "header",
+        "bold",
+        "italic",
+        "underline",
+        "list",
+        "bullet",
+        "link",
     ];
 
     // Category options for dropdown
@@ -91,7 +109,7 @@ const AddPriceForm = ({ onClose, setReloadTrigger }) => {
             setError(
                 error.response?.data?.message ||
                     error.message ||
-                    "An error occurred while saving. Please try again."
+                    "An error occurred while saving. Please try again.",
             );
         } finally {
             setSubmitting(false);
