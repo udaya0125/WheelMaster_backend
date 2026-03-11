@@ -307,7 +307,8 @@ class ReservationController extends Controller
 
         // Send email to admin
         try {
-            $adminEmail = env('ADMIN_EMAIL', 'Wheelmaster@outlook.com.au');
+            // $adminEmail = env('ADMIN_EMAIL', 'wheelmaster@outlook.com.au');
+            $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
             Mail::to($adminEmail)->send(new ReservationCreated($reservation, true));
         } catch (\Exception $e) {
             Log::error('Failed to send admin email: '.$e->getMessage());

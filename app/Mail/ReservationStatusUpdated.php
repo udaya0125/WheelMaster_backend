@@ -12,6 +12,7 @@ class ReservationStatusUpdated extends Mailable
     use Queueable, SerializesModels;
 
     public $reservation;
+
     public $isAdmin;
 
     /**
@@ -29,7 +30,7 @@ class ReservationStatusUpdated extends Mailable
     public function build()
     {
         $status = $this->reservation->status;
-        
+
         if ($this->isAdmin) {
             $subject = "Reservation Status Updated - {$this->reservation->user_name} - {$status}";
         } else {
@@ -37,10 +38,10 @@ class ReservationStatusUpdated extends Mailable
         }
 
         return $this->subject($subject)
-                    ->view('reservation-status-updated')
-                    ->with([
-                        'reservation' => $this->reservation,
-                        'isAdmin' => $this->isAdmin,
-                    ]);
+            ->view('reservation-status-updated')
+            ->with([
+                'reservation' => $this->reservation,
+                'isAdmin' => $this->isAdmin,
+            ]);
     }
 }
