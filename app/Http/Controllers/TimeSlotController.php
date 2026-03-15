@@ -1,5 +1,4 @@
 <?php
-// app/Http/Controllers/TimeSlotController.php
 
 namespace App\Http\Controllers;
 
@@ -79,7 +78,7 @@ class TimeSlotController extends Controller
             ->orderBy('start_time')
             ->get();
             
-        // Get reservations to mark booked slots
+        // Get ALL reservations for this date (regardless of price_id)
         $reservations = UserReservation::where('reservation_date', $date)
             ->where('status', '!=', 'Rejected')
             ->get();
@@ -94,25 +93,33 @@ class TimeSlotController extends Controller
             $status = $slot->status;
             $slotTime = $slot->start_time;
             
-            // Check if this slot time exists in default slots
-            $isDefaultTime = in_array($slotTime, $defaultStartTimes);
-            
-            // Override status if reserved
+            // Check if this slot time is reserved by ANY reservation
             foreach ($reservations as $reservation) {
-                if ($slot->start_time == $reservation->start_time) {
+                $reservationStart = Carbon::parse($reservation->start_time);
+                $reservationEnd = Carbon::parse($reservation->end_time);
+                $slotStart = Carbon::parse($slot->start_time);
+                $slotEnd = Carbon::parse($slot->end_time);
+                
+                // Check if this 30-minute slot falls within any reservation
+                if ($slotStart->between($reservationStart, $reservationEnd->subMinute()) ||
+                    $slotEnd->between($reservationStart, $reservationEnd->subMinute()) ||
+                    ($slotStart <= $reservationStart && $slotEnd >= $reservationEnd)) {
                     $status = 'reserved';
                     break;
                 }
             }
             
-            // Override status if blocked (and not reserved)
+            // Check if blocked (if not already reserved)
             if ($status !== 'reserved') {
                 foreach ($blocks as $block) {
                     $blockStart = Carbon::parse($block->start_time);
                     $blockEnd = Carbon::parse($block->end_time);
                     $slotStart = Carbon::parse($slot->start_time);
+                    $slotEnd = Carbon::parse($slot->end_time);
                     
-                    if ($slotStart->between($blockStart, $blockEnd->subMinute())) {
+                    if ($slotStart->between($blockStart, $blockEnd->subMinute()) ||
+                        $slotEnd->between($blockStart, $blockEnd->subMinute()) ||
+                        ($slotStart <= $blockStart && $slotEnd >= $blockEnd)) {
                         $status = 'blocked';
                         break;
                     }
@@ -121,41 +128,66 @@ class TimeSlotController extends Controller
             
             return [
                 'id' => $slot->id,
-                'start_time' => $slot->start_time,
-                'end_time' => $slot->end_time,
+                'start_time' => substr($slot->start_time, 0, 5), // Return only HH:MM
+                'end_time' => substr($slot->end_time, 0, 5),
                 'formatted_start' => $slot->formatted_start_time,
                 'formatted_end' => $slot->formatted_end_time,
                 'status' => $status,
-                'is_default_time' => $isDefaultTime,
-                'isEditing' => false // Add this for frontend state
+                'is_default_time' => in_array($slot->start_time, $defaultStartTimes),
+                'isEditing' => false
             ];
-        });
-        
-        // Find where the custom schedule starts
-        $firstNonDefaultSlot = null;
-        foreach ($formattedSlots as $index => $slot) {
-            if (!$slot['is_default_time']) {
-                $firstNonDefaultSlot = [
-                    'time' => $slot['start_time'],
-                    'formatted' => $slot['formatted_start'],
-                    'index' => $index
-                ];
-                break;
-            }
-        }
+        })->values();
         
         return response()->json([
             'success' => true,
             'date' => $date,
-            'default_start' => '07:00',
-            'current_start' => $slots->first() ? substr($slots->first()->start_time, 0, 5) : '07:00',
             'slots' => $formattedSlots,
-            'custom_start_info' => $firstNonDefaultSlot ? [
-                'starts_at' => $firstNonDefaultSlot['time'],
-                'formatted' => $firstNonDefaultSlot['formatted'],
-                'index' => $firstNonDefaultSlot['index']
-            ] : null
         ]);
+    }
+
+    /**
+     * Mark a time slot as reserved after booking
+     */
+    public static function markSlotAsReserved($date, $startTime, $durationMinutes = 30)
+    {
+        // Initialize time slots for this date if they don't exist
+        TimeSlot::initializeForDateRange($date, $date);
+        
+        // If duration is more than 30 minutes, mark multiple slots
+        if ($durationMinutes > 30) {
+            $startTimeCarbon = Carbon::parse($startTime);
+            $endTimeCarbon = $startTimeCarbon->copy()->addMinutes($durationMinutes);
+            
+            $currentTime = $startTimeCarbon->copy();
+            
+            while ($currentTime < $endTimeCarbon) {
+                $timeSlot = TimeSlot::where('date', $date)
+                    ->where('start_time', $currentTime->format('H:i:s'))
+                    ->first();
+                
+                if ($timeSlot) {
+                    $timeSlot->status = 'reserved';
+                    $timeSlot->save();
+                }
+                
+                $currentTime->addMinutes(30);
+            }
+            
+            return true;
+        } else {
+            // Mark single slot
+            $timeSlot = TimeSlot::where('date', $date)
+                ->where('start_time', $startTime)
+                ->first();
+            
+            if ($timeSlot) {
+                $timeSlot->status = 'reserved';
+                $timeSlot->save();
+                return true;
+            }
+        }
+        
+        return false;
     }
 
     /**
@@ -180,7 +212,7 @@ class TimeSlotController extends Controller
         try {
             $date = $request->date;
             $oldTime = $request->old_time;
-            $newTime = $request->new_time . ':00'; // Add seconds
+            $newTime = $request->new_time . ':00';
             $targetIndex = $request->index;
 
             // Validate time range (7:00 AM to 6:00 PM)
@@ -208,7 +240,7 @@ class TimeSlotController extends Controller
                 ], 404);
             }
 
-            // Check if the new time conflicts with any existing slot (excluding the current one)
+            // Check if the new time conflicts with any existing slot
             $timeExists = $allSlots->where('start_time', $newTime)->where('id', '!=', $allSlots[$targetIndex]->id)->isNotEmpty();
             if ($timeExists) {
                 return response()->json([
@@ -283,67 +315,10 @@ class TimeSlotController extends Controller
                 ->orderBy('start_time')
                 ->get();
 
-            // Get default slots for comparison
-            $defaultSlots = TimeSlot::generateDefaultSlotsForDate($date);
-            $defaultStartTimes = collect($defaultSlots)->pluck('start_time')->toArray();
-
-            // Format slots for response
-            $formattedSlots = $updatedSlots->map(function($slot) use ($date, $defaultStartTimes) {
-                // Check current status
-                $status = $slot->status;
-                
-                $isReserved = UserReservation::where('reservation_date', $date)
-                    ->where('start_time', $slot->start_time)
-                    ->where('status', '!=', 'Rejected')
-                    ->exists();
-                    
-                if ($isReserved) {
-                    $status = 'reserved';
-                } else {
-                    $isBlocked = BlockReservation::where('date', $date)
-                        ->where('start_time', '<=', $slot->start_time)
-                        ->where('end_time', '>', $slot->start_time)
-                        ->exists();
-                        
-                    if ($isBlocked) {
-                        $status = 'blocked';
-                    }
-                }
-                
-                return [
-                    'id' => $slot->id,
-                    'start_time' => $slot->start_time,
-                    'end_time' => $slot->end_time,
-                    'formatted_start' => $slot->formatted_start_time,
-                    'formatted_end' => $slot->formatted_end_time,
-                    'status' => $status,
-                    'is_default_time' => in_array($slot->start_time, $defaultStartTimes),
-                    'isEditing' => false
-                ];
-            });
-
-            // Find updated custom start info
-            $firstNonDefaultSlot = null;
-            foreach ($formattedSlots as $index => $slot) {
-                if (!$slot['is_default_time']) {
-                    $firstNonDefaultSlot = [
-                        'time' => $slot['start_time'],
-                        'formatted' => $slot['formatted_start'],
-                        'index' => $index
-                    ];
-                    break;
-                }
-            }
-
             return response()->json([
                 'success' => true,
                 'message' => 'Time slot updated successfully',
-                'slots' => $formattedSlots,
-                'custom_start_info' => $firstNonDefaultSlot ? [
-                    'starts_at' => $firstNonDefaultSlot['time'],
-                    'formatted' => $firstNonDefaultSlot['formatted'],
-                    'index' => $firstNonDefaultSlot['index']
-                ] : null
+                'slots' => $updatedSlots,
             ]);
 
         } catch (\Exception $e) {
@@ -356,7 +331,6 @@ class TimeSlotController extends Controller
 
     /**
      * Update availability from a specific time onwards
-     * Keeps slots before the selected time unchanged
      */
     public function updateAvailability(Request $request)
     {
@@ -372,7 +346,6 @@ class TimeSlotController extends Controller
             ], 422);
         }
 
-        // Parse the selected time
         $selectedTime = Carbon::parse($request->start_time);
         $minTime = Carbon::createFromTime(7, 0);
         $maxTime = Carbon::createFromTime(17, 30);
@@ -463,250 +436,129 @@ class TimeSlotController extends Controller
     }
 
     /**
-     * Integration method for ReservationController
+     * Update a single time slot and automatically adjust all subsequent slots
      */
-    public static function getAvailableSlotsForReservation($date, $priceId = null)
+    public function updateSingleSlotWithSubsequent(Request $request)
     {
-        // Initialize time slots for this date if they don't exist
-        TimeSlot::initializeForDateRange($date, $date);
-        
-        // Get all time slots for this date
-        $timeSlots = TimeSlot::where('date', $date)
-            ->orderBy('start_time')
-            ->get();
-        
-        // Get reservations for this date and price
-        $reservations = UserReservation::where('reservation_date', $date)
-            ->where('status', '!=', 'Rejected');
-            
-        if ($priceId) {
-            $reservations->where('price_id', $priceId);
+        $validator = Validator::make($request->all(), [
+            'date' => 'required|date',
+            'start_index' => 'required|integer',
+            'new_start_time' => 'required|date_format:H:i',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors()
+            ], 422);
         }
-        $reservations = $reservations->get();
-        
-        // Get blocks for this date
-        $blocks = BlockReservation::where('date', $date)->get();
-        
-        $availableSlots = [];
-        
-        foreach ($timeSlots as $slot) {
-            // Check if slot is reserved
-            $isReserved = $reservations->contains(function($reservation) use ($slot) {
-                return $reservation->start_time == $slot->start_time;
-            });
+
+        try {
+            $date = $request->date;
+            $startIndex = $request->start_index;
+            $newStartTime = $request->new_start_time . ':00';
+
+            $newTimeCarbon = Carbon::parse($newStartTime);
+            $minTime = Carbon::createFromTime(7, 0, 0);
+            $maxTime = Carbon::createFromTime(18, 0, 0);
             
-            // Check if slot is blocked
-            $isBlocked = false;
-            foreach ($blocks as $block) {
-                $blockStart = Carbon::parse($block->start_time);
-                $blockEnd = Carbon::parse($block->end_time);
-                $slotStart = Carbon::parse($slot->start_time);
-                
-                if ($slotStart->between($blockStart, $blockEnd->subMinute())) {
-                    $isBlocked = true;
-                    break;
-                }
+            if ($newTimeCarbon < $minTime || $newTimeCarbon > $maxTime) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Time must be between 7:00 AM and 6:00 PM'
+                ], 422);
             }
-            
-            // If slot is available (not reserved and not blocked && $slot->status === 'available')
-            if (!$isReserved && !$isBlocked) {
-                $availableSlots[] = $slot->start_time;
+
+            $allSlots = TimeSlot::where('date', $date)
+                ->orderBy('start_time')
+                ->get();
+
+            if (!isset($allSlots[$startIndex])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Slot not found'
+                ], 404);
             }
-        }
-        
-        return $availableSlots;
-    }
 
+            $targetSlot = $allSlots[$startIndex];
 
-    /**
- * Update a single time slot and automatically adjust all subsequent slots
- * This is the new method that handles cascading updates
- */
-public function updateSingleSlotWithSubsequent(Request $request)
-{
-    $validator = Validator::make($request->all(), [
-        'date' => 'required|date',
-        'start_index' => 'required|integer',
-        'new_start_time' => 'required|date_format:H:i',
-    ]);
-
-    if ($validator->fails()) {
-        return response()->json([
-            'success' => false,
-            'errors' => $validator->errors()
-        ], 422);
-    }
-
-    try {
-        $date = $request->date;
-        $startIndex = $request->start_index;
-        $newStartTime = $request->new_start_time . ':00'; // Add seconds
-
-        // Validate time range (7:00 AM to 6:00 PM)
-        $newTimeCarbon = Carbon::parse($newStartTime);
-        $minTime = Carbon::createFromTime(7, 0, 0);
-        $maxTime = Carbon::createFromTime(18, 0, 0);
-        
-        if ($newTimeCarbon < $minTime || $newTimeCarbon > $maxTime) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Time must be between 7:00 AM and 6:00 PM'
-            ], 422);
-        }
-
-        // Get all slots for the date
-        $allSlots = TimeSlot::where('date', $date)
-            ->orderBy('start_time')
-            ->get();
-
-        // Verify the target slot exists
-        if (!isset($allSlots[$startIndex])) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Slot not found'
-            ], 404);
-        }
-
-        $targetSlot = $allSlots[$startIndex];
-
-        // Check if the slot is reserved or blocked
-        $isReserved = UserReservation::where('reservation_date', $date)
-            ->where('start_time', $targetSlot->start_time)
-            ->where('status', '!=', 'Rejected')
-            ->exists();
-            
-        if ($isReserved) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cannot edit a reserved time slot'
-            ], 422);
-        }
-        
-        // Check blocks
-        $isBlocked = BlockReservation::where('date', $date)
-            ->where('start_time', '<=', $targetSlot->start_time)
-            ->where('end_time', '>', $targetSlot->start_time)
-            ->exists();
-            
-        if ($isBlocked) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cannot edit a blocked time slot'
-            ], 422);
-        }
-
-        // Check if the new time conflicts with any existing slot (excluding the current one)
-        $timeExists = $allSlots->where('start_time', $newStartTime)
-            ->where('id', '!=', $targetSlot->id)
-            ->isNotEmpty();
-            
-        if ($timeExists) {
-            return response()->json([
-                'success' => false,
-                'message' => 'A slot at this time already exists'
-            ], 422);
-        }
-
-        // Update the target slot and all subsequent slots
-        $currentTime = Carbon::parse($newStartTime);
-        
-        for ($i = $startIndex; $i < $allSlots->count(); $i++) {
-            $slot = $allSlots[$i];
-            
-            // Check if this slot is reserved or blocked before updating
-            $isSlotReserved = UserReservation::where('reservation_date', $date)
-                ->where('start_time', $slot->start_time)
-                ->where('status', '!=', 'Rejected')
-                ->exists();
-                
-            $isSlotBlocked = BlockReservation::where('date', $date)
-                ->where('start_time', '<=', $slot->start_time)
-                ->where('end_time', '>', $slot->start_time)
-                ->exists();
-            
-            // Only update if not reserved or blocked
-            if (!$isSlotReserved && !$isSlotBlocked) {
-                $slot->start_time = $currentTime->format('H:i:s');
-                $slot->end_time = $currentTime->copy()->addMinutes(30)->format('H:i:s');
-                $slot->save();
-            }
-            
-            $currentTime->addMinutes(30);
-        }
-
-        // Get updated slots
-        $updatedSlots = TimeSlot::where('date', $date)
-            ->orderBy('start_time')
-            ->get();
-
-        // Get default slots for comparison
-        $defaultSlots = TimeSlot::generateDefaultSlotsForDate($date);
-        $defaultStartTimes = collect($defaultSlots)->pluck('start_time')->toArray();
-
-        // Format slots for response
-        $formattedSlots = $updatedSlots->map(function($slot) use ($date, $defaultStartTimes) {
-            // Check current status
-            $status = $slot->status;
-            
+            // Check if the slot is reserved or blocked
             $isReserved = UserReservation::where('reservation_date', $date)
-                ->where('start_time', $slot->start_time)
+                ->where('start_time', $targetSlot->start_time)
                 ->where('status', '!=', 'Rejected')
                 ->exists();
                 
             if ($isReserved) {
-                $status = 'reserved';
-            } else {
-                $isBlocked = BlockReservation::where('date', $date)
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot edit a reserved time slot'
+                ], 422);
+            }
+            
+            $isBlocked = BlockReservation::where('date', $date)
+                ->where('start_time', '<=', $targetSlot->start_time)
+                ->where('end_time', '>', $targetSlot->start_time)
+                ->exists();
+                
+            if ($isBlocked) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot edit a blocked time slot'
+                ], 422);
+            }
+
+            // Check if the new time conflicts with any existing slot
+            $timeExists = $allSlots->where('start_time', $newStartTime)
+                ->where('id', '!=', $targetSlot->id)
+                ->isNotEmpty();
+                
+            if ($timeExists) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'A slot at this time already exists'
+                ], 422);
+            }
+
+            // Update the target slot and all subsequent slots
+            $currentTime = Carbon::parse($newStartTime);
+            
+            for ($i = $startIndex; $i < $allSlots->count(); $i++) {
+                $slot = $allSlots[$i];
+                
+                $isSlotReserved = UserReservation::where('reservation_date', $date)
+                    ->where('start_time', $slot->start_time)
+                    ->where('status', '!=', 'Rejected')
+                    ->exists();
+                    
+                $isSlotBlocked = BlockReservation::where('date', $date)
                     ->where('start_time', '<=', $slot->start_time)
                     ->where('end_time', '>', $slot->start_time)
                     ->exists();
-                    
-                if ($isBlocked) {
-                    $status = 'blocked';
+                
+                if (!$isSlotReserved && !$isSlotBlocked) {
+                    $slot->start_time = $currentTime->format('H:i:s');
+                    $slot->end_time = $currentTime->copy()->addMinutes(30)->format('H:i:s');
+                    $slot->save();
                 }
+                
+                $currentTime->addMinutes(30);
             }
-            
-            return [
-                'id' => $slot->id,
-                'start_time' => $slot->start_time,
-                'end_time' => $slot->end_time,
-                'formatted_start' => $slot->formatted_start_time,
-                'formatted_end' => $slot->formatted_end_time,
-                'status' => $status,
-                'is_default_time' => in_array($slot->start_time, $defaultStartTimes),
-                'isEditing' => false
-            ];
-        });
 
-        // Find updated custom start info
-        $firstNonDefaultSlot = null;
-        foreach ($formattedSlots as $index => $slot) {
-            if (!$slot['is_default_time']) {
-                $firstNonDefaultSlot = [
-                    'time' => $slot['start_time'],
-                    'formatted' => $slot['formatted_start'],
-                    'index' => $index
-                ];
-                break;
-            }
+            $updatedSlots = TimeSlot::where('date', $date)
+                ->orderBy('start_time')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Time slots updated successfully from ' . Carbon::parse($newStartTime)->format('g:i A') . ' onwards',
+                'slots' => $updatedSlots,
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error updating time slots: ' . $e->getMessage()
+            ], 500);
         }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Time slots updated successfully from ' . Carbon::parse($newStartTime)->format('g:i A') . ' onwards',
-            'slots' => $formattedSlots,
-            'custom_start_info' => $firstNonDefaultSlot ? [
-                'starts_at' => $firstNonDefaultSlot['time'],
-                'formatted' => $firstNonDefaultSlot['formatted'],
-                'index' => $firstNonDefaultSlot['index']
-            ] : null
-        ]);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Error updating time slots: ' . $e->getMessage()
-        ], 500);
     }
-}
 }

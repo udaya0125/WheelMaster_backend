@@ -765,6 +765,105 @@ const BookingForm = ({
         return cleanZip === "6210";
     };
 
+    // const handleSubmit = async (e) => {
+    //     e.preventDefault();
+    //     setLoading(true);
+    //     setErrors({});
+
+    //     // Validate zip code
+    //     if (!validateZipCode(bookingForm.zip_code)) {
+    //         setErrors({
+    //             zip_code:
+    //                 "Sorry, we currently only serve areas with zip code 6210. Please enter a valid zip code.",
+    //         });
+    //         setLoading(false);
+    //         return;
+    //     }
+
+    //     try {
+    //         const durationMinutes = parseDuration(price.duration);
+    //         const routeName = isTestPackage
+    //             ? "test-packages.store"
+    //             : "ourreservations.store";
+
+    //         // Combine address and zip code
+    //         const fullAddress = `${bookingForm.address}, ${bookingForm.zip_code}`;
+
+    //         // Extract package name from price description
+    //         const packageName = extractPackageName(price.description);
+
+    //         // Common data for both booking types
+    //         const bookingData = {
+    //             ...bookingForm,
+    //             address: fullAddress,
+    //             reservation_date: formatDateKey(selectedDate),
+    //             price_id: priceId,
+    //             duration_minutes: durationMinutes,
+    //             // Remove zip_code from the final data as it's now part of address
+    //         };
+
+    //         // Add type-specific fields
+    //         if (isTestPackage) {
+    //             // For test packages, use the same structure as normal bookings
+    //             Object.assign(bookingData, {
+    //                 start_time: bookingDetails?.start_time || selectedTime,
+    //                 end_time:
+    //                     bookingDetails?.end_time ||
+    //                     calculateEndTime(selectedTime, price.duration),
+    //                 test_time: testTime || selectedTime,
+    //                 test_location: bookingForm.test_location, // Use the dedicated test_location field
+    //                 pickup_location: bookingForm.pickup_location,
+    //                 dropoff_location: bookingForm.dropoff_location,
+    //                 test_type: packageName, // Use extracted package name
+    //             });
+    //         } else {
+    //             Object.assign(bookingData, {
+    //                 start_time: selectedTime,
+    //                 end_time: calculateEndTime(selectedTime, price.duration),
+    //                 package_type: packageName, // Use extracted package name
+    //                 package_price: price.price,
+    //                 pickup_location: bookingForm.pickup_location,
+    //                 dropoff_location: bookingForm.dropoff_location,
+    //             });
+    //         }
+
+    //         // Remove zip_code from the final data
+    //         delete bookingData.zip_code;
+
+    //         console.log("Submitting booking data:", bookingData);
+
+    //         const response = await axios.post(route(routeName), bookingData);
+
+    //         if (response.data.success || response.data.message) {
+    //             alert(
+    //                 isTestPackage
+    //                     ? "Test package booked successfully!"
+    //                     : "Booking confirmed successfully!",
+    //             );
+    //             await onBookingSuccess();
+    //             onClose();
+    //         } else {
+    //             alert("Error confirming booking: " + response.data.message);
+    //         }
+    //     } catch (error) {
+    //         console.error("Booking error:", error);
+    //         console.error("Error response:", error.response);
+
+    //         if (error.response?.data?.errors) {
+    //             setErrors(error.response.data.errors);
+    //             alert("Please fix the errors in the form.");
+    //         } else if (error.response?.data?.message) {
+    //             alert("Booking error: " + error.response.data.message);
+    //         } else if (error.response?.data?.error) {
+    //             alert("Booking error: " + error.response.data.error);
+    //         } else {
+    //             alert("Error confirming booking. Please try again.");
+    //         }
+    //     } finally {
+    //         setLoading(false);
+    //     }
+    // };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -799,28 +898,26 @@ const BookingForm = ({
                 reservation_date: formatDateKey(selectedDate),
                 price_id: priceId,
                 duration_minutes: durationMinutes,
-                // Remove zip_code from the final data as it's now part of address
             };
 
             // Add type-specific fields
             if (isTestPackage) {
-                // For test packages, use the same structure as normal bookings
                 Object.assign(bookingData, {
                     start_time: bookingDetails?.start_time || selectedTime,
                     end_time:
                         bookingDetails?.end_time ||
                         calculateEndTime(selectedTime, price.duration),
                     test_time: testTime || selectedTime,
-                    test_location: bookingForm.test_location, // Use the dedicated test_location field
+                    test_location: bookingForm.test_location,
                     pickup_location: bookingForm.pickup_location,
                     dropoff_location: bookingForm.dropoff_location,
-                    test_type: packageName, // Use extracted package name
+                    test_type: packageName,
                 });
             } else {
                 Object.assign(bookingData, {
                     start_time: selectedTime,
                     end_time: calculateEndTime(selectedTime, price.duration),
-                    package_type: packageName, // Use extracted package name
+                    package_type: packageName,
                     package_price: price.price,
                     pickup_location: bookingForm.pickup_location,
                     dropoff_location: bookingForm.dropoff_location,
@@ -849,11 +946,25 @@ const BookingForm = ({
             console.error("Booking error:", error);
             console.error("Error response:", error.response);
 
-            if (error.response?.data?.errors) {
+            // Handle specific error messages
+            if (error.response?.data?.message) {
+                const errorMsg = error.response.data.message;
+
+                // Check if it's a price-specific conflict
+                if (errorMsg.includes("already reserved for this service")) {
+                    alert(
+                        "This time slot has just been booked by someone else. Please select another time.",
+                    );
+                    // Refresh the calendar to show updated slots
+                    if (onBookingSuccess) {
+                        await onBookingSuccess();
+                    }
+                } else {
+                    alert("Booking error: " + errorMsg);
+                }
+            } else if (error.response?.data?.errors) {
                 setErrors(error.response.data.errors);
                 alert("Please fix the errors in the form.");
-            } else if (error.response?.data?.message) {
-                alert("Booking error: " + error.response.data.message);
             } else if (error.response?.data?.error) {
                 alert("Booking error: " + error.response.data.error);
             } else {
@@ -918,9 +1029,7 @@ const BookingForm = ({
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                 {/* Header */}
-                <div
-                    className={`p-6 rounded-t-lg bg-indigo-600 text-white`}
-                >
+                <div className={`p-6 rounded-t-lg bg-indigo-600 text-white`}>
                     <div className="flex justify-between items-center">
                         <h2 className="text-2xl font-bold">
                             {isTestPackage

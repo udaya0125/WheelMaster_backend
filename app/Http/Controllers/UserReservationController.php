@@ -8,6 +8,7 @@ use App\Models\BlockReservation;
 use App\Models\Notification;
 use App\Models\Testimonial;
 use App\Models\UserReservation;
+use App\Models\TimeSlot; // Add this import
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -52,8 +53,9 @@ class UserReservationController extends Controller
         $requestStart = Carbon::parse($request->start_time);
         $requestEnd = Carbon::parse($request->end_time);
         $reservationDate = Carbon::parse($request->reservation_date)->format('Y-m-d');
+        $priceId = $request->price_id;
 
-        // Check if selected slot overlaps with any blocked reservation
+        // Check if selected slot overlaps with any blocked reservation (blocks affect all prices)
         $existingBlock = BlockReservation::where('date', $reservationDate)
             ->where(function ($query) use ($requestStart, $requestEnd) {
                 $query->where(function ($q) use ($requestStart, $requestEnd) {
@@ -70,8 +72,9 @@ class UserReservationController extends Controller
             ], 403);
         }
 
-        // Check if selected slot overlaps with any existing NON-REJECTED reservation
+        // Check if selected slot overlaps with any existing NON-REJECTED reservation FOR THE SAME PRICE
         $existingReservation = UserReservation::where('reservation_date', $reservationDate)
+            ->where('price_id', $priceId) // CRITICAL: Only check reservations for the same price
             ->where('status', '!=', 'Rejected')
             ->where(function ($query) use ($requestStart, $requestEnd) {
                 $query->where(function ($q) use ($requestStart, $requestEnd) {
@@ -84,7 +87,19 @@ class UserReservationController extends Controller
         if ($existingReservation) {
             return response()->json([
                 'success' => false,
-                'message' => 'Selected time slot is already reserved',
+                'message' => 'Selected time slot is already reserved for this service',
+            ], 409);
+        }
+
+        // Also check TimeSlot model to ensure the slot is available
+        $timeSlot = TimeSlot::where('date', $reservationDate)
+            ->where('start_time', $requestStart->format('H:i:s'))
+            ->first();
+
+        if (!$timeSlot || $timeSlot->status !== 'available') {
+            return response()->json([
+                'success' => false,
+                'message' => 'This time slot is not available for booking',
             ], 409);
         }
 
@@ -105,26 +120,6 @@ class UserReservationController extends Controller
             'test_location' => $request->test_location,
         ]);
 
-        // $testinomials = Testimonial::create([
-        //     'author_name' => 'Udaya Adhikari',
-        //     'comment' => 'Great service!',
-        //     'author_role' => 'Customer',
-        // ]);
-
-        // // Create notification for new reservation
-        // // Create notification for new reservation
-        // $notification = Notification::create([
-        //     'message' => "New reservation from {$reservation->user_name} for {$reservationDate} ({$requestStart->format('h:i A')} - {$requestEnd->format('h:i A')})",
-        //     'is_read' => false,
-        // ]);
-
-        // // Debug log
-        // Log::debug('Notification created:', [
-        //     'id' => $notification->id,
-        //     'message' => $notification->message,
-        //     'is_read' => $notification->is_read,
-        // ]);
-
         // Send email to customer
         try {
             Mail::to($reservation->email)->send(new ReservationCreated($reservation, false));
@@ -135,7 +130,7 @@ class UserReservationController extends Controller
         // Send email to admin
         try {
             // $adminEmail = env('ADMIN_EMAIL', 'wheelmaster@outlook.com.au');
-             $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
+            $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
             Mail::to($adminEmail)->send(new ReservationCreated($reservation, true));
         } catch (\Exception $e) {
             Log::error('Failed to send admin email: '.$e->getMessage());
@@ -196,8 +191,9 @@ class UserReservationController extends Controller
 
         // For Accepting or Resetting to Pending, check for conflicts
         if ($newStatus === 'Accepted' || $newStatus === 'Pending') {
-            // Check for overlapping reservations (excluding rejected ones)
+            // Check for overlapping reservations FOR THE SAME PRICE (excluding rejected ones)
             $overlappingReservation = UserReservation::where('reservation_date', $reservation->reservation_date)
+                ->where('price_id', $reservation->price_id) // CRITICAL: Only check same price
                 ->where('id', '!=', $id)
                 ->where('status', '!=', 'Rejected')
                 ->where(function ($query) use ($reservation) {
@@ -211,7 +207,7 @@ class UserReservationController extends Controller
             if ($overlappingReservation) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'This time slot conflicts with another reservation (ID: '.$overlappingReservation->id.')',
+                    'message' => 'This time slot conflicts with another reservation for the same service (ID: '.$overlappingReservation->id.')',
                 ], 409);
             }
 
@@ -310,7 +306,8 @@ class UserReservationController extends Controller
 
         // Send email to admin
         try {
-            $adminEmail = env('ADMIN_EMAIL', 'Wheelmaster@outlook.com.au');
+            // $adminEmail = env('ADMIN_EMAIL', 'wheelmaster@outlook.com.au');
+             $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
             Mail::to($adminEmail)->send(new ReservationStatusUpdated($reservation, true));
         } catch (\Exception $e) {
             Log::error('Failed to send admin status update email: '.$e->getMessage());
