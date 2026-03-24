@@ -33,6 +33,41 @@
 //     Default: '#3b82f6'
 //   };
 
+//   // Prevent background scrolling when modal is open
+//   useEffect(() => {
+//     if (showModal) {
+//       // Store the current scroll position
+//       const scrollY = window.scrollY;
+//       const body = document.body;
+      
+//       // Add styles to prevent scrolling
+//       body.style.position = 'fixed';
+//       body.style.top = `-${scrollY}px`;
+//       body.style.width = '100%';
+//       body.style.overflowY = 'scroll';
+      
+//       // Store scroll position for later restoration
+//       body.setAttribute('data-scroll-y', scrollY);
+      
+//       return () => {
+//         // Restore scrolling when modal closes
+//         const body = document.body;
+//         const scrollY = body.getAttribute('data-scroll-y');
+        
+//         body.style.position = '';
+//         body.style.top = '';
+//         body.style.width = '';
+//         body.style.overflowY = '';
+        
+//         if (scrollY) {
+//           window.scrollTo(0, parseInt(scrollY, 10));
+//         }
+        
+//         body.removeAttribute('data-scroll-y');
+//       };
+//     }
+//   }, [showModal]);
+
 //   useEffect(() => {
 //     fetchReservations();
 //   }, []);
@@ -415,8 +450,11 @@
 
 //           {/* Reservation Details Modal */}
 //           {showModal && selectedReservation && (
-//             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-//               <div className="bg-white rounded-xl shadow-xl p-4 sm:p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+//             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto">
+//               <div 
+//                 className="bg-white rounded-xl shadow-xl p-4 sm:p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+//                 onClick={(e) => e.stopPropagation()}
+//               >
 //                 {/* Modal Header */}
 //                 <div className="flex justify-between items-start mb-4 sm:mb-6">
 //                   <div>
@@ -613,7 +651,6 @@
 //               </div>
 //             </div>
 //           )}
-          
 //         </div>
 //       </div>
 //     </Wrapper>
@@ -623,19 +660,100 @@
 // export default CalendarBooking;
 
 
-
-
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { Calendar, momentLocalizer, Views } from 'react-big-calendar';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import Wrapper from '@/AdminWrapper/Wrapper';
 import axios from 'axios';
-import { X, User, Package, Car, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { X, User, Package, Car, CheckCircle, XCircle, AlertCircle, Calendar as CalendarIcon } from 'lucide-react';
 import { toast, Toaster } from 'react-hot-toast';
 
 const localizer = momentLocalizer(moment);
+
+// Custom Year View Component
+const YearView = ({ date, events, onSelectEvent, onSelectSlot, localizer: viewLocalizer, onDrillDown }) => {
+  const months = [];
+  // Get the year from the date
+  const currentYear = moment(date).year();
+  
+  // Generate months for the year in correct order (January to December)
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  
+  for (let i = 0; i < 12; i++) {
+    const monthDate = moment().year(currentYear).month(i);
+    const monthEvents = events.filter(event => 
+      moment(event.start).year() === currentYear && 
+      moment(event.start).month() === i
+    );
+    
+    months.push({
+      name: monthNames[i],
+      date: monthDate,
+      events: monthEvents,
+      eventCount: monthEvents.length
+    });
+  }
+  
+  const handleMonthClick = (month) => {
+    // Call the drill down function passed from parent
+    if (onDrillDown) {
+      onDrillDown(month.date.toDate());
+    }
+  };
+  
+  const getMonthColor = (eventCount) => {
+    if (eventCount === 0) return 'bg-gray-50 hover:bg-gray-100 border-gray-200';
+    if (eventCount < 3) return 'bg-green-50 hover:bg-green-100 border-green-200';
+    if (eventCount < 6) return 'bg-yellow-50 hover:bg-yellow-100 border-yellow-200';
+    return 'bg-orange-50 hover:bg-orange-100 border-orange-200';
+  };
+  
+  return (
+    <div className="year-view p-4" style={{ height: '100%', overflowY: 'auto' }}>
+      <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">{currentYear}</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+        {months.map((month, index) => (
+          <div
+            key={index}
+            onClick={() => handleMonthClick(month)}
+            className={`${getMonthColor(month.eventCount)} rounded-xl p-5 cursor-pointer transition-all duration-300 border-2 shadow-sm hover:shadow-xl hover:scale-105 transform transition-transform`}
+          >
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-xl font-bold text-gray-800">{month.name}</h3>
+              <CalendarIcon size={24} className="text-gray-500" />
+            </div>
+            <div className="text-base text-gray-600 font-semibold">
+              {month.eventCount} {month.eventCount === 1 ? 'Booking' : 'Bookings'}
+            </div>
+            {month.events.length > 0 && (
+              <div className="mt-3 space-y-1">
+                {month.events.slice(0, 2).map((event, idx) => (
+                  <div key={idx} className="text-xs text-gray-600 truncate">
+                    • {event.title}
+                  </div>
+                ))}
+                {month.events.length > 2 && (
+                  <div className="text-blue-600 text-xs font-semibold mt-1">
+                    +{month.events.length - 2} more bookings
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Add title property to YearView
+YearView.title = (date, { localizer }) => {
+  return localizer.format(date, 'YYYY');
+};
 
 const CalendarBooking = () => {
   const [events, setEvents] = useState([]);
@@ -651,7 +769,10 @@ const CalendarBooking = () => {
     color: '#3b82f6'
   });
   const [view, setView] = useState('month');
-  const [date, setDate] = useState(new Date());
+  const [date, setDate] = useState(() => {
+    // Initialize to first day of current month
+    return moment().startOf('month').toDate();
+  });
   const [updatingStatus, setUpdatingStatus] = useState(false);
   
   const colors = {
@@ -829,7 +950,7 @@ const CalendarBooking = () => {
     if (!selectedReservation) return;
     
     // Show confirmation toast with action buttons
-    const toastId = toast.custom((t) => (
+    toast.custom((t) => (
       <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto flex flex-col`}>
         <div className="p-4">
           <div className="flex items-start">
@@ -853,9 +974,25 @@ const CalendarBooking = () => {
           </div>
           <div className="mt-4 flex justify-end space-x-3">
             <button
-              onClick={() => {
+              onClick={async () => {
                 toast.dismiss(t.id);
-                performDelete();
+                try {
+                  await axios.delete(
+                    route('ouruserreservations.destroy', { id: selectedReservation.id })
+                  );
+                  
+                  const updatedReservations = reservations.filter(r => r.id !== selectedReservation.id);
+                  setReservations(updatedReservations);
+                  
+                  const updatedEvents = events.filter(event => event.id !== selectedReservation.id);
+                  setEvents(updatedEvents);
+                  
+                  handleCloseModal();
+                  toast.success('Reservation deleted successfully');
+                } catch (err) {
+                  console.error('Error deleting reservation:', err);
+                  toast.error('Failed to delete reservation');
+                }
               }}
               className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
             >
@@ -871,29 +1008,8 @@ const CalendarBooking = () => {
         </div>
       </div>
     ), {
-      duration: Infinity, // Custom toast doesn't auto-dismiss
+      duration: Infinity,
     });
-
-    // Function to perform the actual delete
-    const performDelete = async () => {
-      try {
-        await axios.delete(
-          route('ouruserreservations.destroy', { id: selectedReservation.id })
-        );
-        
-        const updatedReservations = reservations.filter(r => r.id !== selectedReservation.id);
-        setReservations(updatedReservations);
-        
-        const updatedEvents = events.filter(event => event.id !== selectedReservation.id);
-        setEvents(updatedEvents);
-        
-        handleCloseModal();
-        toast.success('Reservation deleted successfully');
-      } catch (err) {
-        console.error('Error deleting reservation:', err);
-        toast.error('Failed to delete reservation');
-      }
-    };
   };
 
   const handleCloseModal = () => {
@@ -904,13 +1020,29 @@ const CalendarBooking = () => {
     setUpdatingStatus(false);
   };
 
-  const handleNavigate = useCallback((newDate) => {
-    setDate(newDate);
+  // Fixed navigation handler to ensure proper month navigation without skipping
+  const handleNavigate = useCallback((newDate, viewType) => {
+    if (viewType === 'month') {
+      // For month view, always set to the first day of the month
+      const targetDate = moment(newDate);
+      const firstDayOfMonth = targetDate.clone().startOf('month').toDate();
+      setDate(firstDayOfMonth);
+    } else {
+      setDate(newDate);
+    }
   }, []);
 
   const handleView = useCallback((newView) => {
     setView(newView);
   }, []);
+
+  // Handle drill down from year view to month view
+  const handleDrillDown = (targetDate) => {
+    // Set to the first day of the target month
+    const firstDayOfMonth = moment(targetDate).startOf('month').toDate();
+    setDate(firstDayOfMonth);
+    setView('month');
+  };
 
   const eventStyleGetter = (event) => {
     const style = {
@@ -931,7 +1063,12 @@ const CalendarBooking = () => {
   };
 
   const goToToday = () => {
-    setDate(new Date());
+    const now = moment();
+    if (view === 'month') {
+      setDate(now.clone().startOf('month').toDate());
+    } else {
+      setDate(now.toDate());
+    }
     toast.success('Navigated to today');
   };
 
@@ -962,6 +1099,23 @@ const CalendarBooking = () => {
       case 'Rejected': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  // Create a wrapped component that passes the drill down handler
+  const YearViewWithDrillDown = (props) => {
+    return <YearView {...props} onDrillDown={handleDrillDown} />;
+  };
+  
+  // Copy the static title property to the wrapped component
+  YearViewWithDrillDown.title = YearView.title;
+
+  // Define the views object with year view
+  const views = {
+    month: true,
+    week: true,
+    day: true,
+    agenda: true,
+    year: YearViewWithDrillDown
   };
 
   return (
@@ -1022,7 +1176,7 @@ const CalendarBooking = () => {
                 view={view}
                 date={date}
                 eventPropGetter={eventStyleGetter}
-                views={['month', 'week', 'day', 'agenda']}
+                views={views}
                 defaultView="month"
                 style={{ height: '100%' }}
                 popup
@@ -1038,6 +1192,7 @@ const CalendarBooking = () => {
                   week: 'Week',
                   day: 'Day',
                   agenda: 'Agenda',
+                  year: 'Year',
                   date: 'Date',
                   time: 'Time',
                   event: 'Event',
