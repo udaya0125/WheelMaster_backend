@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 
 import { usePage } from "@inertiajs/react";
-import SideBar from "./SideBar";
 import NavBar from "./NavBar";
+import SideBar from "./SideBar";
+
 
 const Wrapper = ({ children }) => {
     const [isMobileOpen, setIsMobileOpen] = useState(false);
