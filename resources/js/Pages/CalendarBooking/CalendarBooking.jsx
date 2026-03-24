@@ -660,6 +660,7 @@
 // export default CalendarBooking;
 
 
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { Calendar, momentLocalizer, Views } from 'react-big-calendar';
 import moment from 'moment';
@@ -781,6 +782,7 @@ const CalendarBooking = () => {
     Rejected: '#ef4444',
     Default: '#3b82f6'
   };
+  
 
   // Prevent background scrolling when modal is open
   useEffect(() => {
@@ -1123,7 +1125,7 @@ const CalendarBooking = () => {
       <div className="">
         {/* Add Toaster component at the top level */}
         <Toaster
-          position="top-right"
+          position="center"
           toastOptions={{
             duration: 4000,
             style: {
