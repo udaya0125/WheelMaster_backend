@@ -552,7 +552,7 @@
 //                                 <h2 className="text-lg font-semibold text-gray-800 mb-4">
 //                                     Time Slot Configuration
 //                                 </h2>
-                                
+
 //                                 <div className="flex flex-col sm:flex-row items-end gap-4">
 //                                     <div className="flex-1">
 //                                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -571,7 +571,7 @@
 //                                             Select a time to update all slots from this point onwards
 //                                         </p>
 //                                     </div>
-                                    
+
 //                                     <div className="flex gap-2">
 //                                         <button
 //                                             onClick={handleUpdateAvailability}
@@ -581,7 +581,7 @@
 //                                             <Save size={18} />
 //                                             <span>Apply From {customStartTime} Onwards</span>
 //                                         </button>
-                                        
+
 //                                         <button
 //                                             onClick={handleResetToDefault}
 //                                             disabled={loading}
@@ -589,7 +589,7 @@
 //                                         >
 //                                             Reset to 7:00 AM
 //                                         </button>
-                                        
+
 //                                         <button
 //                                             onClick={fetchTimeSlots}
 //                                             className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
@@ -826,8 +826,6 @@
 
 // export default TimeManagement;
 
-
-
 import Wrapper from "@/AdminWrapper/Wrapper";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -992,14 +990,11 @@ const TimeManagement = () => {
             setLoading(true);
             const formattedDate = formatDateKey(selectedDate);
 
-            const response = await axios.post(
-                route("ourtimeslots.update"),
-                {
-                    date: formattedDate,
-                    start_time: customStartTime,
-                    preserve_custom: true, // This tells backend to preserve existing custom slots before this time
-                },
-            );
+            const response = await axios.post(route("ourtimeslots.update"), {
+                date: formattedDate,
+                start_time: customStartTime,
+                preserve_custom: true, // This tells backend to preserve existing custom slots before this time
+            });
 
             if (response.data.success) {
                 toast.success(
@@ -1104,10 +1099,10 @@ const TimeManagement = () => {
 
         // Calculate how many slots will be affected (current slot and all subsequent slots)
         const affectedSlotsCount = timeSlots.length - index;
-        
+
         // Show confirmation message about subsequent slots being updated
         const confirmMessage = `Changing this slot to ${newTime} will automatically adjust all ${affectedSlotsCount - 1} following slots to maintain 30-minute intervals.\n\nDo you want to continue?`;
-        
+
         if (!window.confirm(confirmMessage)) {
             cancelEditing(index);
             return;
@@ -1334,8 +1329,7 @@ const TimeManagement = () => {
                                     Click on a date to manage its time slots
                                 </p>
                             </div>
-
-                            <Calendar
+                            {/* <Calendar
                                 mode="single"
                                 selected={selectedDate}
                                 onSelect={handleDateSelect}
@@ -1345,8 +1339,31 @@ const TimeManagement = () => {
                                     DayContent: ({ date }) =>
                                         renderDayContent(date),
                                 }}
+                            /> */}
+                            <Calendar
+                                mode="single"
+                                selected={selectedDate}
+                                onSelect={handleDateSelect}
+                                disabled={(date) => isPastDate(date)}
+                                captionLayout="dropdown"
+                                className="rounded-md border [&_.rdp-day_selected]:bg-emerald-600 [&_.rdp-day_selected]:text-white [&_.rdp-day_selected:hover]:bg-emerald-700 [&_.rdp-button:hover]:bg-emerald-50 [&_.rdp-day_today]:bg-gray-100"
+                                components={{
+                                    DayContent: ({ date }) =>
+                                        renderDayContent(date),
+                                }}
+                                fromYear={new Date().getFullYear()} // Current year only
+                                toYear={new Date().getFullYear() + 8} // Current year + 8 years
+                                formatters={{
+                                    formatMonthCaption: (date) => {
+                                        return date.toLocaleString("default", {
+                                            month: "long",
+                                        });
+                                    },
+                                    formatYearCaption: (date) => {
+                                        return date.getFullYear().toString();
+                                    },
+                                }}
                             />
-
                             {/* Date Navigation */}
                             {/* <div className="flex items-center justify-between mt-4">
                                 <button
