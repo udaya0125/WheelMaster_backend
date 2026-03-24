@@ -756,6 +756,19 @@ export default function Dashboard({
     console.log("Dashboard pieData:", pieData);
     console.log("Dashboard barData:", barData);
 
+    // Calculate averages
+    const avgVisitors = barData.length > 0
+        ? Math.round(
+            barData.reduce((sum, item) => sum + (item.visitors || 0), 0) / barData.length
+        ).toLocaleString()
+        : "0";
+
+    const avgPageViews = barData.length > 0
+        ? Math.round(
+            barData.reduce((sum, item) => sum + (item.pageviews || 0), 0) / barData.length
+        ).toLocaleString()
+        : "0";
+
     return (
         <Wrapper>
             <div className=" sm:px-6 lg:px-8 py-6 lg:py-8">
@@ -778,8 +791,8 @@ export default function Dashboard({
                     </div>
                 </div>
 
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 mb-8">
+                {/* Stats Cards - 4 Column Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     {/* Total Visitors */}
                     <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-6 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
                         <div className="flex items-start justify-between">
@@ -887,6 +900,80 @@ export default function Dashboard({
                             </div>
                         </div>
                     </div>
+
+                    {/* Avg. Visitors */}
+                    <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-6 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
+                        <div className="flex items-start justify-between">
+                            <div>
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                                        <svg
+                                            className="w-5 h-5 text-blue-600"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth="2"
+                                                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                                            />
+                                        </svg>
+                                    </div>
+                                    <p className="text-sm font-medium text-gray-500">
+                                        Avg. Visitors
+                                    </p>
+                                </div>
+                                <p className="text-4xl font-bold text-gray-900 mb-2">
+                                    {avgVisitors}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Daily average
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Avg. Page Views */}
+                    <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-6 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
+                        <div className="flex items-start justify-between">
+                            <div>
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
+                                        <svg
+                                            className="w-5 h-5 text-purple-600"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth="2"
+                                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                            />
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth="2"
+                                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                            />
+                                        </svg>
+                                    </div>
+                                    <p className="text-sm font-medium text-gray-500">
+                                        Avg. Page Views
+                                    </p>
+                                </div>
+                                <p className="text-4xl font-bold text-gray-900 mb-2">
+                                    {avgPageViews}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Daily average
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Chart Section */}
@@ -920,88 +1007,6 @@ export default function Dashboard({
                     </div>
 
                     <div className="p-4 sm:p-6 ">
-                        {/* Performance Metrics - MOVED TO TOP */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-                            <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm font-medium text-blue-700">
-                                        Avg. Visitors
-                                    </span>
-                                    <svg
-                                        className="w-5 h-5 text-blue-600"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth="2"
-                                            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                                        />
-                                    </svg>
-                                </div>
-                                <p className="text-2xl font-bold text-blue-900">
-                                    {barData.length > 0
-                                        ? Math.round(
-                                            barData.reduce(
-                                                (sum, item) =>
-                                                    sum +
-                                                    (item.visitors ||
-                                                        0),
-                                                0
-                                            ) / barData.length
-                                        ).toLocaleString()
-                                        : "0"}
-                                </p>
-                                <p className="text-xs text-blue-600 mt-1">
-                                    Daily average
-                                </p>
-                            </div>
-                            <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm font-medium text-purple-700">
-                                        Avg. Page Views
-                                    </span>
-                                    <svg
-                                        className="w-5 h-5 text-purple-600"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth="2"
-                                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                        />
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth="2"
-                                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                                        />
-                                    </svg>
-                                </div>
-                                <p className="text-2xl font-bold text-purple-900">
-                                    {barData.length > 0
-                                        ? Math.round(
-                                            barData.reduce(
-                                                (sum, item) =>
-                                                    sum +
-                                                    (item.pageviews ||
-                                                        0),
-                                                0
-                                            ) / barData.length
-                                        ).toLocaleString()
-                                        : "0"}
-                                </p>
-                                <p className="text-xs text-purple-600 mt-1">
-                                    Daily average
-                                </p>
-                            </div>
-                        </div>
-
                         {/* Charts Grid */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                             {/* Left Side: Pie Chart */}
