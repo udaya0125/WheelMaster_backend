@@ -476,7 +476,7 @@ const NavBar = ({ onMenuToggle }) => {
         }
     };
 
-    console.log("Notifications state:", notifications); // Debug log
+    // console.log("Notifications state:", notifications); // Debug log
 
     const formatTime = (timestamp) => {
         if (!timestamp) return "Just now";
