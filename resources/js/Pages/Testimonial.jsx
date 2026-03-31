@@ -442,11 +442,19 @@ const Testimonial = () => {
                                               </div>
 
                                               {/* Testimonial Content */}
-                                              <blockquote className="text-gray-700 mb-6 leading-relaxed relative z-10 line-clamp-4">
+                                              {/* <blockquote className="text-gray-700 mb-6 leading-relaxed relative z-10 line-clamp-4">
                                                   {getTestimonialContent(
                                                       testimonial,
                                                   )}
-                                              </blockquote>
+                                              </blockquote> */}
+
+                                              <div className="h-[96px] overflow-y-auto mb-6 pr-1 scrollbar-thin scrollbar-thumb-blue-200 scrollbar-track-transparent">
+                                                  <blockquote className="text-gray-700 leading-relaxed">
+                                                      {getTestimonialContent(
+                                                          testimonial,
+                                                      )}
+                                                  </blockquote>
+                                              </div>
 
                                               {/* Author Info */}
                                               <div className="flex items-center mt-8 pt-6 border-t border-gray-100">
