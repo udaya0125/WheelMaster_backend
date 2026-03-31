@@ -752,9 +752,9 @@ export default function Dashboard({
     };
 
 
-    console.log("Dashboard visitors:", visitors);
-    console.log("Dashboard pieData:", pieData);
-    console.log("Dashboard barData:", barData);
+    // console.log("Dashboard visitors:", visitors);
+    // console.log("Dashboard pieData:", pieData);
+    // console.log("Dashboard barData:", barData);
 
     // Calculate averages
     const avgVisitors = barData.length > 0
