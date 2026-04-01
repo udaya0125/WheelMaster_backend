@@ -1723,7 +1723,6 @@
 //                             <p className="text-xs sm:text-sm text-gray-500 mb-4">
 //                                 {formatDisplayDate(selectedDate)}
 //                             </p>
-                            
 
 //                             {currentTimeSlots.length > 0 ? (
 //                                 <div className="grid grid-cols-2 sm:grid-cols-2 gap-2 sm:gap-3">
@@ -2049,8 +2048,6 @@
 
 // export default CalendarIntegration;
 
-
-
 import { Calendar } from "@/components/ui/calendar";
 import axios from "axios";
 import React, { useEffect, useState } from "react";
@@ -2075,8 +2072,13 @@ const CalendarIntegration = ({ price }) => {
             try {
                 setLoading(true);
                 const dateKey = formatDateKey(selectedDate);
-                console.log("Fetching slots for date:", dateKey, "price_id:", price?.id);
-                
+                console.log(
+                    "Fetching slots for date:",
+                    dateKey,
+                    "price_id:",
+                    price?.id,
+                );
+
                 const response = await axios.get(route("ourtimeslots.get"), {
                     params: {
                         date: dateKey,
@@ -2088,49 +2090,62 @@ const CalendarIntegration = ({ price }) => {
 
                 if (response.data.success) {
                     // Store all slots data for debugging
-                    setAllSlotsData(prev => ({
+                    setAllSlotsData((prev) => ({
                         ...prev,
-                        [dateKey]: response.data.slots
+                        [dateKey]: response.data.slots,
                     }));
-                    
+
                     // Get all slots with their status
                     const allSlots = response.data.slots || [];
-                    
+
                     // Track booked slots (reserved or blocked)
                     const booked = allSlots
-                        .filter(slot => slot.status === "reserved" || slot.status === "blocked")
-                        .map(slot => {
+                        .filter(
+                            (slot) =>
+                                slot.status === "reserved" ||
+                                slot.status === "blocked",
+                        )
+                        .map((slot) => {
                             const startTime = slot.start_time;
-                            if (typeof startTime === "string" && startTime.includes(":")) {
+                            if (
+                                typeof startTime === "string" &&
+                                startTime.includes(":")
+                            ) {
                                 const parts = startTime.split(":");
                                 return `${parts[0]}:${parts[1]}`;
                             }
                             return startTime;
                         });
-                    
+
                     console.log("Booked slots for this date:", booked);
                     setBookedSlots(booked);
-                    
+
                     // Get available slots
                     const available = allSlots
                         .filter((slot) => slot.status === "available")
                         .map((slot) => {
                             const startTime = slot.start_time;
-                            if (typeof startTime === "string" && startTime.includes(":")) {
+                            if (
+                                typeof startTime === "string" &&
+                                startTime.includes(":")
+                            ) {
                                 const parts = startTime.split(":");
                                 return `${parts[0]}:${parts[1]}`;
                             }
                             return startTime;
                         });
-                    
+
                     console.log("Available slots from API:", available);
-                    
-                    setTimeSlots(prev => ({
+
+                    setTimeSlots((prev) => ({
                         ...prev,
-                        [dateKey]: available
+                        [dateKey]: available,
                     }));
                 } else {
-                    console.error("Error fetching time slots:", response.data.message);
+                    console.error(
+                        "Error fetching time slots:",
+                        response.data.message,
+                    );
                     toast.error("Error loading time slots. Please try again.");
                 }
             } catch (err) {
@@ -2194,19 +2209,25 @@ const CalendarIntegration = ({ price }) => {
                 const dateKey = formatDateKey(nextDate);
 
                 try {
-                    const response = await axios.get(route("ourtimeslots.get"), {
-                        params: {
-                            date: dateKey,
-                            price_id: price.id,
+                    const response = await axios.get(
+                        route("ourtimeslots.get"),
+                        {
+                            params: {
+                                date: dateKey,
+                                price_id: price.id,
+                            },
                         },
-                    });
+                    );
 
                     if (response.data.success) {
                         const availableSlots = response.data.slots
                             .filter((slot) => slot.status === "available")
                             .map((slot) => {
                                 const startTime = slot.start_time;
-                                if (typeof startTime === "string" && startTime.includes(":")) {
+                                if (
+                                    typeof startTime === "string" &&
+                                    startTime.includes(":")
+                                ) {
                                     const parts = startTime.split(":");
                                     return `${parts[0]}:${parts[1]}`;
                                 }
@@ -2242,8 +2263,12 @@ const CalendarIntegration = ({ price }) => {
         if (!durationString) return 60;
 
         const cleanString = durationString.trim().toLowerCase();
-        const hourMatch = cleanString.match(/(\d+(?:\.\d+)?)\s*(?:hrs|hr|hour|hours)/);
-        const minuteMatch = cleanString.match(/(\d+)\s*(?:min|mins|minute|minutes)/);
+        const hourMatch = cleanString.match(
+            /(\d+(?:\.\d+)?)\s*(?:hrs|hr|hour|hours)/,
+        );
+        const minuteMatch = cleanString.match(
+            /(\d+)\s*(?:min|mins|minute|minutes)/,
+        );
 
         let totalMinutes = 0;
 
@@ -2258,7 +2283,8 @@ const CalendarIntegration = ({ price }) => {
             const numberMatch = cleanString.match(/(\d+(?:\.\d+)?)/);
             if (numberMatch) {
                 const num = parseFloat(numberMatch[1]);
-                totalMinutes = num < 10 ? Math.round(num * 60) : Math.round(num);
+                totalMinutes =
+                    num < 10 ? Math.round(num * 60) : Math.round(num);
             }
         }
 
@@ -2267,10 +2293,14 @@ const CalendarIntegration = ({ price }) => {
 
     const calculateEndTime = (startTime, durationString) => {
         const durationMinutes = parseDuration(durationString);
-        const startTimeStr = typeof startTime === "object" ? startTime.start_time : startTime;
+        const startTimeStr =
+            typeof startTime === "object" ? startTime.start_time : startTime;
 
         let cleanStartTime = startTimeStr;
-        if (typeof cleanStartTime === "string" && cleanStartTime.includes(":")) {
+        if (
+            typeof cleanStartTime === "string" &&
+            cleanStartTime.includes(":")
+        ) {
             const parts = cleanStartTime.split(":");
             if (parts.length >= 2) {
                 cleanStartTime = `${parts[0]}:${parts[1]}`;
@@ -2300,6 +2330,107 @@ const CalendarIntegration = ({ price }) => {
     };
 
     // FIXED: Get non-overlapping slots with 30-minute buffer after booked slots
+    // const getNonOverlappingSlots = (slots) => {
+    //     if (!slots || slots.length === 0) return [];
+
+    //     const durationMinutes = parseDuration(price.duration);
+    //     const result = [];
+
+    //     const timeToMinutes = (timeStr) => {
+    //         const [h, m] = timeStr.split(":").map(Number);
+    //         return h * 60 + m;
+    //     };
+
+    //     // Sort slots by time
+    //     const sortedSlots = [...slots].sort((a, b) => {
+    //         const timeA = timeToMinutes(typeof a === "string" ? a : a.start_time);
+    //         const timeB = timeToMinutes(typeof b === "string" ? b : b.start_time);
+    //         return timeA - timeB;
+    //     });
+
+    //     console.log("Booked slots to check against:", bookedSlots);
+
+    //     // Create a set of booked start times and also track their end times
+    //     const bookedPeriods = [];
+    //     for (const bookedTime of bookedSlots) {
+    //         const bookedMinutes = timeToMinutes(bookedTime);
+    //         // Each booked slot is 30 minutes
+    //         bookedPeriods.push({
+    //             start: bookedMinutes,
+    //             end: bookedMinutes + 30
+    //         });
+    //     }
+
+    //     // Merge overlapping booked periods to create continuous blocked periods
+    //     const mergedBookedPeriods = [];
+    //     if (bookedPeriods.length > 0) {
+    //         // Sort by start time
+    //         bookedPeriods.sort((a, b) => a.start - b.start);
+
+    //         let current = bookedPeriods[0];
+    //         for (let i = 1; i < bookedPeriods.length; i++) {
+    //             if (bookedPeriods[i].start <= current.end) {
+    //                 // Overlapping, merge
+    //                 current.end = Math.max(current.end, bookedPeriods[i].end);
+    //             } else {
+    //                 // Non-overlapping, push current and start new
+    //                 mergedBookedPeriods.push(current);
+    //                 current = bookedPeriods[i];
+    //             }
+    //         }
+    //         mergedBookedPeriods.push(current);
+    //     }
+
+    //     console.log("Merged booked periods:", mergedBookedPeriods);
+
+    //     let nextAllowedStart = -1;
+
+    //     for (const slot of sortedSlots) {
+    //         let startTimeStr = typeof slot === "string" ? slot : slot?.start_time;
+    //         if (startTimeStr?.includes(":")) {
+    //             const parts = startTimeStr.split(":");
+    //             startTimeStr = `${parts[0]}:${parts[1]}`;
+    //         }
+
+    //         const startMinutes = timeToMinutes(startTimeStr);
+    //         const slotEndMinutes = startMinutes + durationMinutes;
+
+    //         // Check if this slot overlaps with any booked period OR starts too close to a booked period
+    //         let isBlocked = false;
+    //         for (const period of mergedBookedPeriods) {
+    //             // Check if slot overlaps with booked period
+    //             if (startMinutes < period.end && slotEndMinutes > period.start) {
+    //                 console.log(`Slot ${startTimeStr} overlaps with booked period ${period.start}-${period.end}`);
+    //                 isBlocked = true;
+    //                 break;
+    //             }
+
+    //             // Check if slot starts less than 30 minutes after a booked period ends
+    //             // This ensures a 30-minute buffer
+    //             if (startMinutes >= period.end && startMinutes < period.end + 30) {
+    //                 console.log(`Slot ${startTimeStr} starts too soon after booked period ends at ${period.end}`);
+    //                 isBlocked = true;
+    //                 break;
+    //             }
+    //         }
+
+    //         if (isBlocked) {
+    //             continue;
+    //         }
+
+    //         // Check non-overlap with previous selected slots
+    //         if (nextAllowedStart === -1 || startMinutes >= nextAllowedStart) {
+    //             console.log(`Adding slot ${startTimeStr} to results`);
+    //             result.push(slot);
+    //             nextAllowedStart = startMinutes + durationMinutes;
+    //         }
+    //     }
+
+    //     console.log("Final filtered slots:", result.map(s => typeof s === "string" ? s : s.start_time));
+    //     return result;
+    // };
+
+    // FIXED: Get non-overlapping slots with 20-minute buffer after booked slots
     const getNonOverlappingSlots = (slots) => {
         if (!slots || slots.length === 0) return [];
 
@@ -2313,30 +2444,34 @@ const CalendarIntegration = ({ price }) => {
 
         // Sort slots by time
         const sortedSlots = [...slots].sort((a, b) => {
-            const timeA = timeToMinutes(typeof a === "string" ? a : a.start_time);
-            const timeB = timeToMinutes(typeof b === "string" ? b : b.start_time);
+            const timeA = timeToMinutes(
+                typeof a === "string" ? a : a.start_time,
+            );
+            const timeB = timeToMinutes(
+                typeof b === "string" ? b : b.start_time,
+            );
             return timeA - timeB;
         });
 
         console.log("Booked slots to check against:", bookedSlots);
-        
+
         // Create a set of booked start times and also track their end times
         const bookedPeriods = [];
         for (const bookedTime of bookedSlots) {
             const bookedMinutes = timeToMinutes(bookedTime);
-            // Each booked slot is 30 minutes
+            // Each booked slot is 20 minutes (changed from 30)
             bookedPeriods.push({
                 start: bookedMinutes,
-                end: bookedMinutes + 30
+                end: bookedMinutes + 20, // Changed from 30 to 20
             });
         }
-        
+
         // Merge overlapping booked periods to create continuous blocked periods
         const mergedBookedPeriods = [];
         if (bookedPeriods.length > 0) {
             // Sort by start time
             bookedPeriods.sort((a, b) => a.start - b.start);
-            
+
             let current = bookedPeriods[0];
             for (let i = 1; i < bookedPeriods.length; i++) {
                 if (bookedPeriods[i].start <= current.end) {
@@ -2350,13 +2485,14 @@ const CalendarIntegration = ({ price }) => {
             }
             mergedBookedPeriods.push(current);
         }
-        
+
         console.log("Merged booked periods:", mergedBookedPeriods);
 
         let nextAllowedStart = -1;
 
         for (const slot of sortedSlots) {
-            let startTimeStr = typeof slot === "string" ? slot : slot?.start_time;
+            let startTimeStr =
+                typeof slot === "string" ? slot : slot?.start_time;
             if (startTimeStr?.includes(":")) {
                 const parts = startTimeStr.split(":");
                 startTimeStr = `${parts[0]}:${parts[1]}`;
@@ -2369,16 +2505,27 @@ const CalendarIntegration = ({ price }) => {
             let isBlocked = false;
             for (const period of mergedBookedPeriods) {
                 // Check if slot overlaps with booked period
-                if (startMinutes < period.end && slotEndMinutes > period.start) {
-                    console.log(`Slot ${startTimeStr} overlaps with booked period ${period.start}-${period.end}`);
+                if (
+                    startMinutes < period.end &&
+                    slotEndMinutes > period.start
+                ) {
+                    console.log(
+                        `Slot ${startTimeStr} overlaps with booked period ${period.start}-${period.end}`,
+                    );
                     isBlocked = true;
                     break;
                 }
-                
-                // Check if slot starts less than 30 minutes after a booked period ends
-                // This ensures a 30-minute buffer
-                if (startMinutes >= period.end && startMinutes < period.end + 30) {
-                    console.log(`Slot ${startTimeStr} starts too soon after booked period ends at ${period.end}`);
+
+                // Check if slot starts less than 20 minutes after a booked period ends (changed from 30 to 20)
+                // This ensures a 20-minute buffer
+                if (
+                    startMinutes >= period.end &&
+                    startMinutes < period.end + 20
+                ) {
+                    // Changed from 30 to 20
+                    console.log(
+                        `Slot ${startTimeStr} starts too soon after booked period ends at ${period.end}`,
+                    );
                     isBlocked = true;
                     break;
                 }
@@ -2396,7 +2543,10 @@ const CalendarIntegration = ({ price }) => {
             }
         }
 
-        console.log("Final filtered slots:", result.map(s => typeof s === "string" ? s : s.start_time));
+        console.log(
+            "Final filtered slots:",
+            result.map((s) => (typeof s === "string" ? s : s.start_time)),
+        );
         return result;
     };
 
@@ -2432,7 +2582,9 @@ const CalendarIntegration = ({ price }) => {
     };
 
     const handleBookingSuccess = async () => {
-        const loadingToast = toast.loading("Refreshing available time slots...");
+        const loadingToast = toast.loading(
+            "Refreshing available time slots...",
+        );
 
         try {
             setLoading(true);
@@ -2446,26 +2598,36 @@ const CalendarIntegration = ({ price }) => {
 
             if (response.data.success) {
                 const allSlots = response.data.slots || [];
-                
+
                 // Update booked slots
                 const booked = allSlots
-                    .filter(slot => slot.status === "reserved" || slot.status === "blocked")
-                    .map(slot => {
+                    .filter(
+                        (slot) =>
+                            slot.status === "reserved" ||
+                            slot.status === "blocked",
+                    )
+                    .map((slot) => {
                         const startTime = slot.start_time;
-                        if (typeof startTime === "string" && startTime.includes(":")) {
+                        if (
+                            typeof startTime === "string" &&
+                            startTime.includes(":")
+                        ) {
                             const parts = startTime.split(":");
                             return `${parts[0]}:${parts[1]}`;
                         }
                         return startTime;
                     });
-                
+
                 setBookedSlots(booked);
-                
+
                 const available = allSlots
                     .filter((slot) => slot.status === "available")
                     .map((slot) => {
                         const startTime = slot.start_time;
-                        if (typeof startTime === "string" && startTime.includes(":")) {
+                        if (
+                            typeof startTime === "string" &&
+                            startTime.includes(":")
+                        ) {
                             const parts = startTime.split(":");
                             return `${parts[0]}:${parts[1]}`;
                         }
@@ -2477,9 +2639,9 @@ const CalendarIntegration = ({ price }) => {
                     [dateKey]: available,
                 }));
 
-                setAllSlotsData(prev => ({
+                setAllSlotsData((prev) => ({
                     ...prev,
-                    [dateKey]: allSlots
+                    [dateKey]: allSlots,
                 }));
 
                 toast.dismiss(loadingToast);
@@ -2526,7 +2688,8 @@ const CalendarIntegration = ({ price }) => {
 
     const renderDayContent = (date) => {
         const hasSlots = hasTimeSlots(date);
-        const isSelected = selectedDate && date.toDateString() === selectedDate.toDateString();
+        const isSelected =
+            selectedDate && date.toDateString() === selectedDate.toDateString();
         const isPast = isPastDate(date);
 
         return (
@@ -2588,7 +2751,8 @@ const CalendarIntegration = ({ price }) => {
                         Schedule Your Service
                     </h1>
                     <p className="text-gray-600 text-sm sm:text-base">
-                        Check out our availability and book the date and time that works for you
+                        Check out our availability and book the date and time
+                        that works for you
                     </p>
                 </div>
 
@@ -2600,7 +2764,8 @@ const CalendarIntegration = ({ price }) => {
                                 Select a Date
                             </h2>
                             <p className="text-xs sm:text-sm text-gray-500">
-                                Time zone: Australian Western Standard Time (GMT+8)
+                                Time zone: Australian Western Standard Time
+                                (GMT+8)
                             </p>
                             <div className="flex items-center mt-2 text-xs text-gray-500">
                                 <div className="flex items-center mr-4">
@@ -2616,7 +2781,8 @@ const CalendarIntegration = ({ price }) => {
                             disabled={isPastDate}
                             className="rounded-md border [&_.rdp-day_selected]:bg-emerald-600 [&_.rdp-day_selected]:text-white [&_.rdp-day_selected:hover]:bg-emerald-700 [&_.rdp-button:hover]:bg-emerald-50 [&_.rdp-day_today]:bg-gray-100 [&_.rdp-day_disabled]:text-gray-400 [&_.rdp-day_disabled]:cursor-not-allowed"
                             components={{
-                                DayContent: ({ date }) => renderDayContent(date),
+                                DayContent: ({ date }) =>
+                                    renderDayContent(date),
                             }}
                         />
                     </div>
@@ -2639,22 +2805,27 @@ const CalendarIntegration = ({ price }) => {
                             </div>
                         ) : currentTimeSlots.length > 0 ? (
                             <div className="grid grid-cols-2 sm:grid-cols-2 gap-2 sm:gap-3">
-                                {getNonOverlappingSlots(currentTimeSlots).map((time, index) => {
-                                    const timeDisplay = getTimeSlotDisplay(time);
-                                    return (
-                                        <button
-                                            key={index}
-                                            onClick={() => handleTimeSelect(time)}
-                                            className={`py-2 sm:py-3 px-3 sm:px-4 rounded-lg border-2 transition-all duration-200 font-medium text-sm sm:text-base ${
-                                                selectedTime === time
-                                                    ? "border-indigo-600 bg-indigo-600 text-white shadow-md"
-                                                    : "border-gray-200 hover:border-indigo-300 text-gray-700 hover:bg-indigo-50"
-                                            }`}
-                                        >
-                                            {timeDisplay}
-                                        </button>
-                                    );
-                                })}
+                                {getNonOverlappingSlots(currentTimeSlots).map(
+                                    (time, index) => {
+                                        const timeDisplay =
+                                            getTimeSlotDisplay(time);
+                                        return (
+                                            <button
+                                                key={index}
+                                                onClick={() =>
+                                                    handleTimeSelect(time)
+                                                }
+                                                className={`py-2 sm:py-3 px-3 sm:px-4 rounded-lg border-2 transition-all duration-200 font-medium text-sm sm:text-base ${
+                                                    selectedTime === time
+                                                        ? "border-indigo-600 bg-indigo-600 text-white shadow-md"
+                                                        : "border-gray-200 hover:border-indigo-300 text-gray-700 hover:bg-indigo-50"
+                                                }`}
+                                            >
+                                                {timeDisplay}
+                                            </button>
+                                        );
+                                    },
+                                )}
                             </div>
                         ) : (
                             <div className="text-center py-4">
@@ -2697,28 +2868,44 @@ const CalendarIntegration = ({ price }) => {
                                             Next available dates:
                                         </h3>
                                         <div className="space-y-2">
-                                            {nextAvailableDates.map((date, index) => (
-                                                <button
-                                                    key={index}
-                                                    onClick={() => handleSelectNextAvailableDate(date)}
-                                                    className="w-full py-2 px-3 text-left bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors duration-200"
-                                                >
-                                                    <div className="text-sm font-medium text-gray-900">
-                                                        {date.toLocaleDateString("en-US", {
-                                                            weekday: "short",
-                                                            month: "short",
-                                                            day: "numeric",
-                                                        })}
-                                                    </div>
-                                                    <div className="text-xs text-gray-600">
-                                                        {getTimeSlotsForDate(date).length} time slots available
-                                                    </div>
-                                                </button>
-                                            ))}
+                                            {nextAvailableDates.map(
+                                                (date, index) => (
+                                                    <button
+                                                        key={index}
+                                                        onClick={() =>
+                                                            handleSelectNextAvailableDate(
+                                                                date,
+                                                            )
+                                                        }
+                                                        className="w-full py-2 px-3 text-left bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors duration-200"
+                                                    >
+                                                        <div className="text-sm font-medium text-gray-900">
+                                                            {date.toLocaleDateString(
+                                                                "en-US",
+                                                                {
+                                                                    weekday:
+                                                                        "short",
+                                                                    month: "short",
+                                                                    day: "numeric",
+                                                                },
+                                                            )}
+                                                        </div>
+                                                        <div className="text-xs text-gray-600">
+                                                            {
+                                                                getTimeSlotsForDate(
+                                                                    date,
+                                                                ).length
+                                                            }{" "}
+                                                            time slots available
+                                                        </div>
+                                                    </button>
+                                                ),
+                                            )}
                                         </div>
                                         {nextAvailableDates.length === 0 && (
                                             <p className="text-gray-500 text-sm py-2">
-                                                No available dates found in the next 30 days.
+                                                No available dates found in the
+                                                next 30 days.
                                             </p>
                                         )}
                                     </div>
@@ -2746,32 +2933,52 @@ const CalendarIntegration = ({ price }) => {
 
                             <div className="border-t pt-4">
                                 <div className="flex justify-between text-xs sm:text-sm mb-2">
-                                    <span className="text-gray-600">Package:</span>
-                                    <span className="font-medium text-gray-900">{price.description}</span>
+                                    <span className="text-gray-600">
+                                        Package:
+                                    </span>
+                                    <span className="font-medium text-gray-900">
+                                        {price.description}
+                                    </span>
                                 </div>
                                 <div className="flex justify-between text-xs sm:text-sm mb-2">
-                                    <span className="text-gray-600">Duration:</span>
+                                    <span className="text-gray-600">
+                                        Duration:
+                                    </span>
                                     <span className="font-medium text-gray-900">
                                         {formatDurationDisplay(price.duration)}
                                     </span>
                                 </div>
                                 <div className="flex justify-between text-xs sm:text-sm mb-2">
-                                    <span className="text-gray-600">Price:</span>
-                                    <span className="font-medium text-gray-900">${price.price}</span>
+                                    <span className="text-gray-600">
+                                        Price:
+                                    </span>
+                                    <span className="font-medium text-gray-900">
+                                        ${price.price}
+                                    </span>
                                 </div>
                                 {selectedDate && selectedTime && (
                                     <>
                                         <div className="flex justify-between text-xs sm:text-sm">
-                                            <span className="text-gray-600">Selected:</span>
+                                            <span className="text-gray-600">
+                                                Selected:
+                                            </span>
                                             <span className="font-medium text-gray-900 text-right">
-                                                {selectedDate.toLocaleDateString()} at{" "}
-                                                {getTimeSlotDisplay(selectedTime)}
+                                                {selectedDate.toLocaleDateString()}{" "}
+                                                at{" "}
+                                                {getTimeSlotDisplay(
+                                                    selectedTime,
+                                                )}
                                             </span>
                                         </div>
                                         <div className="flex justify-between text-xs sm:text-sm mt-1">
-                                            <span className="text-gray-600">End Time:</span>
+                                            <span className="text-gray-600">
+                                                End Time:
+                                            </span>
                                             <span className="font-medium text-indigo-600 text-right">
-                                                {calculateEndTime(selectedTime, price.duration)}
+                                                {calculateEndTime(
+                                                    selectedTime,
+                                                    price.duration,
+                                                )}
                                             </span>
                                         </div>
                                     </>
@@ -2793,7 +3000,8 @@ const CalendarIntegration = ({ price }) => {
 
                         {selectedTime && (
                             <p className="text-xs text-center text-gray-500 mt-3">
-                                You'll be asked to complete your details in the next step
+                                You'll be asked to complete your details in the
+                                next step
                             </p>
                         )}
                     </div>

@@ -60,30 +60,31 @@ class TimeSlot extends Model
     //     return $slots;
     // }
 
-      public static function generateDefaultSlotsForDate($date)
-    {
-        $start = Carbon::createFromTime(7, 0, 0);
-        $end = Carbon::createFromTime(18, 0, 0);
-        $slots = [];
+     // In TimeSlot.php - This is already set to 20 minutes
+public static function generateDefaultSlotsForDate($date)
+{
+    $start = Carbon::createFromTime(7, 0, 0);
+    $end = Carbon::createFromTime(18, 0, 0);
+    $slots = [];
 
-        while ($start < $end) {
-            $slotStart = $start->format('H:i:s');
-            $slotEnd = $start->copy()->addMinutes(20)->format('H:i:s');
-            
-            $slots[] = [
-                'date' => $date,
-                'start_time' => $slotStart,
-                'end_time' => $slotEnd,
-                'status' => 'available',
-                'created_at' => now(),
-                'updated_at' => now()
-            ];
-            
-            $start->addMinutes(20);
-        }
+    while ($start < $end) {
+        $slotStart = $start->format('H:i:s');
+        $slotEnd = $start->copy()->addMinutes(20)->format('H:i:s');  // 20-minute intervals
         
-        return $slots;
+        $slots[] = [
+            'date' => $date,
+            'start_time' => $slotStart,
+            'end_time' => $slotEnd,
+            'status' => 'available',
+            'created_at' => now(),
+            'updated_at' => now()
+        ];
+        
+        $start->addMinutes(20);  // Add 20 minutes for next slot
     }
+    
+    return $slots;
+}
 
     /**
      * Initialize time slots for a date range
@@ -306,4 +307,6 @@ class TimeSlot extends Model
     {
         return $query->whereBetween('date', [$startDate, $endDate]);
     }
+
+    
 }
