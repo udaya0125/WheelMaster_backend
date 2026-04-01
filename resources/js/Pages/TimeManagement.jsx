@@ -152,7 +152,7 @@
 
 //         const slotsToUpdate = timeSlots.length - targetTimeIndex;
 
-//         const confirmMessage = `This will update ${slotsToUpdate} slot(s) from ${customStartTime} onwards to follow 20-minute intervals.\n\nExisting custom edits before this time will be preserved.\n\nDo you want to continue?`;
+//         const confirmMessage = `This will update ${slotsToUpdate} slot(s) from ${customStartTime} onwards to follow 30-minute intervals.\n\nExisting custom edits before this time will be preserved.\n\nDo you want to continue?`;
 
 //         if (!window.confirm(confirmMessage)) {
 //             return;
@@ -162,11 +162,14 @@
 //             setLoading(true);
 //             const formattedDate = formatDateKey(selectedDate);
 
-//             const response = await axios.post(route("ourtimeslots.update"), {
-//                 date: formattedDate,
-//                 start_time: customStartTime,
-//                 preserve_custom: true, // This tells backend to preserve existing custom slots before this time
-//             });
+//             const response = await axios.post(
+//                 route("ourtimeslots.update-from-time"),
+//                 {
+//                     date: formattedDate,
+//                     start_time: customStartTime,
+//                     preserve_custom: true, // This tells backend to preserve existing custom slots before this time
+//                 },
+//             );
 
 //             if (response.data.success) {
 //                 toast.success(
@@ -269,15 +272,17 @@
 //             return;
 //         }
 
-//         // Calculate how many slots will be affected (current slot and all subsequent slots)
-//         const affectedSlotsCount = timeSlots.length - index;
-
-//         // Show confirmation message about subsequent slots being updated
-//         const confirmMessage = `Changing this slot to ${newTime} will automatically adjust all ${affectedSlotsCount - 1} following slots to maintain 20-minute intervals.\n\nDo you want to continue?`;
-
-//         if (!window.confirm(confirmMessage)) {
-//             cancelEditing(index);
-//             return;
+//         // Check if it's a 30-minute increment (optional - you can remove this if you want any time)
+//         const minutes = parseInt(newTime.split(":")[1]);
+//         if (minutes % 30 !== 0) {
+//             if (
+//                 !confirm(
+//                     "Time is not in 30-minute increments. Continue anyway?",
+//                 )
+//             ) {
+//                 cancelEditing(index);
+//                 return;
+//             }
 //         }
 
 //         try {
@@ -285,18 +290,18 @@
 
 //             const formattedDate = formatDateKey(selectedDate);
 
-//             // NEW APPROACH: Send the edited time and let backend handle all subsequent slots
 //             const response = await axios.post(
-//                 route("ourtimeslots.update-single-with-subsequent"),
+//                 route("ourtimeslots.update-single"),
 //                 {
 //                     date: formattedDate,
-//                     start_index: index,
-//                     new_start_time: newTime,
+//                     old_time: slot.start_time,
+//                     new_time: newTime,
+//                     index: index,
 //                 },
 //             );
 
 //             if (response.data.success) {
-//                 toast.success(`Time slots updated from ${newTime} onwards`);
+//                 toast.success("Time slot updated successfully");
 
 //                 // Update the time slots with new times
 //                 const updatedSlots = response.data.slots.map((slot) => ({
@@ -337,9 +342,9 @@
 //                 });
 //             }
 //         } catch (error) {
-//             console.error("Error updating time slots:", error);
+//             console.error("Error updating time slot:", error);
 //             toast.error(
-//                 error.response?.data?.message || "Failed to update time slots",
+//                 error.response?.data?.message || "Failed to update time slot",
 //             );
 //             cancelEditing(index);
 //         } finally {
@@ -429,12 +434,15 @@
 //                         },
 //                     }}
 //                 />
-//                 <div className="px-2 sm:px-6 lg:px-8">
+//                 <div className="px-2 sm:px-6 lg:px-8 py-6 lg:py-8">
 //                     {/* Header */}
-//                     <div className="p-6 sm:p-8 mb-6">
+//                     <div className="bg-white rounded-lg shadow-sm p-6 sm:p-8 mb-6">
 //                         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
 //                             Time Management
 //                         </h1>
+//                         <p className="text-gray-600 text-sm sm:text-base">
+//                             Manage and configure time slots for your services
+//                         </p>
 //                     </div>
 
 //                     {/* Stats Cards */}
@@ -501,41 +509,19 @@
 //                                     Click on a date to manage its time slots
 //                                 </p>
 //                             </div>
-//                             {/* <Calendar
-//                                 mode="single"
-//                                 selected={selectedDate}
-//                                 onSelect={handleDateSelect}
-//                                 disabled={(date) => isPastDate(date)}
-//                                 className="rounded-md border [&_.rdp-day_selected]:bg-emerald-600 [&_.rdp-day_selected]:text-white [&_.rdp-day_selected:hover]:bg-emerald-700 [&_.rdp-button:hover]:bg-emerald-50 [&_.rdp-day_today]:bg-gray-100"
-//                                 components={{
-//                                     DayContent: ({ date }) =>
-//                                         renderDayContent(date),
-//                                 }}
-//                             /> */}
+
 //                             <Calendar
 //                                 mode="single"
 //                                 selected={selectedDate}
 //                                 onSelect={handleDateSelect}
 //                                 disabled={(date) => isPastDate(date)}
-//                                 captionLayout="dropdown"
 //                                 className="rounded-md border [&_.rdp-day_selected]:bg-emerald-600 [&_.rdp-day_selected]:text-white [&_.rdp-day_selected:hover]:bg-emerald-700 [&_.rdp-button:hover]:bg-emerald-50 [&_.rdp-day_today]:bg-gray-100"
 //                                 components={{
 //                                     DayContent: ({ date }) =>
 //                                         renderDayContent(date),
 //                                 }}
-//                                 fromYear={new Date().getFullYear()} // Current year only
-//                                 toYear={new Date().getFullYear() + 8} // Current year + 8 years
-//                                 formatters={{
-//                                     formatMonthCaption: (date) => {
-//                                         return date.toLocaleString("default", {
-//                                             month: "long",
-//                                         });
-//                                     },
-//                                     formatYearCaption: (date) => {
-//                                         return date.getFullYear().toString();
-//                                     },
-//                                 }}
 //                             />
+
 //                             {/* Date Navigation */}
 //                             {/* <div className="flex items-center justify-between mt-4">
 //                                 <button
@@ -566,7 +552,7 @@
 //                                 <h2 className="text-lg font-semibold text-gray-800 mb-4">
 //                                     Time Slot Configuration
 //                                 </h2>
-                                
+
 //                                 <div className="flex flex-col sm:flex-row items-end gap-4">
 //                                     <div className="flex-1">
 //                                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -585,7 +571,7 @@
 //                                             Select a time to update all slots from this point onwards
 //                                         </p>
 //                                     </div>
-                                    
+
 //                                     <div className="flex gap-2">
 //                                         <button
 //                                             onClick={handleUpdateAvailability}
@@ -595,7 +581,7 @@
 //                                             <Save size={18} />
 //                                             <span>Apply From {customStartTime} Onwards</span>
 //                                         </button>
-                                        
+
 //                                         <button
 //                                             onClick={handleResetToDefault}
 //                                             disabled={loading}
@@ -603,7 +589,7 @@
 //                                         >
 //                                             Reset to 7:00 AM
 //                                         </button>
-                                        
+
 //                                         <button
 //                                             onClick={fetchTimeSlots}
 //                                             className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
@@ -763,11 +749,11 @@
 //                                                                                 slot.status,
 //                                                                             )}
 //                                                                         </div>
-//                                                                         {/* {!slot.is_default_time && (
+//                                                                         {!slot.is_default_time && (
 //                                                                             <div className="mt-1 text-[10px] text-purple-600 font-medium">
 //                                                                                 Custom
 //                                                                             </div>
-//                                                                         )} */}
+//                                                                         )}
 //                                                                     </>
 //                                                                 )}
 //                                                             </div>
@@ -825,9 +811,9 @@
 //                         <h3 className="text-sm font-medium text-gray-700 mb-2">How it works</h3>
 //                         <div className="text-sm text-gray-600 space-y-1">
 //                             <p>• <span className="font-medium">Individual editing:</span> Click on any available (green) slot to edit its time</p>
-//                             <p>• <span className="font-medium">Smart cascading updates:</span> When you change a single time, all following slots automatically adjust to maintain 30-minute intervals</p>
-//                             <p>• <span className="font-medium">Example:</span> If you change 10:00 AM to 10:45 AM, following slots become: 11:15 AM, 11:45 AM, etc.</p>
 //                             <p>• <span className="font-medium">Bulk update:</span> Use the "Apply From [time] Onwards" button to update all slots from a specific time</p>
+//                             <p>• <span className="font-medium">When you change a time:</span> All subsequent slots will automatically adjust to maintain 30-minute intervals</p>
+//                             <p>• <span className="font-medium">Example:</span> If you change 10:00 AM to 10:45 AM, following slots become: 11:15 AM, 11:45 AM, etc.</p>
 //                             <p>• <span className="font-medium">Reserved or blocked slots</span> cannot be edited</p>
 //                             <p className="mt-2 text-xs text-gray-500">Press Enter to save your changes or Escape to cancel when editing individual slots.</p>
 //                         </div>
@@ -1279,6 +1265,58 @@ const TimeManagement = () => {
                         </h1>
                     </div>
 
+                    {/* Stats Cards */}
+                    {/* <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 mb-6">
+                        <div className="bg-white rounded-lg shadow-sm p-4">
+                            <div className="text-sm text-gray-500 mb-1">
+                                Total
+                            </div>
+                            <div className="text-2xl font-bold text-gray-900">
+                                {stats.total}
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-lg shadow-sm p-4">
+                            <div className="text-sm text-gray-500 mb-1">
+                                Available
+                            </div>
+                            <div className="text-2xl font-bold text-green-600">
+                                {stats.available}
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-lg shadow-sm p-4">
+                            <div className="text-sm text-gray-500 mb-1">
+                                Reserved
+                            </div>
+                            <div className="text-2xl font-bold text-blue-600">
+                                {stats.reserved}
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-lg shadow-sm p-4">
+                            <div className="text-sm text-gray-500 mb-1">
+                                Blocked
+                            </div>
+                            <div className="text-2xl font-bold text-red-600">
+                                {stats.blocked}
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-lg shadow-sm p-4">
+                            <div className="text-sm text-gray-500 mb-1">
+                                Default
+                            </div>
+                            <div className="text-2xl font-bold text-purple-600">
+                                {stats.default}
+                            </div>
+                        </div>
+                        <div className="bg-white rounded-lg shadow-sm p-4">
+                            <div className="text-sm text-gray-500 mb-1">
+                                Custom
+                            </div>
+                            <div className="text-2xl font-bold text-orange-600">
+                                {stats.custom}
+                            </div>
+                        </div>
+                    </div> */}
+
                     {/* Main Content - Calendar and Controls */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Calendar Section */}
@@ -1291,6 +1329,17 @@ const TimeManagement = () => {
                                     Click on a date to manage its time slots
                                 </p>
                             </div>
+                            {/* <Calendar
+                                mode="single"
+                                selected={selectedDate}
+                                onSelect={handleDateSelect}
+                                disabled={(date) => isPastDate(date)}
+                                className="rounded-md border [&_.rdp-day_selected]:bg-emerald-600 [&_.rdp-day_selected]:text-white [&_.rdp-day_selected:hover]:bg-emerald-700 [&_.rdp-button:hover]:bg-emerald-50 [&_.rdp-day_today]:bg-gray-100"
+                                components={{
+                                    DayContent: ({ date }) =>
+                                        renderDayContent(date),
+                                }}
+                            /> */}
                             <Calendar
                                 mode="single"
                                 selected={selectedDate}
@@ -1315,10 +1364,86 @@ const TimeManagement = () => {
                                     },
                                 }}
                             />
+                            {/* Date Navigation */}
+                            {/* <div className="flex items-center justify-between mt-4">
+                                <button
+                                    onClick={handlePreviousDay}
+                                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                >
+                                    <ChevronLeft size={20} />
+                                </button>
+                                <button
+                                    onClick={handleToday}
+                                    className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                                >
+                                    Today
+                                </button>
+                                <button
+                                    onClick={handleNextDay}
+                                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                >
+                                    <ChevronRight size={20} />
+                                </button>
+                            </div> */}
                         </div>
 
                         {/* Time Slot Configuration and Grid */}
                         <div className="lg:col-span-2 space-y-6">
+                            {/* Availability Control */}
+                            {/* <div className="bg-white rounded-lg shadow-sm p-6">
+                                <h2 className="text-lg font-semibold text-gray-800 mb-4">
+                                    Time Slot Configuration
+                                </h2>
+                                
+                                <div className="flex flex-col sm:flex-row items-end gap-4">
+                                    <div className="flex-1">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Custom Start Time
+                                        </label>
+                                        <input
+                                            type="time"
+                                            value={customStartTime}
+                                            onChange={handleTimeChange}
+                                            min="07:00"
+                                            max="17:30"
+                                            step="300"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                        />
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Select a time to update all slots from this point onwards
+                                        </p>
+                                    </div>
+                                    
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={handleUpdateAvailability}
+                                            disabled={loading || customStartTime === defaultStartTime}
+                                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:bg-emerald-300 disabled:cursor-not-allowed"
+                                        >
+                                            <Save size={18} />
+                                            <span>Apply From {customStartTime} Onwards</span>
+                                        </button>
+                                        
+                                        <button
+                                            onClick={handleResetToDefault}
+                                            disabled={loading}
+                                            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                        >
+                                            Reset to 7:00 AM
+                                        </button>
+                                        
+                                        <button
+                                            onClick={fetchTimeSlots}
+                                            className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                                            disabled={loading}
+                                            title="Refresh slots"
+                                        >
+                                            <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div> */}
+
                             {/* Time Slots Grid */}
                             <div className="bg-white rounded-lg shadow-sm p-6">
                                 <div className="flex items-center justify-between mb-4">
@@ -1466,6 +1591,11 @@ const TimeManagement = () => {
                                                                                 slot.status,
                                                                             )}
                                                                         </div>
+                                                                        {/* {!slot.is_default_time && (
+                                                                            <div className="mt-1 text-[10px] text-purple-600 font-medium">
+                                                                                Custom
+                                                                            </div>
+                                                                        )} */}
                                                                     </>
                                                                 )}
                                                             </div>
@@ -1484,7 +1614,8 @@ const TimeManagement = () => {
                                                 </p>
                                                 <p className="text-gray-400 text-sm mt-2">
                                                     Try selecting a different
-                                                    date
+                                                    date or configure the start
+                                                    time above
                                                 </p>
                                             </div>
                                         )}
@@ -1493,6 +1624,42 @@ const TimeManagement = () => {
                             </div>
                         </div>
                     </div>
+
+                    {/* Legend */}
+                    {/* <div className="mt-6 bg-white rounded-lg shadow-sm p-4">
+                        <h3 className="text-sm font-medium text-gray-700 mb-3">Status Legend</h3>
+                        <div className="flex flex-wrap gap-4">
+                            <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 bg-green-50 border-2 border-green-200 rounded"></div>
+                                <span className="text-sm text-gray-600">Available (click to edit individually)</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 bg-blue-50 border-2 border-blue-200 rounded"></div>
+                                <span className="text-sm text-gray-600">Reserved (cannot edit)</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 bg-red-50 border-2 border-red-200 rounded"></div>
+                                <span className="text-sm text-gray-600">Blocked (cannot edit)</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 bg-white border-2 border-gray-200 rounded ring-2 ring-purple-200"></div>
+                                <span className="text-sm text-gray-600">Custom schedule slot</span>
+                            </div>
+                        </div>
+                    </div> */}
+
+                    {/* How it works */}
+                    {/* <div className="mt-6 bg-gray-50 rounded-lg p-4 border border-gray-200">
+                        <h3 className="text-sm font-medium text-gray-700 mb-2">How it works</h3>
+                        <div className="text-sm text-gray-600 space-y-1">
+                            <p>• <span className="font-medium">Individual editing:</span> Click on any available (green) slot to edit its time</p>
+                            <p>• <span className="font-medium">Smart cascading updates:</span> When you change a single time, all following slots automatically adjust to maintain 30-minute intervals</p>
+                            <p>• <span className="font-medium">Example:</span> If you change 10:00 AM to 10:45 AM, following slots become: 11:15 AM, 11:45 AM, etc.</p>
+                            <p>• <span className="font-medium">Bulk update:</span> Use the "Apply From [time] Onwards" button to update all slots from a specific time</p>
+                            <p>• <span className="font-medium">Reserved or blocked slots</span> cannot be edited</p>
+                            <p className="mt-2 text-xs text-gray-500">Press Enter to save your changes or Escape to cancel when editing individual slots.</p>
+                        </div>
+                    </div> */}
                 </div>
             </Wrapper>
         </>

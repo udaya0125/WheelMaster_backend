@@ -6,7 +6,6 @@ use App\Mail\ReservationCreated;
 use App\Models\BlockReservation;
 use App\Models\Notification;
 use App\Models\Price;
-use App\Models\TimeSlot;
 use App\Models\UserReservation;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -23,14 +22,14 @@ class ReservationController extends Controller
 
         while ($start < $end) {
             $slotStart = $start->format('H:i');
-            $slotEnd = $start->copy()->addMinutes(20)->format('H:i'); // Changed from 30 to 20
+            $slotEnd = $start->copy()->addMinutes(30)->format('H:i');
             $slots[] = [
                 'start_time' => $slotStart,
                 'end_time' => $slotEnd,
                 'start_carbon' => $start->copy(),
-                'end_carbon' => $start->copy()->addMinutes(20), // Changed from 30 to 20
+                'end_carbon' => $start->copy()->addMinutes(30),
             ];
-            $start->addMinutes(20); // Changed from 30 to 20
+            $start->addMinutes(30);
         }
 
         return $slots;
@@ -78,15 +77,7 @@ class ReservationController extends Controller
         $now = Carbon::now();
         $isToday = $date === $now->format('Y-m-d');
 
-        // Initialize time slots for this date if they don't exist
-        TimeSlot::initializeForDateRange($date, $date);
-
-        // Get all time slots for this date
-        $timeSlots = TimeSlot::where('date', $date)
-            ->orderBy('start_time')
-            ->get();
-
-        // Fetch blocks (blocks are price-independent - they affect all prices)
+        // Fetch all blocks (blocks are price-independent - they affect all prices)
         $blocks = BlockReservation::where('date', $date)
             ->orderBy('start_time', 'asc')
             ->get();
@@ -171,7 +162,7 @@ class ReservationController extends Controller
     // Helper to add available slots between two times
     private function addAvailableSlots(&$availableSlots, $startTime, $endTime, $isToday, $now)
     {
-        $slotDuration = 20; // minutes - Changed from 30 to 20
+        $slotDuration = 30; // minutes
 
         $current = $startTime->copy();
 
@@ -301,12 +292,9 @@ class ReservationController extends Controller
             'status' => 'Pending',
         ]);
 
-        // Mark the time slot(s) as reserved in the TimeSlot model
-        TimeSlotController::markSlotAsReserved($reservationDate, $requestStart->format('H:i:s'), $request->duration_minutes);
-
         // Create notification for new reservation
         $notification = Notification::create([
-            'message' => "New reservation from {$reservation->user_name} for {$reservationDate} ({$requestStart->format('h:i A')} - {$requestEnd->format('h:i A')}) ".Price::find($priceId)->name,
+            'message' => "New reservation from {$reservation->user_name} for {$reservationDate} ({$requestStart->format('h:i A')} - {$requestEnd->format('h:i A')})".Price::find($priceId)->name,
             'is_read' => false,
         ]);
 
@@ -435,7 +423,7 @@ class ReservationController extends Controller
                 $availableSlots[] = $current->format('H:i');
             }
 
-            $current->addMinutes(20); // Changed from 30 to 20
+            $current->addMinutes(30);
         }
 
         return response()->json([
