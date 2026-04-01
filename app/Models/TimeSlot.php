@@ -33,9 +33,34 @@ class TimeSlot extends Model
     }
 
     /**
-     * Generate default time slots (7:00 AM to 6:00 PM, 30-min intervals)
+     * Generate default time slots (7:00 AM to 6:00 PM, 20-min intervals)
      */
-    public static function generateDefaultSlotsForDate($date)
+    // public static function generateDefaultSlotsForDate($date)
+    // {
+    //     $start = Carbon::createFromTime(7, 0, 0);
+    //     $end = Carbon::createFromTime(18, 0, 0);
+    //     $slots = [];
+
+    //     while ($start < $end) {
+    //         $slotStart = $start->format('H:i:s');
+    //         $slotEnd = $start->copy()->addMinutes(30)->format('H:i:s');
+            
+    //         $slots[] = [
+    //             'date' => $date,
+    //             'start_time' => $slotStart,
+    //             'end_time' => $slotEnd,
+    //             'status' => 'available',
+    //             'created_at' => now(),
+    //             'updated_at' => now()
+    //         ];
+            
+    //         $start->addMinutes(30);
+    //     }
+        
+    //     return $slots;
+    // }
+
+      public static function generateDefaultSlotsForDate($date)
     {
         $start = Carbon::createFromTime(7, 0, 0);
         $end = Carbon::createFromTime(18, 0, 0);
@@ -43,7 +68,7 @@ class TimeSlot extends Model
 
         while ($start < $end) {
             $slotStart = $start->format('H:i:s');
-            $slotEnd = $start->copy()->addMinutes(30)->format('H:i:s');
+            $slotEnd = $start->copy()->addMinutes(20)->format('H:i:s');
             
             $slots[] = [
                 'date' => $date,
@@ -54,7 +79,7 @@ class TimeSlot extends Model
                 'updated_at' => now()
             ];
             
-            $start->addMinutes(30);
+            $start->addMinutes(20);
         }
         
         return $slots;
@@ -92,7 +117,76 @@ class TimeSlot extends Model
      * Update time slots from a specific time onwards
      * Keeps slots before the cut-off time unchanged
      */
-    public static function updateFromTimeOnwards($date, $cutoffTime)
+    // public static function updateFromTimeOnwards($date, $cutoffTime)
+    // {
+    //     // Parse the cutoff time
+    //     $cutoff = Carbon::parse($cutoffTime);
+        
+    //     // Get all existing slots for this date
+    //     $existingSlots = self::where('date', $date)
+    //         ->orderBy('start_time')
+    //         ->get();
+        
+    //     // Separate slots into before and after cutoff
+    //     $beforeCutoff = [];
+    //     $afterCutoff = [];
+        
+    //     foreach ($existingSlots as $slot) {
+    //         $slotTime = Carbon::parse($slot->start_time);
+    //         if ($slotTime < $cutoff) {
+    //             $beforeCutoff[] = $slot;
+    //         } else {
+    //             $afterCutoff[] = $slot;
+    //         }
+    //     }
+        
+    //     // Delete all slots after the cutoff time
+    //     if (!empty($afterCutoff)) {
+    //         $afterIds = collect($afterCutoff)->pluck('id')->toArray();
+    //         self::whereIn('id', $afterIds)->delete();
+    //     }
+        
+    //     // Generate new slots starting from the cutoff time
+    //     $start = $cutoff->copy();
+    //     $end = Carbon::createFromTime(18, 0, 0); // End at 6:00 PM
+    //     $newSlots = [];
+
+    //     while ($start < $end) {
+    //         $slotStart = $start->format('H:i:s');
+    //         $slotEnd = $start->copy()->addMinutes(30)->format('H:i:s');
+            
+    //         // Check if this slot already exists in beforeCutoff (shouldn't, but just in case)
+    //         $exists = collect($beforeCutoff)->contains(function($slot) use ($slotStart) {
+    //             return $slot->start_time == $slotStart;
+    //         });
+            
+    //         if (!$exists) {
+    //             $newSlots[] = [
+    //                 'date' => $date,
+    //                 'start_time' => $slotStart,
+    //                 'end_time' => $slotEnd,
+    //                 'status' => 'available',
+    //                 'created_at' => now(),
+    //                 'updated_at' => now()
+    //             ];
+    //         }
+            
+    //         $start->addMinutes(30);
+    //     }
+        
+    //     // Insert new slots
+    //     if (!empty($newSlots)) {
+    //         self::insert($newSlots);
+    //     }
+        
+    //     // Return all slots for the date (before cutoff + new ones)
+    //     return self::where('date', $date)
+    //         ->orderBy('start_time')
+    //         ->get();
+    // }
+
+
+        public static function updateFromTimeOnwards($date, $cutoffTime)
     {
         // Parse the cutoff time
         $cutoff = Carbon::parse($cutoffTime);
@@ -128,7 +222,7 @@ class TimeSlot extends Model
 
         while ($start < $end) {
             $slotStart = $start->format('H:i:s');
-            $slotEnd = $start->copy()->addMinutes(30)->format('H:i:s');
+            $slotEnd = $start->copy()->addMinutes(20)->format('H:i:s');
             
             // Check if this slot already exists in beforeCutoff (shouldn't, but just in case)
             $exists = collect($beforeCutoff)->contains(function($slot) use ($slotStart) {
@@ -146,7 +240,7 @@ class TimeSlot extends Model
                 ];
             }
             
-            $start->addMinutes(30);
+            $start->addMinutes(20);
         }
         
         // Insert new slots
