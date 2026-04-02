@@ -331,7 +331,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import EditPriceForm from "@/EditFormComponents/EditPriceForm";
 import AddPriceForm from "@/AddFormComponent/AddPriceForm";
-import { FiPlus, FiX, FiEdit2, FiTrash2, FiCheck, FiZap, FiClock } from "react-icons/fi";
+import { FiPlus, FiX, FiEdit, FiTrash2, FiCheck, FiZap, FiClock } from "react-icons/fi";
 import Wrapper from "@/AdminWrapper/Wrapper";
 
 const PricePackages = () => {
@@ -411,26 +411,33 @@ const PricePackages = () => {
                 return { 
                     bg: "from-sky-500 to-cyan-500", 
                     badge: "bg-sky-100 text-sky-700", 
-                    ring: "ring-sky-200" 
+                    ring: "ring-sky-200",
+                    editBg: "bg-sky-600",
+                    editHover: "hover:bg-sky-700"
                 };
             case "test packages":
                 return { 
                     bg: "from-emerald-500 to-teal-500", 
                     badge: "bg-emerald-100 text-emerald-700", 
-                    ring: "ring-emerald-200" 
+                    ring: "ring-emerald-200",
+                    editBg: "bg-emerald-600",
+                    editHover: "hover:bg-emerald-700"
                 };
             case "package bundles":
                 return { 
                     bg: "from-violet-600 to-indigo-600", 
                     badge: "bg-violet-100 text-violet-700", 
-                    ring: "ring-violet-200" 
+                    ring: "ring-violet-200",
+                    editBg: "bg-violet-600",
+                    editHover: "hover:bg-violet-700"
                 };
             default:
-                // Default color for any other category
                 return { 
                     bg: "from-gray-500 to-gray-600", 
                     badge: "bg-gray-100 text-gray-700", 
-                    ring: "ring-gray-200" 
+                    ring: "ring-gray-200",
+                    editBg: "bg-gray-600",
+                    editHover: "hover:bg-gray-700"
                 };
         }
     };
@@ -458,7 +465,6 @@ const PricePackages = () => {
     const calculateDiscountedPrice = (originalPrice, discountAmount) => {
         if (!discountAmount) return { discountedPrice: originalPrice, savingsAmount: null };
         
-        // Extract numbers from discount string (e.g., "$200" -> 200, "$80" -> 80)
         const discountMatch = discountAmount.toString().match(/(\d+(?:\.\d+)?)/);
         if (discountMatch) {
             const discountValue = parseFloat(discountMatch[0]);
@@ -637,10 +643,28 @@ const PricePackages = () => {
                                         key={price.id}
                                         className={`relative bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 ring-1 ${accent.ring}`}
                                     >
+                                        {/* Edit/Delete Actions - Top Right Corner */}
+                                        <div className="absolute top-4 right-4 flex space-x-2 z-10">
+                                            <button
+                                                onClick={() => handleEdit(price)}
+                                                className={`${accent.editBg} text-white p-2 rounded-full ${accent.editHover} transition-colors shadow-md`}
+                                                title="Edit"
+                                            >
+                                                <FiEdit size={16} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(price.id)}
+                                                className="bg-red-600 text-white p-2 rounded-full hover:bg-red-700 transition-colors shadow-md"
+                                                title="Delete"
+                                            >
+                                                <FiTrash2 size={16} />
+                                            </button>
+                                        </div>
+
                                         {/* Top gradient bar */}
                                         <div className={`h-2 w-full bg-gradient-to-r ${accent.bg}`} />
 
-                                        <div className="p-6">
+                                        <div className="p-6 pt-12">
                                             {/* Category badge */}
                                             <div className="flex items-start justify-between mb-4">
                                                 <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full ${accent.badge}`}>
@@ -725,24 +749,6 @@ const PricePackages = () => {
                                                     )}
                                                 </ul>
                                             )}
-
-                                            {/* Actions */}
-                                            <div className="flex gap-2 pt-2">
-                                                <button
-                                                    onClick={() => handleEdit(price)}
-                                                    className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
-                                                >
-                                                    <FiEdit2 size={14} />
-                                                    Edit
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(price.id)}
-                                                    className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
-                                                >
-                                                    <FiTrash2 size={14} />
-                                                    Delete
-                                                </button>
-                                            </div>
                                         </div>
                                     </div>
                                 );
