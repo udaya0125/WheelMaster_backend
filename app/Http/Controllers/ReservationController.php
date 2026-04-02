@@ -8,6 +8,7 @@ use App\Models\Notification;
 use App\Models\Price;
 use App\Models\UserReservation;
 use Carbon\Carbon;
+use App\Models\TimeSlot; // Import TimeSlot model
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
