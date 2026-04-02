@@ -3,13 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\BlockReservation;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class BlockReservationController extends Controller
 {
-    /**
-     * Display all block reservations
-     */
     public function index()
     {
         $blocks = BlockReservation::all();
@@ -19,31 +17,49 @@ class BlockReservationController extends Controller
         ]);
     }
 
-    /**
-     * Store a new block reservation
-     */
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'date'        => 'required|date',
+            'start_date'  => 'required|date',
+            'end_date'    => 'required|date|after_or_equal:start_date',
             'start_time'  => 'required',
             'end_time'    => 'required',
             'duration'    => 'required|numeric',
             'reason'      => 'nullable|string',
         ]);
 
-        $block = BlockReservation::create($validated);
+        $startDate = Carbon::parse($validated['start_date']);
+        $endDate   = Carbon::parse($validated['end_date']);
+
+        // Prevent abuse: cap range at 365 days
+        if ($startDate->diffInDays($endDate) > 365) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Date range cannot exceed 365 days.'
+            ], 422);
+        }
+
+        $created = [];
+        $current = $startDate->copy();
+
+        while ($current->lte($endDate)) {
+            $created[] = BlockReservation::create([
+                'date'       => $current->toDateString(),
+                'start_time' => $validated['start_time'],
+                'end_time'   => $validated['end_time'],
+                'duration'   => $validated['duration'],
+                'reason'     => $validated['reason'] ?? 'No reason provided',
+            ]);
+            $current->addDay();
+        }
 
         return response()->json([
             'success' => true,
-            'message' => 'Block reservation created successfully.',
-            'data'    => $block
+            'message' => count($created) . ' day(s) blocked successfully.',
+            'data'    => $created
         ], 201);
     }
 
-    /**
-     * Update an existing block reservation
-     */
     public function update(Request $request, $id)
     {
         $block = BlockReservation::findOrFail($id);
@@ -65,13 +81,9 @@ class BlockReservationController extends Controller
         ]);
     }
 
-    /**
-     * Delete an existing block reservation
-     */
     public function destroy($id)
     {
         $block = BlockReservation::findOrFail($id);
-
         $block->delete();
 
         return response()->json([
