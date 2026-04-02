@@ -2072,12 +2072,12 @@ const CalendarIntegration = ({ price }) => {
             try {
                 setLoading(true);
                 const dateKey = formatDateKey(selectedDate);
-                console.log(
-                    "Fetching slots for date:",
-                    dateKey,
-                    "price_id:",
-                    price?.id,
-                );
+                // console.log(
+                //     "Fetching slots for date:",
+                //     dateKey,
+                //     "price_id:",
+                //     price?.id,
+                // );
 
                 const response = await axios.get(route("ourtimeslots.get"), {
                     params: {
@@ -2086,7 +2086,7 @@ const CalendarIntegration = ({ price }) => {
                     },
                 });
 
-                console.log("API Response:", response.data);
+                // console.log("API Response:", response.data);
 
                 if (response.data.success) {
                     // Store all slots data for debugging
@@ -2117,7 +2117,7 @@ const CalendarIntegration = ({ price }) => {
                             return startTime;
                         });
 
-                    console.log("Booked slots for this date:", booked);
+                    // console.log("Booked slots for this date:", booked);
                     setBookedSlots(booked);
 
                     // Get available slots
@@ -2135,7 +2135,7 @@ const CalendarIntegration = ({ price }) => {
                             return startTime;
                         });
 
-                    console.log("Available slots from API:", available);
+                    // console.log("Available slots from API:", available);
 
                     setTimeSlots((prev) => ({
                         ...prev,
@@ -2453,7 +2453,7 @@ const CalendarIntegration = ({ price }) => {
             return timeA - timeB;
         });
 
-        console.log("Booked slots to check against:", bookedSlots);
+        // console.log("Booked slots to check against:", bookedSlots);
 
         // Create a set of booked start times and also track their end times
         const bookedPeriods = [];
@@ -2486,7 +2486,7 @@ const CalendarIntegration = ({ price }) => {
             mergedBookedPeriods.push(current);
         }
 
-        console.log("Merged booked periods:", mergedBookedPeriods);
+        // console.log("Merged booked periods:", mergedBookedPeriods);
 
         let nextAllowedStart = -1;
 
@@ -2543,10 +2543,10 @@ const CalendarIntegration = ({ price }) => {
             }
         }
 
-        console.log(
-            "Final filtered slots:",
-            result.map((s) => (typeof s === "string" ? s : s.start_time)),
-        );
+        // console.log(
+        //     "Final filtered slots:",
+        //     result.map((s) => (typeof s === "string" ? s : s.start_time)),
+        // );
         return result;
     };
 

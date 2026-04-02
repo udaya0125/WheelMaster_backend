@@ -1269,7 +1269,7 @@ const CalendarIntegrationMobile = ({ price }) => {
             return timeA - timeB;
         });
 
-        console.log("Booked slots to check against:", bookedSlots);
+        // console.log("Booked slots to check against:", bookedSlots);
         
         // Create a set of booked start times and track their end times
         const bookedPeriods = [];
@@ -1302,7 +1302,7 @@ const CalendarIntegrationMobile = ({ price }) => {
             mergedBookedPeriods.push(current);
         }
         
-        console.log("Merged booked periods:", mergedBookedPeriods);
+        // console.log("Merged booked periods:", mergedBookedPeriods);
 
         let nextAllowedStart = -1;
 
@@ -1347,7 +1347,7 @@ const CalendarIntegrationMobile = ({ price }) => {
             }
         }
 
-        console.log("Final filtered slots:", result.map(s => typeof s === "string" ? s : s.start_time));
+        // console.log("Final filtered slots:", result.map(s => typeof s === "string" ? s : s.start_time));
         return result;
     };
 
