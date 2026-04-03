@@ -15,7 +15,7 @@
 // import { useState, useEffect } from "react";
 
 // export default function Dashboard({
-//     pieData = [],  
+//     pieData = [],
 //     barData = [],
 //     visitors = { visitors: 0, pageviews: 0 },
 // }) {
@@ -117,7 +117,6 @@
 //         }
 //         return null;
 //     };
-
 
 //     console.log("Dashboard visitors:", visitors);
 //     console.log("Dashboard pieData:", pieData);
@@ -630,7 +629,6 @@
 //     );
 // }
 
-
 import Wrapper from "@/AdminWrapper/Wrapper";
 import {
     PieChart,
@@ -648,7 +646,7 @@ import {
 import { useState, useEffect } from "react";
 
 export default function Dashboard({
-    pieData = [],  
+    pieData = [],
     barData = [],
     visitors = { visitors: 0, pageviews: 0 },
 }) {
@@ -751,23 +749,28 @@ export default function Dashboard({
         return null;
     };
 
-
     // console.log("Dashboard visitors:", visitors);
     // console.log("Dashboard pieData:", pieData);
     // console.log("Dashboard barData:", barData);
 
     // Calculate averages
-    const avgVisitors = barData.length > 0
-        ? Math.round(
-            barData.reduce((sum, item) => sum + (item.visitors || 0), 0) / barData.length
-        ).toLocaleString()
-        : "0";
+    const avgVisitors =
+        barData.length > 0
+            ? Math.round(
+                  barData.reduce((sum, item) => sum + (item.visitors || 0), 0) /
+                      barData.length,
+              ).toLocaleString()
+            : "0";
 
-    const avgPageViews = barData.length > 0
-        ? Math.round(
-            barData.reduce((sum, item) => sum + (item.pageviews || 0), 0) / barData.length
-        ).toLocaleString()
-        : "0";
+    const avgPageViews =
+        barData.length > 0
+            ? Math.round(
+                  barData.reduce(
+                      (sum, item) => sum + (item.pageviews || 0),
+                      0,
+                  ) / barData.length,
+              ).toLocaleString()
+            : "0";
 
     return (
         <Wrapper>
@@ -1047,7 +1050,7 @@ export default function Dashboard({
                                                             {dataWithPercentage.map(
                                                                 (
                                                                     entry,
-                                                                    index
+                                                                    index,
                                                                 ) => (
                                                                     <Cell
                                                                         key={`cell-${index}`}
@@ -1063,7 +1066,7 @@ export default function Dashboard({
                                                                         }
                                                                         className="hover:opacity-90 transition-opacity"
                                                                     />
-                                                                )
+                                                                ),
                                                             )}
                                                         </Pie>
                                                         <Tooltip
@@ -1117,7 +1120,7 @@ export default function Dashboard({
                                                                 </p>
                                                             </div>
                                                         </div>
-                                                    )
+                                                    ),
                                                 )}
                                             </div>
                                         </>
@@ -1191,7 +1194,7 @@ export default function Dashboard({
                                                             axisLine={false}
                                                             tickLine={false}
                                                             tickFormatter={(
-                                                                value
+                                                                value,
                                                             ) =>
                                                                 value.toLocaleString()
                                                             }
