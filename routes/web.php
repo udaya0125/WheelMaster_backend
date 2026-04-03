@@ -108,6 +108,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/ouruserreservations', [UserReservationController::class, 'store'])->name('ouruserreservations.store');
     Route::put('/ouruserreservations/{id}', [UserReservationController::class, 'update'])->name('ouruserreservations.update');
     Route::delete('/ouruserreservations/{id}', [UserReservationController::class, 'destroy'])->name('ouruserreservations.destroy');
+    Route::post('/ouruserreservations/check-availability', [UserReservationController::class, 'checkAvailability'])->name('ouruserreservations.check-availability');
 
 
     // --------------------------------------------------------------------------
