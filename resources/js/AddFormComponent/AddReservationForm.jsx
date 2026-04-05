@@ -2293,13 +2293,14 @@ const AddReservationForm = ({
                         </div>
                     </div>
 
-                    {/* Info Note about flexible time slots */}
+                    {/* Info Note about flexible time slots 
                     <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                         <p className="text-xs text-blue-700">
                             💡 <span className="font-medium">Tip:</span> You can select any time (e.g., 10:03, 11:07, 11:30, 14:45). 
                             The system will only check if the time slot is blocked by admin or already booked by another customer.
                         </p>
-                    </div>
+                    </div> 
+                    */}
 
                     {/* Selected Package Summary */}
                     {selectedPackage && (
