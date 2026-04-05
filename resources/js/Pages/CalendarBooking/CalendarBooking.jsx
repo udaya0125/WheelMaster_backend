@@ -1459,7 +1459,7 @@ const localizer = momentLocalizer(moment);
 // Custom Year View Component
 const YearView = ({ date, events, onSelectEvent, onSelectSlot, localizer: viewLocalizer, onDrillDown }) => {
   const months = [];
-  // Get the year from the date - THIS IS KEY
+  // Get the year from the date
   const currentYear = moment(date).year();
   
   // Generate months for the year in correct order (January to December)
@@ -1808,11 +1808,22 @@ const CalendarBooking = () => {
 
   // Fixed navigation handler to work with all views including year
   const handleNavigate = useCallback((newDate, viewType) => {
+    console.log('Navigate called:', { newDate: moment(newDate).format('YYYY-MM-DD'), viewType });
+    
     if (viewType === 'year') {
-      // For year view, set to the first day of the selected year
-      const targetDate = moment(newDate);
-      const firstDayOfYear = targetDate.clone().startOf('year').toDate();
-      setDate(firstDayOfYear);
+      // Get the current year from the date
+      const currentYear = moment(date).year();
+      const targetYear = moment(newDate).year();
+      
+      // Calculate the difference in years
+      const yearDiff = targetYear - currentYear;
+      
+      // Create new date by adding/subtracting years
+      const newYearDate = moment(date).add(yearDiff, 'years').startOf('year').toDate();
+      
+      console.log('Year navigation:', { currentYear, targetYear, yearDiff, newYearDate: moment(newYearDate).format('YYYY-MM-DD') });
+      
+      setDate(newYearDate);
     } else if (viewType === 'month') {
       // For month view, set to the first day of the month
       const targetDate = moment(newDate);
@@ -1822,9 +1833,10 @@ const CalendarBooking = () => {
       // For week, day, agenda views
       setDate(newDate);
     }
-  }, []);
+  }, [date]);
 
   const handleView = useCallback((newView) => {
+    console.log('View changed to:', newView);
     setView(newView);
   }, []);
 
@@ -1840,12 +1852,14 @@ const CalendarBooking = () => {
     const now = moment();
     if (view === 'year') {
       setDate(now.clone().startOf('year').toDate());
+      toast.success(`Navigated to ${now.year()}`);
     } else if (view === 'month') {
       setDate(now.clone().startOf('month').toDate());
+      toast.success('Navigated to current month');
     } else {
       setDate(now.toDate());
+      toast.success('Navigated to today');
     }
-    toast.success(`Navigated to ${view === 'year' ? 'current year' : 'today'}`);
   };
 
   const eventStyleGetter = (event) => {
