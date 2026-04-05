@@ -1477,6 +1477,29 @@ const AddReservationForm = ({
     const [error, setError] = useState(null);
     const [successMessage, setSuccessMessage] = useState(null);
 
+    useEffect(() => {
+        if (isOpen) {
+            // Save current scroll position
+            const scrollY = window.scrollY;
+
+            // Add styles to prevent scrolling
+            document.body.style.position = "fixed";
+            document.body.style.top = `-${scrollY}px`;
+            document.body.style.width = "100%";
+            document.body.style.overflow = "hidden";
+
+            // Store scroll position to restore later
+            return () => {
+                // Restore scrolling
+                document.body.style.position = "";
+                document.body.style.top = "";
+                document.body.style.width = "";
+                document.body.style.overflow = "";
+                window.scrollTo(0, scrollY);
+            };
+        }
+    }, [isOpen]);
+
     // Test package categories
     const testPackageCategories = [
         "Driving Test Packages",
