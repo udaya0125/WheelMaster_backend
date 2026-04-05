@@ -2182,9 +2182,9 @@ const AddReservationForm = ({
                                         <option key={pkg.id} value={pkg.id}>
                                             {pkg.description}{" "}
                                             {pkg.price ? `- $${pkg.price}` : ""}
-                                            {pkg.duration
+                                            {/* {pkg.duration
                                                 ? ` (${pkg.duration})`
-                                                : ""}
+                                                : ""} */}
                                         </option>
                                     ))}
                                 </select>
