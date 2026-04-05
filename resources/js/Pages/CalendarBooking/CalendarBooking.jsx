@@ -1459,7 +1459,7 @@ const localizer = momentLocalizer(moment);
 // Custom Year View Component
 const YearView = ({ date, events, onSelectEvent, onSelectSlot, localizer: viewLocalizer, onDrillDown }) => {
   const months = [];
-  // Get the year from the date
+  // Get the year from the date - THIS IS KEY
   const currentYear = moment(date).year();
   
   // Generate months for the year in correct order (January to December)
@@ -1808,14 +1808,13 @@ const CalendarBooking = () => {
 
   // Fixed navigation handler to work with all views including year
   const handleNavigate = useCallback((newDate, viewType) => {
-    console.log('Navigating:', { newDate, viewType }); // Debug log
     if (viewType === 'year') {
-      // For year view, we want to set to the first day of the year
+      // For year view, set to the first day of the selected year
       const targetDate = moment(newDate);
       const firstDayOfYear = targetDate.clone().startOf('year').toDate();
       setDate(firstDayOfYear);
     } else if (viewType === 'month') {
-      // For month view, always set to the first day of the month
+      // For month view, set to the first day of the month
       const targetDate = moment(newDate);
       const firstDayOfMonth = targetDate.clone().startOf('month').toDate();
       setDate(firstDayOfMonth);
@@ -1826,7 +1825,6 @@ const CalendarBooking = () => {
   }, []);
 
   const handleView = useCallback((newView) => {
-    console.log('View changed to:', newView); // Debug log
     setView(newView);
   }, []);
 
@@ -1841,17 +1839,13 @@ const CalendarBooking = () => {
   const goToToday = () => {
     const now = moment();
     if (view === 'year') {
-      const firstDayOfYear = now.clone().startOf('year').toDate();
-      setDate(firstDayOfYear);
-      toast.success(`Navigated to ${firstDayOfYear.getFullYear()}`);
+      setDate(now.clone().startOf('year').toDate());
     } else if (view === 'month') {
-      const firstDayOfMonth = now.clone().startOf('month').toDate();
-      setDate(firstDayOfMonth);
-      toast.success('Navigated to current month');
+      setDate(now.clone().startOf('month').toDate());
     } else {
       setDate(now.toDate());
-      toast.success('Navigated to today');
     }
+    toast.success(`Navigated to ${view === 'year' ? 'current year' : 'today'}`);
   };
 
   const eventStyleGetter = (event) => {
@@ -1903,11 +1897,6 @@ const CalendarBooking = () => {
 
   // Create a wrapped component that passes the drill down handler
   const YearViewWithDrillDown = (props) => {
-    // Force re-render when date changes
-    useEffect(() => {
-      console.log('YearView date changed:', props.date);
-    }, [props.date]);
-    
     return <YearView {...props} onDrillDown={handleDrillDown} />;
   };
   
@@ -1958,52 +1947,6 @@ const CalendarBooking = () => {
         />
         
         <div className="sm:px-4 md:px-6 lg:px-8 py-4 md:py-6 lg:py-8">
-          {/* Custom Navigation Buttons (Optional - for testing) */}
-          <div className="mb-4 flex gap-2 justify-end">
-            <button
-              onClick={() => {
-                if (view === 'year') {
-                  const newDate = moment(date).subtract(1, 'year').startOf('year').toDate();
-                  setDate(newDate);
-                  toast.success(`Navigated to ${newDate.getFullYear()}`);
-                } else if (view === 'month') {
-                  const newDate = moment(date).subtract(1, 'month').startOf('month').toDate();
-                  setDate(newDate);
-                } else {
-                  const newDate = moment(date).subtract(1, 'day').toDate();
-                  setDate(newDate);
-                }
-              }}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Previous {view === 'year' ? 'Year' : view === 'month' ? 'Month' : 'Day'}
-            </button>
-            <button
-              onClick={goToToday}
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-            >
-              Today
-            </button>
-            <button
-              onClick={() => {
-                if (view === 'year') {
-                  const newDate = moment(date).add(1, 'year').startOf('year').toDate();
-                  setDate(newDate);
-                  toast.success(`Navigated to ${newDate.getFullYear()}`);
-                } else if (view === 'month') {
-                  const newDate = moment(date).add(1, 'month').startOf('month').toDate();
-                  setDate(newDate);
-                } else {
-                  const newDate = moment(date).add(1, 'day').toDate();
-                  setDate(newDate);
-                }
-              }}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Next {view === 'year' ? 'Year' : view === 'month' ? 'Month' : 'Day'}
-            </button>
-          </div>
-
           {/* Calendar */}
           {loading && events.length === 0 ? (
             <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 md:p-8 text-center" style={{ height: '70vh', minHeight: '550px' }}>
