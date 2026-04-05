@@ -1442,7 +1442,6 @@
 
 // export default AddReservationForm;
 
-
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { X, Calendar, Clock, Mail, Phone, Home, MapPin } from "lucide-react";
@@ -1498,97 +1497,101 @@ const AddReservationForm = ({
     // Parse duration string to minutes (e.g., "2 hours" -> 120, "90 minutes" -> 90)
     const parseDurationToMinutes = (duration) => {
         if (!duration) return null;
-        
+
         const durationStr = duration.toString().toLowerCase();
-        
+
         // Check for hours
         const hoursMatch = durationStr.match(/(\d+(?:\.\d+)?)\s*hours?/);
         if (hoursMatch) {
             return parseFloat(hoursMatch[1]) * 60;
         }
-        
+
         // Check for minutes
         const minutesMatch = durationStr.match(/(\d+)\s*minutes?/);
         if (minutesMatch) {
             return parseInt(minutesMatch[1]);
         }
-        
+
         return null;
     };
 
     // Calculate end time based on start time and duration
     const calculateEndTime = (startTime, durationMinutes) => {
         if (!startTime || !durationMinutes) return "";
-        
+
         const [hours, minutes] = startTime.split(":").map(Number);
         const startDate = new Date();
         startDate.setHours(hours, minutes, 0, 0);
-        
+
         const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
-        
+
         const endHours = endDate.getHours().toString().padStart(2, "0");
         const endMinutes = endDate.getMinutes().toString().padStart(2, "0");
-        
+
         return `${endHours}:${endMinutes}`;
     };
 
     // Calculate start time based on test time and duration (for test packages)
     const calculateStartTimeFromTest = (testTime, durationMinutes) => {
         if (!testTime || !durationMinutes) return "";
-        
+
         const [hours, minutes] = testTime.split(":").map(Number);
         const testDate = new Date();
         testDate.setHours(hours, minutes, 0, 0);
-        
+
         // Start time is duration minutes before test time
-        const startDate = new Date(testDate.getTime() - durationMinutes * 60000);
-        
+        const startDate = new Date(
+            testDate.getTime() - durationMinutes * 60000,
+        );
+
         const startHours = startDate.getHours().toString().padStart(2, "0");
         const startMinutes = startDate.getMinutes().toString().padStart(2, "0");
-        
+
         return `${startHours}:${startMinutes}`;
     };
 
     // Auto-calculate times when package or times change
     useEffect(() => {
         if (!selectedPackage || !selectedPackage.duration) return;
-        
-        const durationMinutes = parseDurationToMinutes(selectedPackage.duration);
+
+        const durationMinutes = parseDurationToMinutes(
+            selectedPackage.duration,
+        );
         if (!durationMinutes) return;
-        
+
         if (isTestPackage()) {
             // For test packages: calculate start time from test time
             if (formData.test_time && !formData.start_time) {
                 const calculatedStartTime = calculateStartTimeFromTest(
                     formData.test_time,
-                    durationMinutes
+                    durationMinutes,
                 );
                 const calculatedEndTime = calculateEndTime(
                     formData.test_time,
-                    60 // End time is 1 hour after test time
+                    60, // End time is 1 hour after test time
                 );
-                
-                setFormData(prev => ({
+
+                setFormData((prev) => ({
                     ...prev,
                     start_time: calculatedStartTime,
-                    end_time: calculatedEndTime
+                    end_time: calculatedEndTime,
                 }));
             }
             // If test time changes, recalculate start and end times
             else if (formData.test_time) {
                 const calculatedStartTime = calculateStartTimeFromTest(
                     formData.test_time,
-                    durationMinutes
+                    durationMinutes,
                 );
                 const calculatedEndTime = calculateEndTime(
                     formData.test_time,
-                    60 // End time is 1 hour after test time
+                    60, // End time is 1 hour after test time
                 );
-                
-                setFormData(prev => ({
+
+                setFormData((prev) => ({
                     ...prev,
                     start_time: calculatedStartTime,
-                    end_time: calculatedEndTime
+                    end_time: calculatedEndTime,
                 }));
             }
         } else {
@@ -1596,34 +1599,39 @@ const AddReservationForm = ({
             if (formData.start_time && !formData.end_time) {
                 const calculatedEndTime = calculateEndTime(
                     formData.start_time,
-                    durationMinutes
+                    durationMinutes,
                 );
-                setFormData(prev => ({
+                setFormData((prev) => ({
                     ...prev,
-                    end_time: calculatedEndTime
+                    end_time: calculatedEndTime,
                 }));
             }
             // If start time changes, recalculate end time
             else if (formData.start_time) {
                 const calculatedEndTime = calculateEndTime(
                     formData.start_time,
-                    durationMinutes
+                    durationMinutes,
                 );
-                setFormData(prev => ({
+                setFormData((prev) => ({
                     ...prev,
-                    end_time: calculatedEndTime
+                    end_time: calculatedEndTime,
                 }));
             }
         }
-    }, [selectedPackage, formData.start_time, formData.test_time, formData.package_type]);
+    }, [
+        selectedPackage,
+        formData.start_time,
+        formData.test_time,
+        formData.package_type,
+    ]);
 
     // Reset times when package changes
     useEffect(() => {
         if (selectedPackage) {
-            setFormData(prev => ({
+            setFormData((prev) => ({
                 ...prev,
                 start_time: "",
-                end_time: ""
+                end_time: "",
             }));
         }
     }, [selectedPackage?.id]);
@@ -1648,7 +1656,9 @@ const AddReservationForm = ({
                 setCategories(uniqueCategories);
             } catch (err) {
                 console.error("Error fetching prices:", err);
-                alert("Failed to load price packages. Please refresh the page.");
+                alert(
+                    "Failed to load price packages. Please refresh the page.",
+                );
             } finally {
                 setFetchingPrices(false);
             }
@@ -1747,38 +1757,48 @@ const AddReservationForm = ({
     // Handle input changes
     const handleChange = (e) => {
         const { name, value } = e.target;
-        
+
         // Special handling for test_time changes
         if (name === "test_time" && isTestPackage() && selectedPackage) {
-            const durationMinutes = parseDurationToMinutes(selectedPackage.duration);
+            const durationMinutes = parseDurationToMinutes(
+                selectedPackage.duration,
+            );
             if (durationMinutes) {
-                const calculatedStartTime = calculateStartTimeFromTest(value, durationMinutes);
+                const calculatedStartTime = calculateStartTimeFromTest(
+                    value,
+                    durationMinutes,
+                );
                 const calculatedEndTime = calculateEndTime(value, 60);
-                
+
                 setFormData((prev) => ({
                     ...prev,
                     [name]: value,
                     start_time: calculatedStartTime,
-                    end_time: calculatedEndTime
+                    end_time: calculatedEndTime,
                 }));
                 return;
             }
         }
-        
+
         // Special handling for start_time changes (standard packages)
         if (name === "start_time" && !isTestPackage() && selectedPackage) {
-            const durationMinutes = parseDurationToMinutes(selectedPackage.duration);
+            const durationMinutes = parseDurationToMinutes(
+                selectedPackage.duration,
+            );
             if (durationMinutes) {
-                const calculatedEndTime = calculateEndTime(value, durationMinutes);
+                const calculatedEndTime = calculateEndTime(
+                    value,
+                    durationMinutes,
+                );
                 setFormData((prev) => ({
                     ...prev,
                     [name]: value,
-                    end_time: calculatedEndTime
+                    end_time: calculatedEndTime,
                 }));
                 return;
             }
         }
-        
+
         setFormData((prev) => ({
             ...prev,
             [name]: value,
@@ -1919,8 +1939,10 @@ const AddReservationForm = ({
             }
 
             if (response.data.success) {
-                alert(`✓ ${reservationToEdit ? "Reservation updated" : "Reservation created"} successfully!`);
-                
+                alert(
+                    `✓ ${reservationToEdit ? "Reservation updated" : "Reservation created"} successfully!`,
+                );
+
                 if (onSuccess) {
                     onSuccess(response.data.data);
                 }
@@ -1934,16 +1956,33 @@ const AddReservationForm = ({
 
             if (err.response && err.response.data) {
                 const errorMessage = err.response.data.message;
-                
+
                 // Show popup alert for blocked or booked slots
-                if (errorMessage && errorMessage.toLowerCase().includes("blocked")) {
-                    alert("❌ This time slot is already BLOCKED by administrator.\n\nPlease select a different time.");
-                } else if (errorMessage && errorMessage.toLowerCase().includes("booked")) {
-                    alert("❌ This time slot is already BOOKED.\n\nPlease select a different time.");
-                } else if (errorMessage && errorMessage.toLowerCase().includes("reserved")) {
-                    alert("❌ This time slot is already BOOKED.\n\nPlease select a different time.");
+                if (
+                    errorMessage &&
+                    errorMessage.toLowerCase().includes("blocked")
+                ) {
+                    alert(
+                        "❌ This time slot is already BLOCKED by administrator.\n\nPlease select a different time.",
+                    );
+                } else if (
+                    errorMessage &&
+                    errorMessage.toLowerCase().includes("booked")
+                ) {
+                    alert(
+                        "❌ This time slot is already BOOKED.\n\nPlease select a different time.",
+                    );
+                } else if (
+                    errorMessage &&
+                    errorMessage.toLowerCase().includes("reserved")
+                ) {
+                    alert(
+                        "❌ This time slot is already BOOKED.\n\nPlease select a different time.",
+                    );
                 } else {
-                    alert(`❌ Error: ${errorMessage || "Failed to save reservation"}`);
+                    alert(
+                        `❌ Error: ${errorMessage || "Failed to save reservation"}`,
+                    );
                 }
             } else {
                 alert("❌ Failed to save reservation. Please try again.");
@@ -2143,7 +2182,9 @@ const AddReservationForm = ({
                                         <option key={pkg.id} value={pkg.id}>
                                             {pkg.description}{" "}
                                             {pkg.price ? `- $${pkg.price}` : ""}
-                                            {pkg.duration ? ` (${pkg.duration})` : ""}
+                                            {pkg.duration
+                                                ? ` (${pkg.duration})`
+                                                : ""}
                                         </option>
                                     ))}
                                 </select>
@@ -2221,11 +2262,15 @@ const AddReservationForm = ({
                                             required={isTestPackage()}
                                         />
                                     </div>
-                                    {selectedPackage && selectedPackage.duration && (
-                                        <p className="text-xs text-gray-500 mt-1">
-                                            Start time will be automatically calculated {selectedPackage.duration} before test time
-                                        </p>
-                                    )}
+                                    {selectedPackage &&
+                                        selectedPackage.duration && (
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                Start time will be automatically
+                                                calculated{" "}
+                                                {selectedPackage.duration}{" "}
+                                                before test time
+                                            </p>
+                                        )}
                                 </div>
                             </>
                         )}
@@ -2252,14 +2297,19 @@ const AddReservationForm = ({
                                     disabled={isTestPackage()}
                                 />
                             </div>
-                            {!isTestPackage() && selectedPackage && selectedPackage.duration && (
-                                <p className="text-xs text-gray-500 mt-1">
-                                    End time will be automatically calculated based on {selectedPackage.duration}
-                                </p>
-                            )}
+                            {!isTestPackage() &&
+                                selectedPackage &&
+                                selectedPackage.duration && (
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        End time will be automatically
+                                        calculated based on{" "}
+                                        {selectedPackage.duration}
+                                    </p>
+                                )}
                             {isTestPackage() && (
                                 <p className="text-xs text-gray-500 mt-1">
-                                    Start time is automatically calculated based on test time
+                                    Start time is automatically calculated based
+                                    on test time
                                 </p>
                             )}
                         </div>
