@@ -20,7 +20,6 @@ return [
      */
     'cache_lifetime_in_minutes' => 60 * 24,
 
-
     /*
      * The amount of seconds the Google API responses will be cached in memory.
      */

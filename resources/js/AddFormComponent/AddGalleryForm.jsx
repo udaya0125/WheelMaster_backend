@@ -256,8 +256,6 @@
 
 // export default AddGalleryForm;
 
-
-
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
@@ -291,12 +289,12 @@ const AddGalleryForm = ({ onClose, setReloadTrigger }) => {
     // Handle image selection with size validation
     const handleImageChange = (e) => {
         const files = Array.from(e.target.files || e.dataTransfer.files);
-        
+
         if (files.length > 0) {
             // Filter valid files (size <= 2MB)
             const validFiles = [];
             const invalidFiles = [];
-            
+
             files.forEach((file) => {
                 if (isFileSizeValid(file)) {
                     validFiles.push(file);
@@ -304,24 +302,27 @@ const AddGalleryForm = ({ onClose, setReloadTrigger }) => {
                     invalidFiles.push(file);
                 }
             });
-            
+
             // Show alert for invalid files
             if (invalidFiles.length > 0) {
                 const invalidFileNames = invalidFiles
-                    .map(file => `${file.name} (${(file.size / (1024 * 1024)).toFixed(2)}MB)`)
+                    .map(
+                        (file) =>
+                            `${file.name} (${(file.size / (1024 * 1024)).toFixed(2)}MB)`,
+                    )
                     .join("\n");
-                
+
                 alert(
                     `The following file(s) exceed the 2MB limit and were not added:\n\n${invalidFileNames}\n\n` +
-                    `Maximum allowed file size is 2MB per image.`
+                        `Maximum allowed file size is 2MB per image.`,
                 );
             }
-            
+
             // Add only valid files
             if (validFiles.length > 0) {
                 const newImages = [...selectedImages, ...validFiles];
                 setSelectedImages(newImages);
-                
+
                 // Create preview URLs for valid files
                 const newPreviews = validFiles.map((file) => ({
                     file,
@@ -464,7 +465,11 @@ const AddGalleryForm = ({ onClose, setReloadTrigger }) => {
                                     </div>
                                     {/* Show file size in preview */}
                                     <div className="absolute bottom-1 right-1 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
-                                        {(preview.file.size / (1024 * 1024)).toFixed(2)}MB
+                                        {(
+                                            preview.file.size /
+                                            (1024 * 1024)
+                                        ).toFixed(2)}
+                                        MB
                                     </div>
                                 </div>
                             ))}
