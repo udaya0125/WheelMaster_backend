@@ -1755,7 +1755,8 @@ const UserReservation = () => {
                     <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
                         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
                             <h3 className="text-lg font-semibold text-gray-900">
-                                Reservation Details of {viewingReservation.user_name}
+                                Reservation Details of{" "}
+                                {viewingReservation.user_name}
                             </h3>
                             <button
                                 onClick={closeViewModal}
