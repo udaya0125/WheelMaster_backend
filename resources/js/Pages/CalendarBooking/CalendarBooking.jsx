@@ -1806,22 +1806,18 @@ const CalendarBooking = () => {
     setUpdatingStatus(false);
   };
 
-  // Fixed navigation handler to work with all views including year
+  // Fixed navigation handler to work with year view
   const handleNavigate = useCallback((newDate, viewType) => {
-    console.log('Navigate called:', { newDate: moment(newDate).format('YYYY-MM-DD'), viewType });
-    
     if (viewType === 'year') {
-      // Get the current year from the date
+      // For year view, get the current year and target year
       const currentYear = moment(date).year();
       const targetYear = moment(newDate).year();
       
-      // Calculate the difference in years
+      // Calculate the difference
       const yearDiff = targetYear - currentYear;
       
-      // Create new date by adding/subtracting years
+      // Add/subtract years from current date
       const newYearDate = moment(date).add(yearDiff, 'years').startOf('year').toDate();
-      
-      console.log('Year navigation:', { currentYear, targetYear, yearDiff, newYearDate: moment(newYearDate).format('YYYY-MM-DD') });
       
       setDate(newYearDate);
     } else if (viewType === 'month') {
@@ -1836,7 +1832,6 @@ const CalendarBooking = () => {
   }, [date]);
 
   const handleView = useCallback((newView) => {
-    console.log('View changed to:', newView);
     setView(newView);
   }, []);
 
