@@ -1543,7 +1543,7 @@ const BlockReservation = () => {
 
                         {/* Info badge */}
                         {/* <div className="flex items-center gap-2 px-3 py-2 bg-indigo-50 border border-indigo-100 rounded-md text-sm text-indigo-700">
-                            <Pencil size={14} />
+                            <Edit size={14} />
                             <span>Editing slot for <strong>{editingSlot.date}</strong></span>
                         </div> */}
 
