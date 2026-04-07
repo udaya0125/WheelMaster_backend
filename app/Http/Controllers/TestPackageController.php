@@ -309,7 +309,8 @@ class TestPackageController extends Controller
 
         // Send email to admin
         try {
-            $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
+            // $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
+            $adminEmail = env('ADMIN_EMAIL', 'wheelmaster@outlook.com.au');
             Mail::to($adminEmail)->send(new ReservationCreated($reservation, true));
         } catch (\Exception $e) {
             Log::error('Failed to send admin email: ' . $e->getMessage());
