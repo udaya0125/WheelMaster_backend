@@ -1,59 +1,98 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Wheel Master Driving Booking System
+Professional driving lesson booking and management platform for a modern driving school.
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+## Project Overview
+Wheel Master Driving Booking System is a full-stack web application built to streamline how a driving school presents services, manages bookings, and handles customer reservations.
 
-## About Laravel
+The platform supports a practical end-to-end booking workflow: customers can browse driving packages, submit reservation details, and receive confirmation updates, while administrators can manage bookings, availability, time slots, testimonials, blogs, gallery content, and user records from a central dashboard.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+This project is designed to improve both the customer experience and the operational workflow of a driving school. It reduces manual coordination, provides a more structured reservation process, and delivers a clean, responsive interface that works well across desktop and mobile devices.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Live Demo
+- Live site: https://booking.wheelmasterdriving.com.au/
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Key Features
+- Lesson booking flow with structured reservation submission
+- Service and package selection for different driving lesson options
+- Availability and time-slot handling for scheduling control
+- Booking confirmation and status update workflow
+- Customer information collection with validation-aware forms
+- Responsive interface optimized for mobile and desktop use
+- Admin management screens for reservations, time slots, users, and content
+- Support for blocking unavailable dates or periods
+- Notification flow for reservation events and updates
+- Clear error handling and user feedback during form submission
 
-## Learning Laravel
+## Tech Stack
+- Frontend: React, Inertia.js, Vite
+- Backend: Laravel, PHP, Laravel Breeze
+- Styling: Tailwind CSS
+- Forms and HTTP: Axios
+- Database: MySQL
+- Routing: Laravel routes with Inertia page rendering
+- Deployment / Hosting: Production web hosting at `booking.wheelmasterdriving.com.au`
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+## Screens / Modules
+- Home / Landing
+- Booking Form
+- Service Selection / Price Packages
+- Contact / Inquiry
+- Calendar Booking / Availability Management
+- Admin Dashboard
+- User Reservation Management
+- Time Slot Management
+- Gallery
+- Blog
+- Testimonials
+- Confirmation / Success Flow
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Why This Project Stands Out
+This project is strong because it solves a real business problem rather than demonstrating isolated UI components.
 
-## Laravel Sponsors
+- Business-focused design built around booking conversion and operational efficiency
+- Real-world usability for customers, staff, and administrators
+- Maintainable Laravel + React architecture with clearly separated responsibilities
+- Scalable structure that can support new packages, booking rules, and content modules
+- Modern UI and responsive behavior suitable for a public-facing service platform
+- Practical implementation of scheduling, reservation state, and admin workflows
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+## Project Goals
+- Simplify the lesson booking process for customers
+- Reduce manual booking coordination for the driving school
+- Provide a reliable system for managing availability and reservations
+- Present services in a professional and easy-to-navigate format
+- Support a polished digital presence that builds trust with prospective learners
 
-### Premium Partners
+## Installation
+```bash
+git clone <repo-url>
+cd project-name
+composer install
+npm install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
+npm run dev
+php artisan serve
+```
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+## Environment Setup
+Update your `.env` file with the required application and database settings before running migrations.
 
-## Contributing
+Typical values include:
+- `APP_NAME`
+- `APP_URL`
+- `DB_CONNECTION`
+- `DB_HOST`
+- `DB_PORT`
+- `DB_DATABASE`
+- `DB_USERNAME`
+- `DB_PASSWORD`
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Notes
+- The application uses Inertia.js to connect Laravel routes with React pages.
+- Booking-related flows are supported by reservation, time slot, and block management modules.
+- The admin area includes content management capabilities for the driving school website.
 
 ## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+This project is licensed under the MIT License. See the `LICENSE` file if one is present in the repository, or add one to make the terms explicit for reuse and distribution.

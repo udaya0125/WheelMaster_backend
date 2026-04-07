@@ -201,8 +201,6 @@ Route::middleware('auth')->group(function () {
         return Inertia::render('CalendarBooking/CalendarBooking');
     });
 
-
-
     // --------------------------------------------------------------------------
     // Notification routes for Dashboard
     // --------------------------------------------------------------------------
@@ -213,8 +211,11 @@ Route::middleware('auth')->group(function () {
     Route::delete('/notifications/{id}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
     Route::delete('/notifications', [NotificationController::class, 'clearAll'])->name('notifications.clearAll');
 
+    Route::get('/test', function () {
+        $data = Analytics::fetchMostVisitedPages(Period::days(30));
+        return response()->json($data);
+    });
     
-
 });
 
 
@@ -272,12 +273,6 @@ Route::middleware('auth')->group(function () {
     // --------------------------------------------------------------------------
 
     // Route::get('/test', fn() => Analytics::fetchMostVisitedPages(Period::days(7)));
-    Route::get('/test', function () {
-        $data = Analytics::fetchMostVisitedPages(Period::days(30));
-        return response()->json($data);
-    });
-
-
 
     Route::get('/ourtimeslots', [TimeSlotController::class, 'index'])->name('ourtimeslots.index');
     Route::get('/ourtimeslots/get', [TimeSlotController::class, 'getSlotsForDate'])->name('ourtimeslots.get');
@@ -286,8 +281,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/ourtimeslots/update-single', [TimeSlotController::class, 'updateSingleSlot'])->name('ourtimeslots.update-single');
     Route::post('/ourtimeslots/update-single-with-subsequent', [TimeSlotController::class, 'updateSingleSlotWithSubsequent'])->name('ourtimeslots.update-single-with-subsequent');
 
-
-
+    
     // Route::get('/calendar', function () {
     //     return Inertia::render('PricePackages/CalendarIntegrationMobile');
     // });
@@ -296,8 +290,5 @@ Route::middleware('auth')->group(function () {
     // Route::get('/test-calendar', function () {
     //     return Inertia::render('PricePackages/TestCalendarIntegrationMobile');
     // });
-
-
-
 
 require __DIR__.'/auth.php';
