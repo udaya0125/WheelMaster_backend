@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Mail\ReservationCreated;
 use App\Mail\ReservationStatusUpdated;
 use App\Models\BlockReservation;
-use App\Models\TimeSlot;
 use App\Models\UserReservation;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -15,7 +14,107 @@ use Illuminate\Support\Facades\Mail;
 class UserReservationController extends Controller
 {
     // ---------------------------------------
-    // INDEX  - list all reservations
+    // Helper: Extract number of lessons from package description
+    // ---------------------------------------
+    private function extractLessonCount($packageDescription)
+    {
+        // Pattern: "50 x 1-Hour Lessons" -> 50
+        // Pattern: "25 x 1-Hour Lessons" -> 25
+        // Pattern: "10-Hour Express Test Prep" -> 1 (single session)
+        // Pattern: "10 x 1-Hour Lessons" -> 10
+        // Pattern: "5 x 1-Hour Lessons" -> 5
+        
+        if (preg_match('/^(\d+)\s*x\s*/', $packageDescription, $matches)) {
+            return (int) $matches[1];
+        }
+        
+        return 1;
+    }
+    
+    // ---------------------------------------
+    // Helper: Check if package is a bundle
+    // ---------------------------------------
+    private function isBundlePackage($packageDescription)
+    {
+        return preg_match('/^(\d+)\s*x\s*/', $packageDescription) === 1;
+    }
+    
+    // ---------------------------------------
+    // Helper: Parse duration string to minutes
+    // ---------------------------------------
+    private function parseDurationToMinutes($duration)
+    {
+        if (!$duration) return null;
+        
+        $durationStr = strtolower($duration);
+        
+        if (preg_match('/(\d+(?:\.\d+)?)\s*hours?/', $durationStr, $matches)) {
+            return (float) $matches[1] * 60;
+        }
+        
+        if (preg_match('/(\d+)\s*minutes?/', $durationStr, $matches)) {
+            return (int) $matches[1];
+        }
+        
+        return null;
+    }
+    
+    // ---------------------------------------
+    // Helper: Calculate end time from start time and duration
+    // ---------------------------------------
+    private function calculateEndTime($startTime, $durationMinutes)
+    {
+        if (!$startTime || !$durationMinutes) return null;
+        
+        $start = Carbon::parse($startTime);
+        $end = $start->copy()->addMinutes($durationMinutes);
+        
+        return $end->format('H:i:s');
+    }
+    
+    // ---------------------------------------
+    // Helper: Check if a single session is available
+    // ---------------------------------------
+    private function isSessionAvailable($date, $startTime, $endTime, $priceId, $excludeId = null)
+    {
+        $dateFormatted = Carbon::parse($date)->format('Y-m-d');
+        $startFormatted = Carbon::parse($startTime)->format('H:i:s');
+        $endFormatted = Carbon::parse($endTime)->format('H:i:s');
+        
+        // Check blocked slots
+        $blocked = BlockReservation::where('date', $dateFormatted)
+            ->where(function ($query) use ($startFormatted, $endFormatted) {
+                $query->where(function ($q) use ($startFormatted, $endFormatted) {
+                    $q->where('start_time', '<', $endFormatted)
+                        ->where('end_time', '>', $startFormatted);
+                });
+            })
+            ->exists();
+            
+        if ($blocked) {
+            return false;
+        }
+        
+        // Check existing reservations
+        $query = UserReservation::where('reservation_date', $dateFormatted)
+            ->where('price_id', $priceId)
+            ->where('status', '!=', 'Rejected')
+            ->where(function ($query) use ($startFormatted, $endFormatted) {
+                $query->where(function ($q) use ($startFormatted, $endFormatted) {
+                    $q->where('start_time', '<', $endFormatted)
+                        ->where('end_time', '>', $startFormatted);
+                });
+            });
+            
+        if ($excludeId) {
+            $query->where('id', '!=', $excludeId);
+        }
+        
+        return !$query->exists();
+    }
+    
+    // ---------------------------------------
+    // INDEX - list all reservations
     // ---------------------------------------
     public function index()
     {
@@ -28,121 +127,7 @@ class UserReservationController extends Controller
     }
 
     // ---------------------------------------
-    // STORE - create new reservation
-    // ---------------------------------------
-    // public function store(Request $request)
-    // {
-    //     $request->validate([
-    //         'user_name' => 'required',
-    //         'email' => 'required|email',
-    //         'phone' => 'required',
-    //         'address' => 'required',
-    //         'pickup_location' => 'required',
-    //         'dropoff_location' => 'required',
-    //         'reservation_date' => 'required|date',
-    //         'start_time' => 'required',
-    //         'end_time' => 'required',
-    //         'price_id' => 'required|exists:prices,id',
-    //         'package_type' => 'required|string',
-    //         'test_time' => 'nullable',
-    //         'test_location' => 'nullable|string',
-    //     ]);
-
-    //     $requestStart = Carbon::parse($request->start_time);
-    //     $requestEnd = Carbon::parse($request->end_time);
-    //     $reservationDate = Carbon::parse($request->reservation_date)->format('Y-m-d');
-    //     $priceId = $request->price_id;
-
-    //     // Check if selected slot overlaps with any blocked reservation (blocks affect all prices)
-    //     $existingBlock = BlockReservation::where('date', $reservationDate)
-    //         ->where(function ($query) use ($requestStart, $requestEnd) {
-    //             $query->where(function ($q) use ($requestStart, $requestEnd) {
-    //                 $q->where('start_time', '<', $requestEnd->format('H:i:s'))
-    //                     ->where('end_time', '>', $requestStart->format('H:i:s'));
-    //             });
-    //         })
-    //         ->exists();
-
-    //     if ($existingBlock) {
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'Selected time slot is blocked',
-    //         ], 403);
-    //     }
-
-    //     // Check if selected slot overlaps with any existing NON-REJECTED reservation FOR THE SAME PRICE
-    //     $existingReservation = UserReservation::where('reservation_date', $reservationDate)
-    //         ->where('price_id', $priceId) // CRITICAL: Only check reservations for the same price
-    //         ->where('status', '!=', 'Rejected')
-    //         ->where(function ($query) use ($requestStart, $requestEnd) {
-    //             $query->where(function ($q) use ($requestStart, $requestEnd) {
-    //                 $q->where('start_time', '<', $requestEnd->format('H:i:s'))
-    //                     ->where('end_time', '>', $requestStart->format('H:i:s'));
-    //             });
-    //         })
-    //         ->exists();
-
-    //     if ($existingReservation) {
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'Selected time slot is already reserved for this service',
-    //         ], 409);
-    //     }
-
-    //     // Also check TimeSlot model to ensure the slot is available
-    //     $timeSlot = TimeSlot::where('date', $reservationDate)
-    //         ->where('start_time', $requestStart->format('H:i:s'))
-    //         ->first();
-
-    //     if (!$timeSlot || $timeSlot->status !== 'available') {
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'This time slot is not available for booking',
-    //         ], 409);
-    //     }
-
-    //     $reservation = UserReservation::create([
-    //         'user_name' => $request->user_name,
-    //         'email' => $request->email,
-    //         'phone' => $request->phone,
-    //         'address' => $request->address,
-    //         'pickup_location' => $request->pickup_location,
-    //         'dropoff_location' => $request->dropoff_location,
-    //         'reservation_date' => $reservationDate,
-    //         'start_time' => $requestStart->format('H:i:s'),
-    //         'end_time' => $requestEnd->format('H:i:s'),
-    //         'price_id' => $request->price_id,
-    //         'status' => 'Pending',
-    //         'package_type' => $request->package_type ?? 'Standard',
-    //         'test_time' => $request->test_time,
-    //         'test_location' => $request->test_location,
-    //     ]);
-
-    //     // Send email to customer
-    //     try {
-    //         Mail::to($reservation->email)->send(new ReservationCreated($reservation, false));
-    //     } catch (\Exception $e) {
-    //         Log::error('Failed to send customer email: '.$e->getMessage());
-    //     }
-
-    //     // Send email to admin
-    //     try {
-    //         // $adminEmail = env('ADMIN_EMAIL', 'wheelmaster@outlook.com.au');
-    //         $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
-    //         Mail::to($adminEmail)->send(new ReservationCreated($reservation, true));
-    //     } catch (\Exception $e) {
-    //         Log::error('Failed to send admin email: '.$e->getMessage());
-    //     }
-
-    //     return response()->json([
-    //         'success' => true,
-    //         'message' => 'Reservation created successfully',
-    //         'data' => $reservation,
-    //     ], 201);
-    // }
-
-    // ---------------------------------------
-    // STORE - create new reservation
+    // STORE - create new reservation (handles bundles)
     // ---------------------------------------
     public function store(Request $request)
     {
@@ -162,12 +147,29 @@ class UserReservationController extends Controller
             'test_location' => 'nullable|string',
         ]);
 
+        // Get the package details to check if it's a bundle
+        $price = \App\Models\Price::find($request->price_id);
+        $lessonCount = $this->extractLessonCount($price->description);
+        $isBundle = $lessonCount > 1;
+        
+        if ($isBundle) {
+            return $this->storeBundle($request, $price, $lessonCount);
+        }
+        
+        return $this->storeSingle($request);
+    }
+    
+    // ---------------------------------------
+    // Store single reservation (original logic)
+    // ---------------------------------------
+    private function storeSingle(Request $request)
+    {
         $requestStart = Carbon::parse($request->start_time);
         $requestEnd = Carbon::parse($request->end_time);
         $reservationDate = Carbon::parse($request->reservation_date)->format('Y-m-d');
         $priceId = $request->price_id;
 
-        // Check if selected slot overlaps with any blocked reservation
+        // Check for blocked slots
         $existingBlock = BlockReservation::where('date', $reservationDate)
             ->where(function ($query) use ($requestStart, $requestEnd) {
                 $query->where(function ($q) use ($requestStart, $requestEnd) {
@@ -184,7 +186,7 @@ class UserReservationController extends Controller
             ], 409);
         }
 
-        // Check if selected slot overlaps with any existing NON-REJECTED reservation FOR THE SAME PRICE
+        // Check for existing reservations
         $existingReservation = UserReservation::where('reservation_date', $reservationDate)
             ->where('price_id', $priceId)
             ->where('status', '!=', 'Rejected')
@@ -203,8 +205,6 @@ class UserReservationController extends Controller
             ], 409);
         }
 
-        // REMOVED: TimeSlot validation - now ANY time slot is allowed as long as it's not blocked or booked
-
         $reservation = UserReservation::create([
             'user_name' => $request->user_name,
             'email' => $request->email,
@@ -222,20 +222,7 @@ class UserReservationController extends Controller
             'test_location' => $request->test_location,
         ]);
 
-        // Send email to customer
-        try {
-            Mail::to($reservation->email)->send(new ReservationCreated($reservation, false));
-        } catch (\Exception $e) {
-            Log::error('Failed to send customer email: '.$e->getMessage());
-        }
-
-        // Send email to admin
-        try {
-            $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
-            Mail::to($adminEmail)->send(new ReservationCreated($reservation, true));
-        } catch (\Exception $e) {
-            Log::error('Failed to send admin email: '.$e->getMessage());
-        }
+        $this->sendReservationEmails($reservation);
 
         return response()->json([
             'success' => true,
@@ -243,105 +230,119 @@ class UserReservationController extends Controller
             'data' => $reservation,
         ], 201);
     }
-
+    
     // ---------------------------------------
-    // UPDATE - update existing reservation (full update or status only)
+    // Store bundle reservation - creates multiple records
+    // ---------------------------------------
+    private function storeBundle(Request $request, $price, $lessonCount)
+    {
+        // Validate that we have sessions array
+        $request->validate([
+            'bundle_sessions' => 'required|array|min:' . $lessonCount,
+            'bundle_sessions.*.reservation_date' => 'required|date',
+            'bundle_sessions.*.start_time' => 'required',
+            'bundle_sessions.*.end_time' => 'required',
+        ]);
+        
+        $sessions = $request->bundle_sessions;
+        
+        if (count($sessions) != $lessonCount) {
+            return response()->json([
+                'success' => false,
+                'message' => "This package requires {$lessonCount} sessions. You provided " . count($sessions),
+            ], 422);
+        }
+        
+        $createdReservations = [];
+        $errors = [];
+        
+        // Validate all sessions first
+        foreach ($sessions as $index => $session) {
+            $isAvailable = $this->isSessionAvailable(
+                $session['reservation_date'],
+                $session['start_time'],
+                $session['end_time'],
+                $request->price_id
+            );
+            
+            if (!$isAvailable) {
+                $errors[] = "Session " . ($index + 1) . " on {$session['reservation_date']} from {$session['start_time']} is not available";
+            }
+        }
+        
+        if (!empty($errors)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Some sessions are not available',
+                'errors' => $errors,
+            ], 409);
+        }
+        
+        // Create all reservation records
+        foreach ($sessions as $index => $session) {
+            $reservationDate = Carbon::parse($session['reservation_date'])->format('Y-m-d');
+            $startTime = Carbon::parse($session['start_time'])->format('H:i:s');
+            $endTime = Carbon::parse($session['end_time'])->format('H:i:s');
+            
+            $reservation = UserReservation::create([
+                'user_name' => $request->user_name,
+                'email' => $request->email,
+                'phone' => $request->phone,
+                'address' => $request->address,
+                'pickup_location' => $request->pickup_location,
+                'dropoff_location' => $request->dropoff_location,
+                'reservation_date' => $reservationDate,
+                'start_time' => $startTime,
+                'end_time' => $endTime,
+                'price_id' => $request->price_id,
+                'status' => 'Pending',
+                'package_type' => $request->package_type,
+                'test_time' => $session['test_time'] ?? null,
+                'test_location' => $session['test_location'] ?? $request->test_location,
+            ]);
+            
+            $createdReservations[] = $reservation;
+        }
+        
+        // Send bundle email summary
+        $this->sendBundleReservationEmails($createdReservations, $lessonCount);
+        
+        return response()->json([
+            'success' => true,
+            'message' => "Bundle reservation created successfully with {$lessonCount} sessions",
+            'data' => $createdReservations,
+        ], 201);
+    }
+    
+    // ---------------------------------------
+    // UPDATE - update existing reservation
     // ---------------------------------------
     public function update(Request $request, $id)
     {
         $reservation = UserReservation::find($id);
 
-        if (! $reservation) {
+        if (!$reservation) {
             return response()->json([
                 'success' => false,
                 'message' => 'Reservation not found',
             ], 404);
         }
-
-        // Check if this is a status-only update or full reservation update
+        
+        // Check if this is a status-only update
         $isStatusOnly = $request->has('status') && count($request->all()) === 1;
-
+        
         if ($isStatusOnly) {
-            // Handle status-only update
-            $validated = $request->validate([
-                'status' => 'required|in:Pending,Accepted,Rejected',
-            ]);
-
-            $oldStatus = $reservation->status;
-            $newStatus = $validated['status'];
-
-            // If status is being updated to "Rejected", no need to check for conflicts
-            if ($newStatus === 'Rejected') {
-                $reservation->status = $newStatus;
-                $reservation->save();
-
-                // Send status update emails
-                $this->sendStatusUpdateEmails($reservation, $oldStatus);
-
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Reservation rejected successfully',
-                    'data' => $reservation,
-                ], 200);
-            }
-
-            // For Accepting or Resetting to Pending, check for conflicts
-            if ($newStatus === 'Accepted' || $newStatus === 'Pending') {
-                // Check for overlapping reservations FOR THE SAME PRICE (excluding rejected ones)
-                $overlappingReservation = UserReservation::where('reservation_date', $reservation->reservation_date)
-                    ->where('price_id', $reservation->price_id)
-                    ->where('id', '!=', $id)
-                    ->where('status', '!=', 'Rejected')
-                    ->where(function ($query) use ($reservation) {
-                        $query->where(function ($q) use ($reservation) {
-                            $q->where('start_time', '<', $reservation->end_time)
-                                ->where('end_time', '>', $reservation->start_time);
-                        });
-                    })
-                    ->first();
-
-                if ($overlappingReservation) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'This time slot conflicts with another reservation for the same service (ID: '.$overlappingReservation->id.')',
-                    ], 409);
-                }
-
-                // Check for blocked slots
-                $blockedSlot = BlockReservation::where('date', $reservation->reservation_date)
-                    ->where(function ($query) use ($reservation) {
-                        $query->where(function ($q) use ($reservation) {
-                            $q->where('start_time', '<', $reservation->end_time)
-                                ->where('end_time', '>', $reservation->start_time);
-                        });
-                    })
-                    ->exists();
-
-                if ($blockedSlot) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'This time slot is blocked',
-                    ], 409);
-                }
-            }
-
-            // Update the status
-            $reservation->status = $newStatus;
-            $reservation->save();
-
-            // Send status update emails if status changed
-            if ($oldStatus !== $newStatus) {
-                $this->sendStatusUpdateEmails($reservation, $oldStatus);
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Reservation status updated successfully',
-                'data' => $reservation,
-            ], 200);
+            return $this->updateStatus($request, $reservation);
         }
-
-        // Handle full reservation update (edit)
+        
+        return $this->updateSingle($request, $reservation);
+    }
+    
+    // ---------------------------------------
+    // Update single reservation
+    // ---------------------------------------
+    private function updateSingle(Request $request, $reservation)
+    {
         $request->validate([
             'user_name' => 'required',
             'email' => 'required|email',
@@ -363,8 +364,7 @@ class UserReservationController extends Controller
         $reservationDate = Carbon::parse($request->reservation_date)->format('Y-m-d');
         $priceId = $request->price_id;
 
-        // Check for conflicts (excluding current reservation)
-        // Check blocked slots
+        // Check for blocked slots
         $existingBlock = BlockReservation::where('date', $reservationDate)
             ->where(function ($query) use ($requestStart, $requestEnd) {
                 $query->where(function ($q) use ($requestStart, $requestEnd) {
@@ -381,10 +381,10 @@ class UserReservationController extends Controller
             ], 403);
         }
 
-        // Check for overlapping reservations for the same price (excluding current reservation)
+        // Check for overlapping reservations
         $overlappingReservation = UserReservation::where('reservation_date', $reservationDate)
             ->where('price_id', $priceId)
-            ->where('id', '!=', $id)
+            ->where('id', '!=', $reservation->id)
             ->where('status', '!=', 'Rejected')
             ->where(function ($query) use ($requestStart, $requestEnd) {
                 $query->where(function ($q) use ($requestStart, $requestEnd) {
@@ -401,7 +401,6 @@ class UserReservationController extends Controller
             ], 409);
         }
 
-        // Update the reservation with all fields
         $oldStatus = $reservation->status;
 
         $reservation->update([
@@ -420,7 +419,6 @@ class UserReservationController extends Controller
             'test_location' => $request->test_location,
         ]);
 
-        // If status changed during edit, send emails
         if ($oldStatus !== $reservation->status) {
             $this->sendStatusUpdateEmails($reservation, $oldStatus);
         }
@@ -431,27 +429,83 @@ class UserReservationController extends Controller
             'data' => $reservation,
         ], 200);
     }
-
+    
     // ---------------------------------------
-    // SHOW - show single reservation
+    // Update status only
     // ---------------------------------------
-    public function show($id)
+    private function updateStatus(Request $request, $reservation)
     {
-        $reservation = UserReservation::with('price')->find($id);
+        $validated = $request->validate([
+            'status' => 'required|in:Pending,Accepted,Rejected',
+        ]);
 
-        if (! $reservation) {
+        $oldStatus = $reservation->status;
+        $newStatus = $validated['status'];
+
+        if ($newStatus === 'Rejected') {
+            $reservation->status = $newStatus;
+            $reservation->save();
+            $this->sendStatusUpdateEmails($reservation, $oldStatus);
+            
             return response()->json([
-                'success' => false,
-                'message' => 'Reservation not found',
-            ], 404);
+                'success' => true,
+                'message' => 'Reservation rejected successfully',
+                'data' => $reservation,
+            ], 200);
+        }
+
+        // For Accepting or Resetting to Pending, check for conflicts
+        if ($newStatus === 'Accepted' || $newStatus === 'Pending') {
+            $overlappingReservation = UserReservation::where('reservation_date', $reservation->reservation_date)
+                ->where('price_id', $reservation->price_id)
+                ->where('id', '!=', $reservation->id)
+                ->where('status', '!=', 'Rejected')
+                ->where(function ($query) use ($reservation) {
+                    $query->where(function ($q) use ($reservation) {
+                        $q->where('start_time', '<', $reservation->end_time)
+                            ->where('end_time', '>', $reservation->start_time);
+                    });
+                })
+                ->first();
+
+            if ($overlappingReservation) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This time slot conflicts with another reservation for the same service',
+                ], 409);
+            }
+
+            $blockedSlot = BlockReservation::where('date', $reservation->reservation_date)
+                ->where(function ($query) use ($reservation) {
+                    $query->where(function ($q) use ($reservation) {
+                        $q->where('start_time', '<', $reservation->end_time)
+                            ->where('end_time', '>', $reservation->start_time);
+                    });
+                })
+                ->exists();
+
+            if ($blockedSlot) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This time slot is blocked',
+                ], 409);
+            }
+        }
+
+        $reservation->status = $newStatus;
+        $reservation->save();
+
+        if ($oldStatus !== $newStatus) {
+            $this->sendStatusUpdateEmails($reservation, $oldStatus);
         }
 
         return response()->json([
             'success' => true,
+            'message' => 'Reservation status updated successfully',
             'data' => $reservation,
         ], 200);
     }
-
+    
     // ---------------------------------------
     // DELETE - delete a reservation
     // ---------------------------------------
@@ -459,7 +513,7 @@ class UserReservationController extends Controller
     {
         $reservation = UserReservation::find($id);
 
-        if (! $reservation) {
+        if (!$reservation) {
             return response()->json([
                 'success' => false,
                 'message' => 'Reservation not found',
@@ -473,98 +527,70 @@ class UserReservationController extends Controller
             'message' => 'Reservation deleted successfully',
         ], 200);
     }
-
+    
     // ---------------------------------------
-    // CHECK AVAILABILITY - Check if time slot is available
+    // Helper: Send reservation emails
     // ---------------------------------------
-    public function checkAvailability(Request $request)
+    private function sendReservationEmails($reservation)
     {
-        $request->validate([
-            'reservation_date' => 'required|date',
-            'start_time' => 'required',
-            'end_time' => 'required',
-            'price_id' => 'required|exists:prices,id',
-            'exclude_id' => 'nullable|exists:user_reservations,id',
-        ]);
-
-        $requestStart = Carbon::parse($request->start_time);
-        $requestEnd = Carbon::parse($request->end_time);
-        $reservationDate = Carbon::parse($request->reservation_date)->format('Y-m-d');
-        $priceId = $request->price_id;
-        $excludeId = $request->exclude_id;
-
-        // Check for blocked slots
-        $blockedSlot = BlockReservation::where('date', $reservationDate)
-            ->where(function ($query) use ($requestStart, $requestEnd) {
-                $query->where(function ($q) use ($requestStart, $requestEnd) {
-                    $q->where('start_time', '<', $requestEnd->format('H:i:s'))
-                        ->where('end_time', '>', $requestStart->format('H:i:s'));
-                });
-            })
-            ->exists();
-
-        if ($blockedSlot) {
-            return response()->json([
-                'available' => false,
-                'reason' => 'blocked',
-                'message' => 'This time slot is already blocked',
-            ]);
+        try {
+            Mail::to($reservation->email)->send(new ReservationCreated($reservation, false));
+        } catch (\Exception $e) {
+            Log::error('Failed to send customer email: ' . $e->getMessage());
         }
 
-        // Check for overlapping reservations (excluding the one being edited)
-        $query = UserReservation::where('reservation_date', $reservationDate)
-            ->where('price_id', $priceId)
-            ->where('status', '!=', 'Rejected')
-            ->where(function ($query) use ($requestStart, $requestEnd) {
-                $query->where(function ($q) use ($requestStart, $requestEnd) {
-                    $q->where('start_time', '<', $requestEnd->format('H:i:s'))
-                        ->where('end_time', '>', $requestStart->format('H:i:s'));
-                });
-            });
-
-        if ($excludeId) {
-            $query->where('id', '!=', $excludeId);
+        try {
+            $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
+            Mail::to($adminEmail)->send(new ReservationCreated($reservation, true));
+        } catch (\Exception $e) {
+            Log::error('Failed to send admin email: ' . $e->getMessage());
         }
-
-        $existingReservation = $query->exists();
-
-        if ($existingReservation) {
-            return response()->json([
-                'available' => false,
-                'reason' => 'booked',
-                'message' => 'This time slot is already booked',
-            ]);
-        }
-
-        return response()->json([
-            'available' => true,
-        ]);
     }
-
+    
     // ---------------------------------------
-    // PRIVATE HELPER - Send status update emails
+    // Helper: Send bundle reservation emails
+    // ---------------------------------------
+    private function sendBundleReservationEmails($reservations, $sessionCount)
+    {
+        if (empty($reservations)) return;
+        
+        $firstReservation = $reservations[0];
+        
+        // You can modify your email class to accept session count
+        try {
+            Mail::to($firstReservation->email)->send(new ReservationCreated($firstReservation, false, $sessionCount));
+        } catch (\Exception $e) {
+            Log::error('Failed to send customer bundle email: ' . $e->getMessage());
+        }
+
+        try {
+            $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
+            Mail::to($adminEmail)->send(new ReservationCreated($firstReservation, true, $sessionCount));
+        } catch (\Exception $e) {
+            Log::error('Failed to send admin bundle email: ' . $e->getMessage());
+        }
+    }
+    
+    // ---------------------------------------
+    // Helper: Send status update emails
     // ---------------------------------------
     private function sendStatusUpdateEmails($reservation, $oldStatus)
     {
-        // Only send emails if status actually changed
         if ($oldStatus === $reservation->status) {
             return;
         }
 
-        // Send email to customer
         try {
             Mail::to($reservation->email)->send(new ReservationStatusUpdated($reservation, false));
         } catch (\Exception $e) {
-            Log::error('Failed to send customer status update email: '.$e->getMessage());
+            Log::error('Failed to send customer status update email: ' . $e->getMessage());
         }
 
-        // Send email to admin
         try {
-            // $adminEmail = env('ADMIN_EMAIL', 'wheelmaster@outlook.com.au');
             $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
             Mail::to($adminEmail)->send(new ReservationStatusUpdated($reservation, true));
         } catch (\Exception $e) {
-            Log::error('Failed to send admin status update email: '.$e->getMessage());
+            Log::error('Failed to send admin status update email: ' . $e->getMessage());
         }
     }
 }
