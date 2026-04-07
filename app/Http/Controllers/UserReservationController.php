@@ -18,16 +18,9 @@ class UserReservationController extends Controller
     // ---------------------------------------
     private function extractLessonCount($packageDescription)
     {
-        // Pattern: "50 x 1-Hour Lessons" -> 50
-        // Pattern: "25 x 1-Hour Lessons" -> 25
-        // Pattern: "10-Hour Express Test Prep" -> 1 (single session)
-        // Pattern: "10 x 1-Hour Lessons" -> 10
-        // Pattern: "5 x 1-Hour Lessons" -> 5
-        
         if (preg_match('/^(\d+)\s*x\s*/', $packageDescription, $matches)) {
             return (int) $matches[1];
         }
-        
         return 1;
     }
     
@@ -57,19 +50,6 @@ class UserReservationController extends Controller
         }
         
         return null;
-    }
-    
-    // ---------------------------------------
-    // Helper: Calculate end time from start time and duration
-    // ---------------------------------------
-    private function calculateEndTime($startTime, $durationMinutes)
-    {
-        if (!$startTime || !$durationMinutes) return null;
-        
-        $start = Carbon::parse($startTime);
-        $end = $start->copy()->addMinutes($durationMinutes);
-        
-        return $end->format('H:i:s');
     }
     
     // ---------------------------------------
@@ -131,6 +111,21 @@ class UserReservationController extends Controller
     // ---------------------------------------
     public function store(Request $request)
     {
+        // Check if this is a bundle request
+        $isBundle = $request->has('bundle_sessions') && is_array($request->bundle_sessions) && count($request->bundle_sessions) > 0;
+        
+        if ($isBundle) {
+            return $this->storeBundle($request);
+        }
+        
+        return $this->storeSingle($request);
+    }
+    
+    // ---------------------------------------
+    // Store single reservation
+    // ---------------------------------------
+    private function storeSingle(Request $request)
+    {
         $request->validate([
             'user_name' => 'required',
             'email' => 'required|email',
@@ -147,23 +142,6 @@ class UserReservationController extends Controller
             'test_location' => 'nullable|string',
         ]);
 
-        // Get the package details to check if it's a bundle
-        $price = \App\Models\Price::find($request->price_id);
-        $lessonCount = $this->extractLessonCount($price->description);
-        $isBundle = $lessonCount > 1;
-        
-        if ($isBundle) {
-            return $this->storeBundle($request, $price, $lessonCount);
-        }
-        
-        return $this->storeSingle($request);
-    }
-    
-    // ---------------------------------------
-    // Store single reservation (original logic)
-    // ---------------------------------------
-    private function storeSingle(Request $request)
-    {
         $requestStart = Carbon::parse($request->start_time);
         $requestEnd = Carbon::parse($request->end_time);
         $reservationDate = Carbon::parse($request->reservation_date)->format('Y-m-d');
@@ -234,22 +212,36 @@ class UserReservationController extends Controller
     // ---------------------------------------
     // Store bundle reservation - creates multiple records
     // ---------------------------------------
-    private function storeBundle(Request $request, $price, $lessonCount)
+    private function storeBundle(Request $request)
     {
-        // Validate that we have sessions array
+        // Validate bundle-specific data (no single reservation fields required)
         $request->validate([
-            'bundle_sessions' => 'required|array|min:' . $lessonCount,
+            'user_name' => 'required',
+            'email' => 'required|email',
+            'phone' => 'required',
+            'address' => 'required',
+            'pickup_location' => 'required',
+            'dropoff_location' => 'required',
+            'price_id' => 'required|exists:prices,id',
+            'package_type' => 'required|string',
+            'bundle_sessions' => 'required|array|min:1',
             'bundle_sessions.*.reservation_date' => 'required|date',
             'bundle_sessions.*.start_time' => 'required',
             'bundle_sessions.*.end_time' => 'required',
         ]);
         
         $sessions = $request->bundle_sessions;
+        $totalSessions = count($sessions);
+        $priceId = $request->price_id;
         
-        if (count($sessions) != $lessonCount) {
+        // Get the package to check expected session count
+        $price = \App\Models\Price::find($priceId);
+        $expectedCount = $this->extractLessonCount($price->description);
+        
+        if ($totalSessions != $expectedCount) {
             return response()->json([
                 'success' => false,
-                'message' => "This package requires {$lessonCount} sessions. You provided " . count($sessions),
+                'message' => "This package requires {$expectedCount} sessions. You provided {$totalSessions} sessions.",
             ], 422);
         }
         
@@ -262,11 +254,11 @@ class UserReservationController extends Controller
                 $session['reservation_date'],
                 $session['start_time'],
                 $session['end_time'],
-                $request->price_id
+                $priceId
             );
             
             if (!$isAvailable) {
-                $errors[] = "Session " . ($index + 1) . " on {$session['reservation_date']} from {$session['start_time']} is not available";
+                $errors[] = "Session " . ($index + 1) . " on {$session['reservation_date']} from {$session['start_time']} to {$session['end_time']} is not available";
             }
         }
         
@@ -294,7 +286,7 @@ class UserReservationController extends Controller
                 'reservation_date' => $reservationDate,
                 'start_time' => $startTime,
                 'end_time' => $endTime,
-                'price_id' => $request->price_id,
+                'price_id' => $priceId,
                 'status' => 'Pending',
                 'package_type' => $request->package_type,
                 'test_time' => $session['test_time'] ?? null,
@@ -305,11 +297,11 @@ class UserReservationController extends Controller
         }
         
         // Send bundle email summary
-        $this->sendBundleReservationEmails($createdReservations, $lessonCount);
+        $this->sendBundleReservationEmails($createdReservations, $totalSessions);
         
         return response()->json([
             'success' => true,
-            'message' => "Bundle reservation created successfully with {$lessonCount} sessions",
+            'message' => "Bundle reservation created successfully with {$totalSessions} sessions",
             'data' => $createdReservations,
         ], 201);
     }
@@ -556,7 +548,6 @@ class UserReservationController extends Controller
         
         $firstReservation = $reservations[0];
         
-        // You can modify your email class to accept session count
         try {
             Mail::to($firstReservation->email)->send(new ReservationCreated($firstReservation, false, $sessionCount));
         } catch (\Exception $e) {
