@@ -3214,13 +3214,13 @@ const UserReservation = () => {
                             <div className="mt-8 pt-6 border-t border-gray-200">
                                 <div className="flex flex-wrap gap-3 justify-end">
                                     {/* Edit Button */}
-                                    <button
+                                    {/* <button
                                         onClick={() => handleEditReservation(viewingReservation)}
                                         className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center gap-2"
                                     >
                                         <Edit size={16} />
                                         Edit Reservation
-                                    </button>
+                                    </button> */}
 
                                     {/* Accept Button */}
                                     {viewingReservation.status !== "Accepted" && (
