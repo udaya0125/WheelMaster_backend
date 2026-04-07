@@ -1,20 +1,3 @@
-// import React, {useState} from 'react'
-// import {Calendar} from '@/Components/ui/calendar'
-
-// const Welcome = () => {
-//     const [selectedDate, setSelectedDate] = useState(new Date())
-
-//     console.log(selectedDate)
-//   return (
-//     <div>
-//       <Calendar selected={selectedDate} onSelect={setSelectedDate} mode="single" />
-//     </div>
-//   )
-// }
-
-// export default Welcome
-
-
 import Pricing from '@/Components/Price/Pricing';
 import React from 'react';
 
@@ -53,3 +36,20 @@ const Welcome = () => {
 };
 
 export default Welcome;
+
+
+// import React, {useState} from 'react'
+// import {Calendar} from '@/Components/ui/calendar'
+
+// const Welcome = () => {
+//     const [selectedDate, setSelectedDate] = useState(new Date())
+
+//     console.log(selectedDate)
+//   return (
+//     <div>
+//       <Calendar selected={selectedDate} onSelect={setSelectedDate} mode="single" />
+//     </div>
+//   )
+// }
+
+// export default Welcome
