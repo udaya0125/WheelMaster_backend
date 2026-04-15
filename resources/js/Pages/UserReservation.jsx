@@ -11,7 +11,7 @@ import { Link } from "@inertiajs/react";
 import Wrapper from "@/AdminWrapper/Wrapper";
 import MyTable from "@/MyTable/MyTable";
 import AddReservationForm from "@/AddFormComponent/AddReservationForm";
-import EditReservationForm from "@/EditFormComponents/Editreservationform";
+import EditReservationForm from "@/EditFormComponents/EditReservationForm";
 
 
 const UserReservation = () => {
