@@ -4,7 +4,6 @@ import { usePage } from "@inertiajs/react";
 import NavBar from "./NavBar";
 import SideBar from "./SideBar";
 
-
 const Wrapper = ({ children }) => {
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(false);
