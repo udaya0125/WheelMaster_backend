@@ -15,7 +15,7 @@ const EditReservationForm = ({
         address: "",
         pickup_location: "",
         dropoff_location: "",
-        package_type: "",   // holds the CATEGORY value for the dropdown
+        package_type: "",
         reservation_date: "",
         start_time: "",
         end_time: "",
