@@ -74,7 +74,7 @@
             <p>A new reservation has been submitted and is awaiting your review.</p>
         @else
             <p>Dear {{ $reservation->user_name }},</p>
-            <p>Thank you for your reservation! We have received your booking request and it is currently pending approval.</p>
+            <p>Thank you for booking with Wheel Master Driving Academy. We have received your booking request.</p>
         @endif
 
         <div class="info-box">
@@ -139,8 +139,15 @@
         @if($isAdmin)
             <p>Please review and update the reservation status in your admin panel.</p>
         @else
-            <p>We will review your reservation and send you a confirmation email shortly.</p>
-            <p>If you have any questions, please don't hesitate to contact us.</p>
+            <p>Your booking will be confirmed once payment has been made to the account details provided below. Please use your name as the payment reference.</p>
+            <p><strong>Account Details:</strong><br>
+            Name: Wheel Master Driving Academy<br>
+            BSB: 036192<br>
+            Account Number: 346771</p>
+            <p>Once payment has been made, please send a screenshot via email or message us on 0481 488 216.</p>
+            <p>If any changes are required, we will contact you directly. For any questions, feel free to reach out to us on the same number.</p>
+            <p>Kind regards,</p>
+            <p>Wheel Master Driving Academy</p>
         @endif
 
         <div class="footer">
