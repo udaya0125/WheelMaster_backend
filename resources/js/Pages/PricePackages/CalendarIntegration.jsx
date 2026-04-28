@@ -1027,12 +1027,12 @@ const CalendarIntegration = ({ price }) => {
                                 [dateKey]: allSlots,
                             }));
                             
-                            // Check if date has any slots (available, reserved, or blocked)
-                            const hasAnySlots = allSlots.length > 0;
+                            // Check if date has any AVAILABLE slots
+                            const hasAvailableSlots = allSlots.some(slot => slot.status === "available");
                             
                             setDateStatus(prev => {
                                 const newMap = new Map(prev);
-                                if (hasAnySlots) {
+                                if (hasAvailableSlots) {
                                     newMap.set(dateKey, 'has-slots');
                                 } else {
                                     newMap.set(dateKey, 'no-slots');
@@ -1066,7 +1066,7 @@ const CalendarIntegration = ({ price }) => {
                 });
 
                 if (response.data.success) {
-                    // Store all slots data for debugging
+                    // Store all slots data
                     setAllSlotsData((prev) => ({
                         ...prev,
                         [dateKey]: response.data.slots,
@@ -1116,11 +1116,11 @@ const CalendarIntegration = ({ price }) => {
                         [dateKey]: available,
                     }));
                     
-                    // Update date status based on whether there are any slots
-                    const hasAnySlots = allSlots.length > 0;
+                    // Update date status based on whether there are available slots
+                    const hasAvailableSlots = available.length > 0;
                     setDateStatus(prev => {
                         const newMap = new Map(prev);
-                        if (hasAnySlots) {
+                        if (hasAvailableSlots) {
                             newMap.set(dateKey, 'has-slots');
                         } else {
                             newMap.set(dateKey, 'no-slots');
@@ -1185,11 +1185,6 @@ const CalendarIntegration = ({ price }) => {
         });
     };
 
-    const hasAvailableSlots = (date) => {
-        const slots = getTimeSlotsForDate(date);
-        return slots.length > 0;
-    };
-
     const getDateStatus = (date) => {
         if (!date) return 'unknown';
         const dateKey = formatDateKey(date);
@@ -1252,10 +1247,10 @@ const CalendarIntegration = ({ price }) => {
                         }));
 
                         // Update date status
-                        const hasAnySlots = allSlots.length > 0;
+                        const hasAvailableSlots = availableSlots.length > 0;
                         setDateStatus(prev => {
                             const newMap = new Map(prev);
-                            if (hasAnySlots) {
+                            if (hasAvailableSlots) {
                                 newMap.set(dateKey, 'has-slots');
                             } else {
                                 newMap.set(dateKey, 'no-slots');
@@ -1543,10 +1538,10 @@ const CalendarIntegration = ({ price }) => {
                 }));
                 
                 // Update date status
-                const hasAnySlots = allSlots.length > 0;
+                const hasAvailableSlots = available.length > 0;
                 setDateStatus(prev => {
                     const newMap = new Map(prev);
-                    if (hasAnySlots) {
+                    if (hasAvailableSlots) {
                         newMap.set(dateKey, 'has-slots');
                     } else {
                         newMap.set(dateKey, 'no-slots');
@@ -1602,30 +1597,51 @@ const CalendarIntegration = ({ price }) => {
         const isPast = isPastDate(date);
         const dateStatusType = getDateStatus(date);
         
-        // Determine cell background color based on status
-        let cellClassName = "";
-        if (!isPast && !isSelected) {
-            if (dateStatusType === 'has-slots') {
-                cellClassName = "bg-green-50 hover:bg-green-100";
-            } else if (dateStatusType === 'no-slots') {
-                cellClassName = "bg-red-50 hover:bg-red-100";
-            }
+        // Don't show colors for past dates or selected date
+        if (isPast) {
+            return (
+                <div className="relative w-full h-full flex items-center justify-center">
+                    <span className="text-gray-400">
+                        {date.getDate()}
+                    </span>
+                </div>
+            );
+        }
+
+        if (isSelected) {
+            return (
+                <div className="relative w-full h-full flex items-center justify-center">
+                    <span className="text-white">
+                        {date.getDate()}
+                    </span>
+                </div>
+            );
+        }
+
+        // Apply different styles based on status
+        let bgColor = "";
+        let textColor = "text-gray-700";
+        let dotColor = "";
+        
+        if (dateStatusType === 'has-slots') {
+            bgColor = "bg-green-100 hover:bg-green-200";
+            textColor = "text-green-800 font-semibold";
+            dotColor = "bg-green-500";
+        } else if (dateStatusType === 'no-slots') {
+            bgColor = "bg-red-100 hover:bg-red-200";
+            textColor = "text-red-800";
+            dotColor = "bg-red-500";
+        } else {
+            bgColor = "hover:bg-gray-100";
         }
 
         return (
-            <div className={`relative w-full h-full flex items-center justify-center ${cellClassName}`}>
-                <span className={
-                    isPast ? "text-gray-400" : 
-                    (dateStatusType === 'has-slots' ? "text-green-700 font-semibold" :
-                    (dateStatusType === 'no-slots' ? "text-red-600" : "text-gray-700"))
-                }>
+            <div className={`relative w-full h-full flex items-center justify-center rounded-full ${bgColor}`}>
+                <span className={textColor}>
                     {date.getDate()}
                 </span>
-                {dateStatusType === 'has-slots' && !isSelected && !isPast && (
-                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full"></div>
-                )}
-                {dateStatusType === 'no-slots' && !isSelected && !isPast && (
-                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>
+                {dotColor && (
+                    <div className={`absolute -top-1 -right-1 w-2 h-2 ${dotColor} rounded-full`}></div>
                 )}
             </div>
         );
@@ -1697,14 +1713,24 @@ const CalendarIntegration = ({ price }) => {
                             <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                                 <div className="flex items-center">
                                     <div className="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
-                                    <span>Has Slots</span>
+                                    <span>Has Available Slots</span>
                                 </div>
                                 <div className="flex items-center">
                                     <div className="w-2 h-2 bg-red-500 rounded-full mr-1"></div>
-                                    <span>No Slots</span>
+                                    <span>No Available Slots</span>
                                 </div>
                             </div>
                         </div>
+                        <style jsx global>{`
+                            .rdp-day {
+                                width: 40px !important;
+                                height: 40px !important;
+                            }
+                            .rdp-day button {
+                                width: 100% !important;
+                                height: 100% !important;
+                            }
+                        `}</style>
                         <Calendar
                             mode="single"
                             selected={selectedDate}
