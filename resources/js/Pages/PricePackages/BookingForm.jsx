@@ -627,7 +627,6 @@
 
 // export default BookingForm;
 
-
 import { X } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import axios from "axios";
@@ -1060,21 +1059,21 @@ const BookingForm = ({
                                     : "border-gray-300"
                             }`}
                         >
-                            <option value="">Select your suburb</option>
+                            <option value="">Select your Address</option>
                             <option value="mandurah">Mandurah</option>
-                            <option value="meadow-springs">Meadow Springs</option>
+                            <option value="meadow-springs">
+                                Meadow Springs
+                            </option>
                             <option value="silver-sands">Silver Sands</option>
                             <option value="lakelands">Lakelands</option>
                             <option value="dudley-park">Dudley Park</option>
-                            <option value="ravenswood">Ravenswood</option>
-                            <option value="wannanup">Wannanup</option>
-                            <option value="falcon">Falcon</option>
                             <option value="halls-head">Halls Head</option>
                             <option value="madora-bay">Madora Bay</option>
                             <option value="greenfields">Greenfields</option>
                             <option value="erskine">Erskine</option>
-                            <option value="port-kennedy">Port Kennedy</option>
-                            <option value="secret-harbour">Secret Harbour</option>
+                            <option value="midpoint-mandurah-dot">
+                                Midpoint Mandurah Dot
+                            </option>
                         </select>
                         {errors.address && (
                             <p className="mt-1 text-sm text-red-600">
@@ -1111,8 +1110,18 @@ const BookingForm = ({
                                 {errors.zip_code}
                             </p>
                         ) : (
+                            // <p className="mt-1 text-sm text-gray-500">
+                            //     Currently serving only areas with zip code 6210.
+                            // </p>
                             <p className="mt-1 text-sm text-gray-500">
-                                Currently serving only areas with zip code 6210
+                                Currently serving only areas with zip code 6210.
+                                {bookingForm.address !==
+                                    "midpoint-mandurah-dot" && (
+                                    <span className="block">
+                                        If your address is not available, please
+                                        select "Midpoint Mandurah Dot".
+                                    </span>
+                                )}
                             </p>
                         )}
                     </div>
