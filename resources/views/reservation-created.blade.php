@@ -145,7 +145,7 @@
 
         <div class="footer">
             <p>This is an automated email. Please do not reply to this message.</p>
-            <p>&copy; {{ date('Y') }} Your Company Name. All rights reserved.</p>
+            <p>&copy; {{ date('Y') }} Wheel Master Driving. All rights reserved.</p>
         </div>
     </div>
 </body>
