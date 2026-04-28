@@ -995,117 +995,111 @@ const CalendarIntegration = ({ price }) => {
     const [bookedSlots, setBookedSlots] = useState([]);
     const [allSlotsData, setAllSlotsData] = useState({});
 
-    // NEW: Track per-day availability status for calendar coloring
-    // Values: 'available' | 'unavailable' | 'loading' | undefined (not yet fetched)
+    // dayAvailability: { "YYYY-MM-DD": "available" | "unavailable" }
     const [dayAvailability, setDayAvailability] = useState({});
     const [currentMonth, setCurrentMonth] = useState(new Date());
 
-    // NEW: Fetch availability for every day in the given month
-    const fetchMonthAvailability = useCallback(async (monthDate) => {
-        if (!price?.id) return;
+    // ─── Fetch availability for every day in the visible month ───────────────
+    const fetchMonthAvailability = useCallback(
+        async (monthDate) => {
+            if (!price?.id) return;
 
-        const year = monthDate.getFullYear();
-        const month = monthDate.getMonth();
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+            const year = monthDate.getFullYear();
+            const month = monthDate.getMonth();
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
 
-        // Build list of days in this month that are not in the past
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        const datesToFetch = [];
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const datesToFetch = [];
 
-        for (let d = 1; d <= daysInMonth; d++) {
-            const date = new Date(year, month, d);
-            if (date >= today) {
-                datesToFetch.push(date);
+            for (let d = 1; d <= daysInMonth; d++) {
+                const date = new Date(year, month, d);
+                if (date >= today) {
+                    const key = formatDateKey(date);
+                    if (!dayAvailability[key]) {
+                        datesToFetch.push(date);
+                    }
+                }
             }
-        }
 
-        if (datesToFetch.length === 0) return;
+            if (datesToFetch.length === 0) return;
 
-        // Mark all as loading
-        setDayAvailability((prev) => {
-            const next = { ...prev };
-            datesToFetch.forEach((date) => {
-                const key = formatDateKey(date);
-                if (!next[key]) next[key] = "loading";
-            });
-            return next;
-        });
+            // Fetch in batches of 7
+            const batchSize = 7;
+            for (let i = 0; i < datesToFetch.length; i += batchSize) {
+                const batch = datesToFetch.slice(i, i + batchSize);
+                await Promise.all(
+                    batch.map(async (date) => {
+                        const dateKey = formatDateKey(date);
+                        try {
+                            const response = await axios.get(
+                                route("ourtimeslots.get"),
+                                {
+                                    params: {
+                                        date: dateKey,
+                                        price_id: price.id,
+                                    },
+                                }
+                            );
 
-        // Fetch in parallel (batches of 7 to avoid overwhelming the server)
-        const batchSize = 7;
-        for (let i = 0; i < datesToFetch.length; i += batchSize) {
-            const batch = datesToFetch.slice(i, i + batchSize);
-            await Promise.all(
-                batch.map(async (date) => {
-                    const dateKey = formatDateKey(date);
-                    try {
-                        const response = await axios.get(
-                            route("ourtimeslots.get"),
-                            {
-                                params: {
-                                    date: dateKey,
-                                    price_id: price.id,
-                                },
-                            }
-                        );
+                            if (response.data.success) {
+                                const slots = response.data.slots || [];
+                                const hasAvailable = slots.some(
+                                    (s) => s.status === "available"
+                                );
 
-                        if (response.data.success) {
-                            const slots = response.data.slots || [];
-                            const availableCount = slots.filter(
-                                (s) => s.status === "available"
-                            ).length;
-
-                            setDayAvailability((prev) => ({
-                                ...prev,
-                                [dateKey]:
-                                    availableCount > 0
+                                setDayAvailability((prev) => ({
+                                    ...prev,
+                                    [dateKey]: hasAvailable
                                         ? "available"
                                         : "unavailable",
-                            }));
+                                }));
 
-                            // Also cache the available slot times
-                            if (availableCount > 0) {
-                                const availableTimes = slots
-                                    .filter((s) => s.status === "available")
-                                    .map((slot) => {
-                                        const st = slot.start_time;
-                                        if (
-                                            typeof st === "string" &&
-                                            st.includes(":")
-                                        ) {
-                                            const parts = st.split(":");
-                                            return `${parts[0]}:${parts[1]}`;
-                                        }
-                                        return st;
-                                    });
-                                setTimeSlots((prev) => ({
+                                // Cache available slot times too
+                                if (hasAvailable) {
+                                    const availableTimes = slots
+                                        .filter((s) => s.status === "available")
+                                        .map((slot) => {
+                                            const st = slot.start_time;
+                                            if (
+                                                typeof st === "string" &&
+                                                st.includes(":")
+                                            ) {
+                                                const parts = st.split(":");
+                                                return `${parts[0]}:${parts[1]}`;
+                                            }
+                                            return st;
+                                        });
+                                    setTimeSlots((prev) => ({
+                                        ...prev,
+                                        [dateKey]: availableTimes,
+                                    }));
+                                }
+                            } else {
+                                setDayAvailability((prev) => ({
                                     ...prev,
-                                    [dateKey]: availableTimes,
+                                    [dateKey]: "unavailable",
                                 }));
                             }
-                        } else {
+                        } catch {
                             setDayAvailability((prev) => ({
                                 ...prev,
                                 [dateKey]: "unavailable",
                             }));
                         }
-                    } catch {
-                        setDayAvailability((prev) => ({
-                            ...prev,
-                            [dateKey]: "unavailable",
-                        }));
-                    }
-                })
-            );
-        }
-    }, [price?.id]);
+                    })
+                );
+            }
+        },
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [price?.id]
+    );
 
-    // Fetch month availability when month changes or price changes
     useEffect(() => {
         fetchMonthAvailability(currentMonth);
     }, [currentMonth, fetchMonthAvailability]);
 
+    // ─── Fetch slots for the selected date (detailed, with booked slots) ─────
     useEffect(() => {
         const fetchTimeSlots = async () => {
             try {
@@ -1166,10 +1160,10 @@ const CalendarIntegration = ({ price }) => {
                         [dateKey]: available,
                     }));
 
-                    // Update day availability status for this date
                     setDayAvailability((prev) => ({
                         ...prev,
-                        [dateKey]: available.length > 0 ? "available" : "unavailable",
+                        [dateKey]:
+                            available.length > 0 ? "available" : "unavailable",
                     }));
                 } else {
                     console.error(
@@ -1191,6 +1185,16 @@ const CalendarIntegration = ({ price }) => {
         }
     }, [price?.id, selectedDate]);
 
+    // ─── Helpers ─────────────────────────────────────────────────────────────
+
+    const formatDateKey = (date) => {
+        if (!date) return "";
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+    };
+
     const isPastDate = (date) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -1205,14 +1209,6 @@ const CalendarIntegration = ({ price }) => {
         return timeSlots[dateKey] || [];
     };
 
-    const formatDateKey = (date) => {
-        if (!date) return "";
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const day = String(date.getDate()).padStart(2, "0");
-        return `${year}-${month}-${day}`;
-    };
-
     const formatDisplayDate = (date) => {
         if (!date) return "Select a date";
         return date.toLocaleDateString("en-US", {
@@ -1223,32 +1219,156 @@ const CalendarIntegration = ({ price }) => {
         });
     };
 
-    const hasTimeSlots = (date) => {
-        const slots = getTimeSlotsForDate(date);
-        return slots.length > 0;
+    const parseDuration = (durationString) => {
+        if (!durationString) return 60;
+        const cleanString = durationString.trim().toLowerCase();
+        const hourMatch = cleanString.match(
+            /(\d+(?:\.\d+)?)\s*(?:hrs|hr|hour|hours)/
+        );
+        const minuteMatch = cleanString.match(
+            /(\d+)\s*(?:min|mins|minute|minutes)/
+        );
+        let totalMinutes = 0;
+        if (hourMatch) totalMinutes += parseFloat(hourMatch[1]) * 60;
+        if (minuteMatch) totalMinutes += parseInt(minuteMatch[1]);
+        if (totalMinutes === 0) {
+            const numberMatch = cleanString.match(/(\d+(?:\.\d+)?)/);
+            if (numberMatch) {
+                const num = parseFloat(numberMatch[1]);
+                totalMinutes =
+                    num < 10 ? Math.round(num * 60) : Math.round(num);
+            }
+        }
+        return totalMinutes || 60;
     };
+
+    const calculateEndTime = (startTime, durationString) => {
+        const durationMinutes = parseDuration(durationString);
+        const startTimeStr =
+            typeof startTime === "object" ? startTime.start_time : startTime;
+        let cleanStartTime = startTimeStr;
+        if (
+            typeof cleanStartTime === "string" &&
+            cleanStartTime.includes(":")
+        ) {
+            const parts = cleanStartTime.split(":");
+            if (parts.length >= 2)
+                cleanStartTime = `${parts[0]}:${parts[1]}`;
+        }
+        const [hours, minutes] = cleanStartTime.split(":").map(Number);
+        const totalMinutes = hours * 60 + minutes + durationMinutes;
+        const endHours = Math.floor(totalMinutes / 60);
+        const endMinutes = totalMinutes % 60;
+        return `${String(endHours).padStart(2, "0")}:${String(endMinutes).padStart(2, "0")}`;
+    };
+
+    const formatDurationDisplay = (durationString) => {
+        const minutes = parseDuration(durationString);
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        if (hours > 0 && mins > 0)
+            return `${hours} ${hours === 1 ? "hour" : "hours"} ${mins} minutes`;
+        if (hours > 0)
+            return `${hours} ${hours === 1 ? "hour" : "hours"}`;
+        return `${mins} minutes`;
+    };
+
+    const getNonOverlappingSlots = (slots) => {
+        if (!slots || slots.length === 0) return [];
+        const durationMinutes = parseDuration(price.duration);
+        const result = [];
+        const timeToMinutes = (timeStr) => {
+            const [h, m] = timeStr.split(":").map(Number);
+            return h * 60 + m;
+        };
+        const sortedSlots = [...slots].sort((a, b) => {
+            const timeA = timeToMinutes(
+                typeof a === "string" ? a : a.start_time
+            );
+            const timeB = timeToMinutes(
+                typeof b === "string" ? b : b.start_time
+            );
+            return timeA - timeB;
+        });
+        const bookedPeriods = bookedSlots.map((t) => {
+            const m = timeToMinutes(t);
+            return { start: m, end: m + 20 };
+        });
+        const mergedBookedPeriods = [];
+        if (bookedPeriods.length > 0) {
+            bookedPeriods.sort((a, b) => a.start - b.start);
+            let current = bookedPeriods[0];
+            for (let i = 1; i < bookedPeriods.length; i++) {
+                if (bookedPeriods[i].start <= current.end) {
+                    current.end = Math.max(current.end, bookedPeriods[i].end);
+                } else {
+                    mergedBookedPeriods.push(current);
+                    current = bookedPeriods[i];
+                }
+            }
+            mergedBookedPeriods.push(current);
+        }
+        let nextAllowedStart = -1;
+        for (const slot of sortedSlots) {
+            let startTimeStr =
+                typeof slot === "string" ? slot : slot?.start_time;
+            if (startTimeStr?.includes(":")) {
+                const parts = startTimeStr.split(":");
+                startTimeStr = `${parts[0]}:${parts[1]}`;
+            }
+            const startMinutes = timeToMinutes(startTimeStr);
+            const slotEndMinutes = startMinutes + durationMinutes;
+            let isBlocked = false;
+            for (const period of mergedBookedPeriods) {
+                if (
+                    startMinutes < period.end &&
+                    slotEndMinutes > period.start
+                ) {
+                    isBlocked = true;
+                    break;
+                }
+                if (
+                    startMinutes >= period.end &&
+                    startMinutes < period.end + 20
+                ) {
+                    isBlocked = true;
+                    break;
+                }
+            }
+            if (isBlocked) continue;
+            if (nextAllowedStart === -1 || startMinutes >= nextAllowedStart) {
+                result.push(slot);
+                nextAllowedStart = startMinutes + durationMinutes;
+            }
+        }
+        return result;
+    };
+
+    const getTimeSlotDisplay = (slot) => {
+        let startTimeStr = typeof slot === "string" ? slot : slot?.start_time;
+        if (startTimeStr?.includes(":")) {
+            const parts = startTimeStr.split(":");
+            startTimeStr = `${parts[0]}:${parts[1]}`;
+        }
+        const endTimeStr = calculateEndTime(startTimeStr, price.duration);
+        return `${startTimeStr} - ${endTimeStr}`;
+    };
+
+    // ─── Next availability ────────────────────────────────────────────────────
 
     const findNextAvailableDates = async () => {
         try {
             const availableDates = [];
             const today = new Date();
-
             for (let i = 1; i <= 30; i++) {
                 const nextDate = new Date(today);
                 nextDate.setDate(today.getDate() + i);
                 const dateKey = formatDateKey(nextDate);
-
                 try {
                     const response = await axios.get(
                         route("ourtimeslots.get"),
-                        {
-                            params: {
-                                date: dateKey,
-                                price_id: price.id,
-                            },
-                        }
+                        { params: { date: dateKey, price_id: price.id } }
                     );
-
                     if (response.data.success) {
                         const availableSlots = response.data.slots
                             .filter((slot) => slot.status === "available")
@@ -1263,25 +1383,21 @@ const CalendarIntegration = ({ price }) => {
                                 }
                                 return startTime;
                             });
-
                         setTimeSlots((prev) => ({
                             ...prev,
                             [dateKey]: availableSlots,
                         }));
-
-                        if (availableSlots.length > 0) {
+                        if (availableSlots.length > 0)
                             availableDates.push(new Date(nextDate));
-                        }
                     }
                 } catch (err) {
-                    console.error(`Error fetching slots for ${dateKey}:`, err);
+                    console.error(
+                        `Error fetching slots for ${dateKey}:`,
+                        err
+                    );
                 }
-
-                if (availableDates.length >= 3) {
-                    break;
-                }
+                if (availableDates.length >= 3) break;
             }
-
             return availableDates;
         } catch (error) {
             console.error("Error finding next available dates:", error);
@@ -1289,174 +1405,16 @@ const CalendarIntegration = ({ price }) => {
         }
     };
 
-    const parseDuration = (durationString) => {
-        if (!durationString) return 60;
-
-        const cleanString = durationString.trim().toLowerCase();
-        const hourMatch = cleanString.match(
-            /(\d+(?:\.\d+)?)\s*(?:hrs|hr|hour|hours)/
-        );
-        const minuteMatch = cleanString.match(
-            /(\d+)\s*(?:min|mins|minute|minutes)/
-        );
-
-        let totalMinutes = 0;
-
-        if (hourMatch) {
-            totalMinutes += parseFloat(hourMatch[1]) * 60;
-        }
-        if (minuteMatch) {
-            totalMinutes += parseInt(minuteMatch[1]);
-        }
-
-        if (totalMinutes === 0) {
-            const numberMatch = cleanString.match(/(\d+(?:\.\d+)?)/);
-            if (numberMatch) {
-                const num = parseFloat(numberMatch[1]);
-                totalMinutes =
-                    num < 10 ? Math.round(num * 60) : Math.round(num);
-            }
-        }
-
-        return totalMinutes || 60;
-    };
-
-    const calculateEndTime = (startTime, durationString) => {
-        const durationMinutes = parseDuration(durationString);
-        const startTimeStr =
-            typeof startTime === "object" ? startTime.start_time : startTime;
-
-        let cleanStartTime = startTimeStr;
-        if (
-            typeof cleanStartTime === "string" &&
-            cleanStartTime.includes(":")
-        ) {
-            const parts = cleanStartTime.split(":");
-            if (parts.length >= 2) {
-                cleanStartTime = `${parts[0]}:${parts[1]}`;
-            }
-        }
-
-        const [hours, minutes] = cleanStartTime.split(":").map(Number);
-        const totalMinutes = hours * 60 + minutes + durationMinutes;
-        const endHours = Math.floor(totalMinutes / 60);
-        const endMinutes = totalMinutes % 60;
-
-        return `${String(endHours).padStart(2, "0")}:${String(endMinutes).padStart(2, "0")}`;
-    };
-
-    const formatDurationDisplay = (durationString) => {
-        const minutes = parseDuration(durationString);
-        const hours = Math.floor(minutes / 60);
-        const mins = minutes % 60;
-
-        if (hours > 0 && mins > 0) {
-            return `${hours} ${hours === 1 ? "hour" : "hours"} ${mins} minutes`;
-        } else if (hours > 0) {
-            return `${hours} ${hours === 1 ? "hour" : "hours"}`;
-        } else {
-            return `${mins} minutes`;
-        }
-    };
-
-    const getNonOverlappingSlots = (slots) => {
-        if (!slots || slots.length === 0) return [];
-
-        const durationMinutes = parseDuration(price.duration);
-        const result = [];
-
-        const timeToMinutes = (timeStr) => {
-            const [h, m] = timeStr.split(":").map(Number);
-            return h * 60 + m;
-        };
-
-        const sortedSlots = [...slots].sort((a, b) => {
-            const timeA = timeToMinutes(
-                typeof a === "string" ? a : a.start_time
-            );
-            const timeB = timeToMinutes(
-                typeof b === "string" ? b : b.start_time
-            );
-            return timeA - timeB;
-        });
-
-        const bookedPeriods = [];
-        for (const bookedTime of bookedSlots) {
-            const bookedMinutes = timeToMinutes(bookedTime);
-            bookedPeriods.push({
-                start: bookedMinutes,
-                end: bookedMinutes + 20,
-            });
-        }
-
-        const mergedBookedPeriods = [];
-        if (bookedPeriods.length > 0) {
-            bookedPeriods.sort((a, b) => a.start - b.start);
-
-            let current = bookedPeriods[0];
-            for (let i = 1; i < bookedPeriods.length; i++) {
-                if (bookedPeriods[i].start <= current.end) {
-                    current.end = Math.max(current.end, bookedPeriods[i].end);
-                } else {
-                    mergedBookedPeriods.push(current);
-                    current = bookedPeriods[i];
-                }
-            }
-            mergedBookedPeriods.push(current);
-        }
-
-        let nextAllowedStart = -1;
-
-        for (const slot of sortedSlots) {
-            let startTimeStr =
-                typeof slot === "string" ? slot : slot?.start_time;
-            if (startTimeStr?.includes(":")) {
-                const parts = startTimeStr.split(":");
-                startTimeStr = `${parts[0]}:${parts[1]}`;
-            }
-
-            const startMinutes = timeToMinutes(startTimeStr);
-            const slotEndMinutes = startMinutes + durationMinutes;
-
-            let isBlocked = false;
-            for (const period of mergedBookedPeriods) {
-                if (
-                    startMinutes < period.end &&
-                    slotEndMinutes > period.start
-                ) {
-                    isBlocked = true;
-                    break;
-                }
-
-                if (
-                    startMinutes >= period.end &&
-                    startMinutes < period.end + 20
-                ) {
-                    isBlocked = true;
-                    break;
-                }
-            }
-
-            if (isBlocked) {
-                continue;
-            }
-
-            if (nextAllowedStart === -1 || startMinutes >= nextAllowedStart) {
-                result.push(slot);
-                nextAllowedStart = startMinutes + durationMinutes;
-            }
-        }
-
-        return result;
-    };
+    // ─── Handlers ────────────────────────────────────────────────────────────
 
     const handleNextAvailabilityClick = async () => {
         setShowNextAvailability(true);
-        const loadingToast = toast.loading("Checking next available dates...");
+        const loadingToast = toast.loading(
+            "Checking next available dates..."
+        );
         const availableDates = await findNextAvailableDates();
         setNextAvailableDates(availableDates);
         toast.dismiss(loadingToast);
-
         if (availableDates.length === 0) {
             toast.error("No available dates found in the next 30 days.");
         } else {
@@ -1473,9 +1431,7 @@ const CalendarIntegration = ({ price }) => {
 
     const handleConfirmBookingClick = () => {
         if (selectedTime && price?.duration) {
-            setTimeout(() => {
-                setShowBookingForm(true);
-            }, 500);
+            setTimeout(() => setShowBookingForm(true), 500);
         } else {
             toast.error("Please select a time slot first");
         }
@@ -1485,20 +1441,14 @@ const CalendarIntegration = ({ price }) => {
         const loadingToast = toast.loading(
             "Refreshing available time slots..."
         );
-
         try {
             setLoading(true);
             const dateKey = formatDateKey(selectedDate);
             const response = await axios.get(route("ourtimeslots.get"), {
-                params: {
-                    date: dateKey,
-                    price_id: price.id,
-                },
+                params: { date: dateKey, price_id: price.id },
             });
-
             if (response.data.success) {
                 const allSlots = response.data.slots || [];
-
                 const booked = allSlots
                     .filter(
                         (slot) =>
@@ -1516,9 +1466,7 @@ const CalendarIntegration = ({ price }) => {
                         }
                         return startTime;
                     });
-
                 setBookedSlots(booked);
-
                 const available = allSlots
                     .filter((slot) => slot.status === "available")
                     .map((slot) => {
@@ -1532,39 +1480,30 @@ const CalendarIntegration = ({ price }) => {
                         }
                         return startTime;
                     });
-
-                setTimeSlots((prev) => ({
-                    ...prev,
-                    [dateKey]: available,
-                }));
-
+                setTimeSlots((prev) => ({ ...prev, [dateKey]: available }));
                 setAllSlotsData((prev) => ({
                     ...prev,
                     [dateKey]: allSlots,
                 }));
-
-                // Refresh day availability status after booking
                 setDayAvailability((prev) => ({
                     ...prev,
-                    [dateKey]: available.length > 0 ? "available" : "unavailable",
+                    [dateKey]:
+                        available.length > 0 ? "available" : "unavailable",
                 }));
-
                 toast.dismiss(loadingToast);
                 toast.success("Booking confirmed! Time slots refreshed.");
             }
         } catch (error) {
             console.error("Error refreshing time slots:", error);
             toast.dismiss(loadingToast);
-            toast.error("Booking confirmed, but failed to refresh time slots");
+            toast.error(
+                "Booking confirmed, but failed to refresh time slots"
+            );
         } finally {
             setLoading(false);
             setSelectedTime(null);
             setShowBookingForm(false);
         }
-    };
-
-    const handleTimeSelect = (time) => {
-        setSelectedTime(time);
     };
 
     const handleDateSelect = (date) => {
@@ -1573,61 +1512,29 @@ const CalendarIntegration = ({ price }) => {
             setSelectedTime(null);
             setShowNextAvailability(false);
         } else if (date && isPastDate(date)) {
-            toast.error("Cannot select past dates", {
-                icon: "⚠️",
-            });
+            toast.error("Cannot select past dates", { icon: "⚠️" });
         }
     };
 
-    // NEW: Handle month navigation to trigger availability fetch
     const handleMonthChange = (month) => {
         setCurrentMonth(month);
     };
 
+    // ─── Build modifier date arrays ───────────────────────────────────────────
+    // IMPORTANT: Dates must be constructed with T00:00:00 to avoid UTC offset
+    // issues that would shift the date by one day in some timezones.
+
+    const availableDays = Object.entries(dayAvailability)
+        .filter(([, status]) => status === "available")
+        .map(([key]) => new Date(key + "T00:00:00"));
+
+    const unavailableDays = Object.entries(dayAvailability)
+        .filter(([, status]) => status === "unavailable")
+        .map(([key]) => new Date(key + "T00:00:00"));
+
+    // ─── Render ───────────────────────────────────────────────────────────────
+
     const currentTimeSlots = getTimeSlotsForDate(selectedDate);
-
-    const getTimeSlotDisplay = (slot) => {
-        let startTimeStr = typeof slot === "string" ? slot : slot?.start_time;
-        if (startTimeStr?.includes(":")) {
-            const parts = startTimeStr.split(":");
-            startTimeStr = `${parts[0]}:${parts[1]}`;
-        }
-        const endTimeStr = calculateEndTime(startTimeStr, price.duration);
-        return `${startTimeStr} - ${endTimeStr}`;
-    };
-
-    // UPDATED: renderDayContent now uses dayAvailability for green/red coloring
-    const renderDayContent = (date) => {
-        const isSelected =
-            selectedDate && date.toDateString() === selectedDate.toDateString();
-        const isPast = isPastDate(date);
-        const dateKey = formatDateKey(date);
-        const availStatus = dayAvailability[dateKey];
-
-        // Determine dot color
-        let dotColor = null;
-        if (!isPast && !isSelected) {
-            if (availStatus === "available") {
-                dotColor = "bg-emerald-500"; // green — has slots
-            } else if (availStatus === "unavailable") {
-                dotColor = "bg-red-500";     // red — no slots / fully booked
-            }
-            // "loading" or undefined: no dot yet
-        }
-
-        return (
-            <div className="relative flex items-center justify-center w-full h-full">
-                <span className={isPast ? "text-gray-400" : ""}>
-                    {date.getDate()}
-                </span>
-                {dotColor && (
-                    <div
-                        className={`absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full ${dotColor}`}
-                    />
-                )}
-            </div>
-        );
-    };
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -1635,29 +1542,17 @@ const CalendarIntegration = ({ price }) => {
                 position="top-right"
                 toastOptions={{
                     duration: 4000,
-                    style: {
-                        background: "#363636",
-                        color: "#fff",
-                    },
+                    style: { background: "#363636", color: "#fff" },
                     success: {
                         duration: 3000,
-                        style: {
-                            background: "#10b981",
-                            color: "#fff",
-                        },
+                        style: { background: "#10b981", color: "#fff" },
                     },
                     error: {
                         duration: 4000,
-                        style: {
-                            background: "#ef4444",
-                            color: "#fff",
-                        },
+                        style: { background: "#ef4444", color: "#fff" },
                     },
                     loading: {
-                        style: {
-                            background: "#3b82f6",
-                            color: "#fff",
-                        },
+                        style: { background: "#3b82f6", color: "#fff" },
                     },
                 }}
             />
@@ -1682,7 +1577,8 @@ const CalendarIntegration = ({ price }) => {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-                    {/* Calendar Section */}
+
+                    {/* ── Calendar ── */}
                     <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 lg:col-span-1">
                         <div className="mb-4">
                             <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1">
@@ -1692,33 +1588,61 @@ const CalendarIntegration = ({ price }) => {
                                 Time zone: Australian Western Standard Time
                                 (GMT+8)
                             </p>
-                            {/* UPDATED: legend now shows both green and red */}
                             <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                                <div className="flex items-center gap-1">
-                                    <div className="w-2 h-2 bg-emerald-500 rounded-full" />
+                                <div className="flex items-center gap-1.5">
+                                    <div className="w-3 h-3 rounded-sm bg-emerald-500" />
                                     <span>Available</span>
                                 </div>
-                                <div className="flex items-center gap-1">
-                                    <div className="w-2 h-2 bg-red-500 rounded-full" />
+                                <div className="flex items-center gap-1.5">
+                                    <div className="w-3 h-3 rounded-sm bg-red-400" />
                                     <span>Fully Booked</span>
                                 </div>
                             </div>
                         </div>
+
+                        {/*
+                         * HOW THE COLORING WORKS:
+                         *
+                         * `modifiers` — passes named arrays of Date objects to
+                         *   react-day-picker. Each date in the array gets that
+                         *   modifier class added to its <button> element.
+                         *
+                         * `modifiersClassNames` — maps modifier names to CSS
+                         *   class strings applied directly to the day <button>.
+                         *   Using Tailwind's `!` prefix forces these styles to
+                         *   win over the default rdp styles.
+                         *
+                         * This is the ONLY reliable way to color full day cells
+                         * in shadcn/radix Calendar — DayContent only wraps the
+                         * text node, not the button background.
+                         */}
                         <Calendar
                             mode="single"
                             selected={selectedDate}
                             onSelect={handleDateSelect}
                             onMonthChange={handleMonthChange}
                             disabled={isPastDate}
-                            className="rounded-md border [&_.rdp-day_selected]:bg-emerald-600 [&_.rdp-day_selected]:text-white [&_.rdp-day_selected:hover]:bg-emerald-700 [&_.rdp-button:hover]:bg-emerald-50 [&_.rdp-day_today]:bg-gray-100 [&_.rdp-day_disabled]:text-gray-400 [&_.rdp-day_disabled]:cursor-not-allowed"
-                            components={{
-                                DayContent: ({ date }) =>
-                                    renderDayContent(date),
+                            modifiers={{
+                                available: availableDays,
+                                unavailable: unavailableDays,
                             }}
+                            modifiersClassNames={{
+                                available:
+                                    "!bg-emerald-400 !text-white hover:!bg-emerald-600 !rounded-md !font-semibold",
+                                unavailable:
+                                    "!bg-red-400 !text-white hover:!bg-red-500 !rounded-md !font-semibold",
+                            }}
+                            className="rounded-md border
+                                [&_.rdp-day_selected]:!bg-indigo-600
+                                [&_.rdp-day_selected]:!text-white
+                                [&_.rdp-day_selected:hover]:!bg-indigo-700
+                                [&_.rdp-day_disabled]:!bg-transparent
+                                [&_.rdp-day_disabled]:!text-gray-300
+                                [&_.rdp-day_disabled]:cursor-not-allowed"
                         />
                     </div>
 
-                    {/* Time Slots Section */}
+                    {/* ── Time Slots ── */}
                     <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 lg:col-span-1">
                         <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1">
                             Available Times
@@ -1729,7 +1653,7 @@ const CalendarIntegration = ({ price }) => {
 
                         {loading ? (
                             <div className="flex flex-col items-center justify-center py-8">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
                                 <p className="text-gray-500 text-sm mt-3">
                                     Loading time slots...
                                 </p>
@@ -1737,25 +1661,21 @@ const CalendarIntegration = ({ price }) => {
                         ) : currentTimeSlots.length > 0 ? (
                             <div className="grid grid-cols-2 sm:grid-cols-2 gap-2 sm:gap-3">
                                 {getNonOverlappingSlots(currentTimeSlots).map(
-                                    (time, index) => {
-                                        const timeDisplay =
-                                            getTimeSlotDisplay(time);
-                                        return (
-                                            <button
-                                                key={index}
-                                                onClick={() =>
-                                                    handleTimeSelect(time)
-                                                }
-                                                className={`py-2 sm:py-3 px-3 sm:px-4 rounded-lg border-2 transition-all duration-200 font-medium text-sm sm:text-base ${
-                                                    selectedTime === time
-                                                        ? "border-indigo-600 bg-indigo-600 text-white shadow-md"
-                                                        : "border-gray-200 hover:border-indigo-300 text-gray-700 hover:bg-indigo-50"
-                                                }`}
-                                            >
-                                                {timeDisplay}
-                                            </button>
-                                        );
-                                    }
+                                    (time, index) => (
+                                        <button
+                                            key={index}
+                                            onClick={() =>
+                                                setSelectedTime(time)
+                                            }
+                                            className={`py-2 sm:py-3 px-3 sm:px-4 rounded-lg border-2 transition-all duration-200 font-medium text-sm sm:text-base ${
+                                                selectedTime === time
+                                                    ? "border-indigo-600 bg-indigo-600 text-white shadow-md"
+                                                    : "border-gray-200 hover:border-indigo-300 text-gray-700 hover:bg-indigo-50"
+                                            }`}
+                                        >
+                                            {getTimeSlotDisplay(time)}
+                                        </button>
+                                    )
                                 )}
                             </div>
                         ) : (
@@ -1845,7 +1765,7 @@ const CalendarIntegration = ({ price }) => {
                         )}
                     </div>
 
-                    {/* Service Details Section */}
+                    {/* ── Service Details ── */}
                     <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 lg:col-span-1">
                         <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">
                             Service Details
@@ -1919,14 +1839,18 @@ const CalendarIntegration = ({ price }) => {
 
                         <button
                             onClick={handleConfirmBookingClick}
-                            disabled={!selectedTime || isPastDate(selectedDate)}
+                            disabled={
+                                !selectedTime || isPastDate(selectedDate)
+                            }
                             className={`w-full py-3 px-6 rounded-lg font-semibold transition-all duration-200 text-sm sm:text-base ${
                                 selectedTime && !isPastDate(selectedDate)
                                     ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md hover:shadow-lg transform hover:scale-105"
                                     : "bg-gray-200 text-gray-400 cursor-not-allowed"
                             }`}
                         >
-                            {selectedTime ? "Confirm Booking" : "Select a Time"}
+                            {selectedTime
+                                ? "Confirm Booking"
+                                : "Select a Time"}
                         </button>
 
                         {selectedTime && (
@@ -1938,7 +1862,6 @@ const CalendarIntegration = ({ price }) => {
                     </div>
                 </div>
 
-                {/* Booking Form Modal */}
                 {showBookingForm && (
                     <BookingForm
                         selectedDate={selectedDate}
