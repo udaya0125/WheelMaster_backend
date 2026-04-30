@@ -2816,6 +2816,8 @@
 
 // export default TestCalendarIntegrationMobile;
 
+
+
 import React, { useState, useEffect } from "react";
 import {
     ChevronDown,
@@ -2853,7 +2855,6 @@ const CalendarIntegrationMobile = ({ price }) => {
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
-    const [loadingDates, setLoadingDates] = useState(true); // Track overall date loading state
 
     // Time slots state
     const [timeSlots, setTimeSlots] = useState({});
@@ -3218,70 +3219,17 @@ const CalendarIntegrationMobile = ({ price }) => {
         fetchTimeSlots();
     }, [selectedDate, price?.id]);
 
-    // Fetch all dates availability in parallel when component mounts
+    // Pre-fetch time slots for upcoming dates to show availability colors
     useEffect(() => {
-        const fetchAllDatesAvailability = async () => {
-            if (!price?.id || allDates.length === 0) return;
+        const prefetchSlotsForDates = async () => {
+            // Get the next 30 days
+            const datesToCheck = allDates.slice(0, 30);
             
-            setLoadingDates(true);
-            
-            // Create an array of promises for all dates (up to 365 days)
-            // But we'll limit to first 90 days to avoid too many API calls
-            const datesToFetch = allDates.slice(0, 90); // Fetch first 90 days initially
-            const fetchPromises = datesToFetch.map(async (dateObj) => {
+            for (const dateObj of datesToCheck) {
                 const dateKey = dateObj.value;
                 
-                try {
-                    const response = await axios.get(route("ourtimeslots.get"), {
-                        params: {
-                            date: dateKey,
-                            price_id: price.id,
-                        },
-                    });
-                    
-                    if (response.data.success) {
-                        const availableSlots = response.data.slots
-                            .filter((slot) => slot.status === "available")
-                            .map((slot) => {
-                                const startTime = slot.start_time;
-                                if (typeof startTime === "string" && startTime.includes(":")) {
-                                    const parts = startTime.split(":");
-                                    return `${parts[0]}:${parts[1]}`;
-                                }
-                                return startTime;
-                            });
-                        
-                        return { dateKey, slots: availableSlots };
-                    }
-                } catch (err) {
-                    console.error(`Error fetching slots for ${dateKey}:`, err);
-                    return { dateKey, slots: [] };
-                }
-                return { dateKey, slots: [] };
-            });
-            
-            // Wait for all promises to resolve
-            const results = await Promise.all(fetchPromises);
-            
-            // Update timeSlots state with all fetched data
-            const newTimeSlots = {};
-            results.forEach(({ dateKey, slots }) => {
-                newTimeSlots[dateKey] = slots;
-            });
-            
-            setTimeSlots((prev) => ({
-                ...prev,
-                ...newTimeSlots,
-            }));
-            
-            setLoadingDates(false);
-            
-            // Optional: Fetch remaining dates in background
-            if (allDates.length > 90) {
-                const remainingDates = allDates.slice(90);
-                const remainingPromises = remainingDates.map(async (dateObj) => {
-                    const dateKey = dateObj.value;
-                    
+                // Only fetch if we don't already have slots for this date
+                if (!timeSlots[dateKey] && dateKey !== selectedDate && price?.id) {
                     try {
                         const response = await axios.get(route("ourtimeslots.get"), {
                             params: {
@@ -3302,30 +3250,22 @@ const CalendarIntegrationMobile = ({ price }) => {
                                     return startTime;
                                 });
                             
-                            return { dateKey, slots: availableSlots };
+                            setTimeSlots((prev) => ({
+                                ...prev,
+                                [dateKey]: availableSlots,
+                            }));
                         }
                     } catch (err) {
-                        console.error(`Error fetching slots for ${dateKey}:`, err);
-                        return { dateKey, slots: [] };
+                        console.error(`Error prefetching slots for ${dateKey}:`, err);
                     }
-                    return { dateKey, slots: [] };
-                });
-                
-                const remainingResults = await Promise.all(remainingPromises);
-                const remainingTimeSlots = {};
-                remainingResults.forEach(({ dateKey, slots }) => {
-                    remainingTimeSlots[dateKey] = slots;
-                });
-                
-                setTimeSlots((prev) => ({
-                    ...prev,
-                    ...remainingTimeSlots,
-                }));
+                }
             }
         };
         
-        fetchAllDatesAvailability();
-    }, [allDates, price?.id]);
+        if (allDates.length > 0 && price?.id) {
+            prefetchSlotsForDates();
+        }
+    }, [allDates, price?.id, selectedDate]);
 
     // Get time slots for selected date
     const getTimeSlotsForDate = (date) => {
@@ -3681,20 +3621,16 @@ const CalendarIntegrationMobile = ({ price }) => {
                                                 {dates.map((date, i) => {
                                                     const hasAvailableSlots = timeSlots[date.value]?.length > 0;
                                                     const isPast = isPastDate(date.value);
-                                                    const isLoading = loadingDates && timeSlots[date.value] === undefined;
                                                     
                                                     let textColorClass = "text-gray-900";
                                                     let backgroundColor = "transparent";
                                                     let statusIcon = "";
                                                     
-                                                    if (isLoading) {
-                                                        textColorClass = "text-gray-500";
-                                                        statusIcon = " ⏳";
-                                                    } else if (!isPast && hasAvailableSlots) {
+                                                    if (!isPast && hasAvailableSlots) {
                                                         textColorClass = "text-green-600 font-semibold";
                                                         backgroundColor = "#f0fdf4";
                                                         statusIcon = " ✓";
-                                                    } else if (!isPast && !hasAvailableSlots && timeSlots[date.value] !== undefined) {
+                                                    } else if (!isPast && !hasAvailableSlots && date.value !== "" && timeSlots[date.value] !== undefined) {
                                                         textColorClass = "text-red-500";
                                                         backgroundColor = "#fef2f2";
                                                         statusIcon = " ✗";
@@ -3704,15 +3640,15 @@ const CalendarIntegrationMobile = ({ price }) => {
                                                         <option
                                                             key={i}
                                                             value={date.value}
-                                                            disabled={isPast || isLoading}
+                                                            disabled={isPast}
                                                             className={`py-1 ${textColorClass}`}
                                                             style={{ backgroundColor }}
                                                         >
                                                             {date.display}
                                                             {isPast && " (Past)"}
-                                                            {!isPast && isLoading && " (Loading...)"}
-                                                            {!isPast && !isLoading && hasAvailableSlots && statusIcon}
-                                                            {!isPast && !isLoading && !hasAvailableSlots && timeSlots[date.value] !== undefined && statusIcon}
+                                                            {!isPast && hasAvailableSlots && statusIcon}
+                                                            {!isPast && !hasAvailableSlots && timeSlots[date.value] !== undefined && statusIcon}
+                                                            {!isPast && !hasAvailableSlots && timeSlots[date.value] === undefined && " (Loading...)"}
                                                         </option>
                                                     );
                                                 })}
@@ -3723,16 +3659,8 @@ const CalendarIntegrationMobile = ({ price }) => {
                                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
                             </div>
                             
-                            {/* Loading indicator for dates */}
-                            {loadingDates && (
-                                <div className="mt-2 text-xs text-gray-500 flex items-center gap-2">
-                                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-indigo-600"></div>
-                                    <span>Loading availability for upcoming dates...</span>
-                                </div>
-                            )}
-                            
                             {/* Legend for color indicators */}
-                            <div className="mt-2 flex items-center gap-3 text-xs flex-wrap">
+                            <div className="mt-2 flex items-center gap-3 text-xs">
                                 <div className="flex items-center gap-1">
                                     <div className="w-3 h-3 rounded-full bg-green-500"></div>
                                     <span className="text-gray-600">Has available slots</span>
@@ -3744,10 +3672,6 @@ const CalendarIntegrationMobile = ({ price }) => {
                                 <div className="flex items-center gap-1">
                                     <div className="w-3 h-3 rounded-full bg-gray-300"></div>
                                     <span className="text-gray-600">Past date</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                    <span className="text-gray-500">⏳</span>
-                                    <span className="text-gray-600">Loading...</span>
                                 </div>
                             </div>
                         </div>
