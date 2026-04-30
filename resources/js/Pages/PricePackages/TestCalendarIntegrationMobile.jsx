@@ -2519,10 +2519,20 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                             {formErrors.zip_code}
                                         </p>
                                     ) : (
+                                        // <p className="mt-1 text-sm text-gray-500">
+                                        //     Currently serving only areas with
+                                        //     zip code 6210
+                                        // </p>
                                         <p className="mt-1 text-sm text-gray-500">
-                                            Currently serving only areas with
-                                            zip code 6210
-                                        </p>
+                                Currently serving only areas with zip code 6210.
+                                {bookingForm.address !==
+                                    "midpoint-mandurah-dot" && (
+                                    <span className="block">
+                                        If your address is not available, please
+                                        select "Midpoint Mandurah Dot".
+                                    </span>
+                                )}
+                            </p>
                                     )}
                                 </div>
 
