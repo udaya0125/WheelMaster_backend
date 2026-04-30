@@ -796,7 +796,7 @@
 
 import { Calendar } from "@/components/ui/calendar";
 import axios from "axios";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import BookingForm from "./BookingForm";
 import { Link } from "@inertiajs/react";
 import { ChevronLeft } from "lucide-react";
@@ -815,16 +815,11 @@ const TestCalendarIntegration = ({ price }) => {
     const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
     const [loadingSlots, setLoadingSlots] = useState(false);
 
-    // Month-level availability map { "YYYY-MM-DD": true/false }
-    const [monthAvailability, setMonthAvailability] = useState({});
-    const [loadingMonth, setLoadingMonth] = useState(false);
-    const [visibleMonth, setVisibleMonth] = useState(new Date());
+    // dayAvailability: { "YYYY-MM-DD": "available" | "unavailable" }
+    const [dayAvailability, setDayAvailability] = useState({});
+    const [currentMonth, setCurrentMonth] = useState(new Date());
 
-    const isPastDate = (date) => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        return date < today;
-    };
+    // ─── Helpers ──────────────────────────────────────────────────────────────
 
     const formatDateKey = (date) => {
         if (!date) return "";
@@ -832,6 +827,14 @@ const TestCalendarIntegration = ({ price }) => {
         const month = String(date.getMonth() + 1).padStart(2, "0");
         const day = String(date.getDate()).padStart(2, "0");
         return `${year}-${month}-${day}`;
+    };
+
+    const isPastDate = (date) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const compareDate = new Date(date);
+        compareDate.setHours(0, 0, 0, 0);
+        return compareDate < today;
     };
 
     const formatDisplayDate = (date) => {
@@ -889,57 +892,97 @@ const TestCalendarIntegration = ({ price }) => {
             .padStart(2, "0")}`;
     };
 
-    // Fetch availability for every future day in the visible month
-    const fetchMonthAvailability = async (monthDate) => {
-        setLoadingMonth(true);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+    const getMinTime = () => "07:00";
 
-        const year = monthDate.getFullYear();
-        const month = monthDate.getMonth();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-        const futureDates = [];
-        for (let d = 1; d <= daysInMonth; d++) {
-            const date = new Date(year, month, d);
-            if (date >= today) futureDates.push(date);
-        }
-
-        const results = await Promise.all(
-            futureDates.map(async (date) => {
-                const key = formatDateKey(date);
-                try {
-                    const response = await axios.get(
-                        route("test-packages.available-slots"),
-                        {
-                            params: {
-                                date: key,
-                                price_id: price.id,
-                                duration_minutes: parseDuration(price.duration),
-                            },
-                        }
-                    );
-                    const hasSlots =
-                        response.data.success &&
-                        response.data.available_slots.length > 0;
-                    return [key, hasSlots];
-                } catch {
-                    return [key, false];
-                }
-            })
+    const getMaxTime = () => {
+        const durationMinutes = parseDuration(price.duration);
+        const maxTestStartTime = new Date();
+        maxTestStartTime.setHours(18, 0 - durationMinutes, 0, 0);
+        if (maxTestStartTime.getHours() < 7) return "08:00";
+        return (
+            maxTestStartTime.getHours().toString().padStart(2, "0") +
+            ":" +
+            maxTestStartTime.getMinutes().toString().padStart(2, "0")
         );
-
-        const map = {};
-        results.forEach(([key, hasSlots]) => {
-            map[key] = hasSlots;
-        });
-        setMonthAvailability((prev) => ({ ...prev, ...map }));
-        setLoadingMonth(false);
     };
 
+    // ─── Fetch month availability (batched, cached) ───────────────────────────
+
+    const fetchMonthAvailability = useCallback(
+        async (monthDate) => {
+            if (!price?.id) return;
+
+            const year = monthDate.getFullYear();
+            const month = monthDate.getMonth();
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const datesToFetch = [];
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const date = new Date(year, month, d);
+                if (date >= today) {
+                    const key = formatDateKey(date);
+                    // Skip already-fetched days
+                    if (!dayAvailability[key]) {
+                        datesToFetch.push(date);
+                    }
+                }
+            }
+
+            if (datesToFetch.length === 0) return;
+
+            // Fetch in batches of 7 to avoid hammering the server
+            const batchSize = 7;
+            for (let i = 0; i < datesToFetch.length; i += batchSize) {
+                const batch = datesToFetch.slice(i, i + batchSize);
+                await Promise.all(
+                    batch.map(async (date) => {
+                        const dateKey = formatDateKey(date);
+                        try {
+                            const response = await axios.get(
+                                route("test-packages.available-slots"),
+                                {
+                                    params: {
+                                        date: dateKey,
+                                        price_id: price.id,
+                                        duration_minutes: parseDuration(
+                                            price.duration
+                                        ),
+                                    },
+                                }
+                            );
+
+                            const hasSlots =
+                                response.data.success &&
+                                response.data.available_slots.length > 0;
+
+                            setDayAvailability((prev) => ({
+                                ...prev,
+                                [dateKey]: hasSlots
+                                    ? "available"
+                                    : "unavailable",
+                            }));
+                        } catch {
+                            setDayAvailability((prev) => ({
+                                ...prev,
+                                [dateKey]: "unavailable",
+                            }));
+                        }
+                    })
+                );
+            }
+        },
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [price?.id]
+    );
+
     useEffect(() => {
-        fetchMonthAvailability(visibleMonth);
-    }, [visibleMonth]);
+        fetchMonthAvailability(currentMonth);
+    }, [currentMonth, fetchMonthAvailability]);
+
+    // ─── Fetch time slots for selected date ───────────────────────────────────
 
     useEffect(() => {
         if (selectedDate && !isPastDate(selectedDate)) {
@@ -962,8 +1005,18 @@ const TestCalendarIntegration = ({ price }) => {
                     },
                 }
             );
+
             if (response.data.success) {
                 setAvailableTimeSlots(response.data.available_slots);
+                // Also update the day availability map from the fresh data
+                const dateKey = formatDateKey(selectedDate);
+                setDayAvailability((prev) => ({
+                    ...prev,
+                    [dateKey]:
+                        response.data.available_slots.length > 0
+                            ? "available"
+                            : "unavailable",
+                }));
                 if (response.data.available_slots.length > 0) {
                     toast.success(
                         `Found ${response.data.available_slots.length} available slots for this date`,
@@ -983,6 +1036,8 @@ const TestCalendarIntegration = ({ price }) => {
             setLoadingSlots(false);
         }
     };
+
+    // ─── Check availability for a specific time ───────────────────────────────
 
     const checkTestAvailability = async () => {
         if (!selectedDate || !selectedTime) {
@@ -1097,6 +1152,8 @@ const TestCalendarIntegration = ({ price }) => {
         }
     };
 
+    // ─── Handlers ─────────────────────────────────────────────────────────────
+
     const handleTimeSelect = (time24) => {
         setSelectedTime(time24);
         setAvailabilityMessage("");
@@ -1109,8 +1166,7 @@ const TestCalendarIntegration = ({ price }) => {
     };
 
     const handleTimeChange = (e) => {
-        const value = e.target.value;
-        setSelectedTime(value);
+        setSelectedTime(e.target.value);
         setAvailabilityMessage("");
         setIsAvailable(false);
         setAlternativeTimes([]);
@@ -1125,8 +1181,28 @@ const TestCalendarIntegration = ({ price }) => {
         }
     };
 
+    const handleDateSelect = (date) => {
+        if (!date) return;
+        if (isPastDate(date)) {
+            toast.error("Cannot select past dates", { icon: "⚠️" });
+            return;
+        }
+        setSelectedDate(date);
+        setSelectedTime("");
+        setAvailabilityMessage("");
+        setIsAvailable(false);
+        setAlternativeTimes([]);
+        setTimeError("");
+        toast.success(`Selected date: ${formatDisplayDate(date)}`, {
+            duration: 2000,
+        });
+    };
+
+    const handleMonthChange = (month) => {
+        setCurrentMonth(month);
+    };
+
     const handleBookingSuccess = async () => {
-        setSelectedDate(new Date());
         setSelectedTime("");
         setAvailabilityMessage("");
         setIsAvailable(false);
@@ -1135,32 +1211,29 @@ const TestCalendarIntegration = ({ price }) => {
         setBookingDetails(null);
         setTimeError("");
         toast.success("Booking confirmed successfully!", { duration: 5000 });
-        fetchMonthAvailability(visibleMonth);
+        // Refresh this day's availability so the calendar updates
+        const dateKey = formatDateKey(selectedDate);
+        setDayAvailability((prev) => {
+            const updated = { ...prev };
+            delete updated[dateKey];
+            return updated;
+        });
+        fetchMonthAvailability(currentMonth);
         fetchAvailableTimeSlots();
     };
 
-    // Build modifier date arrays for react-day-picker
-    const availableDays = Object.entries(monthAvailability)
-        .filter(([, hasSlots]) => hasSlots === true)
+    // ─── Build modifier date arrays ───────────────────────────────────────────
+    // Use T00:00:00 to avoid UTC timezone offset shifting the date by one day.
+
+    const availableDays = Object.entries(dayAvailability)
+        .filter(([, status]) => status === "available")
         .map(([key]) => new Date(key + "T00:00:00"));
 
-    const fullyBookedDays = Object.entries(monthAvailability)
-        .filter(([, hasSlots]) => hasSlots === false)
+    const unavailableDays = Object.entries(dayAvailability)
+        .filter(([, status]) => status === "unavailable")
         .map(([key]) => new Date(key + "T00:00:00"));
 
-    const getMinTime = () => "07:00";
-
-    const getMaxTime = () => {
-        const durationMinutes = parseDuration(price.duration);
-        const maxTestStartTime = new Date();
-        maxTestStartTime.setHours(18, 0 - durationMinutes, 0, 0);
-        if (maxTestStartTime.getHours() < 7) return "08:00";
-        return (
-            maxTestStartTime.getHours().toString().padStart(2, "0") +
-            ":" +
-            maxTestStartTime.getMinutes().toString().padStart(2, "0")
-        );
-    };
+    // ─── Render ───────────────────────────────────────────────────────────────
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -1203,28 +1276,12 @@ const TestCalendarIntegration = ({ price }) => {
                     <p className="text-gray-600 text-sm sm:text-base">
                         Choose your test date and time. Operating hours: 7:00 AM - 6:00 PM
                     </p>
-                    {/* Legend */}
-                    <div className="flex items-center gap-5 mt-3 text-xs text-gray-500">
-                        <span className="flex items-center gap-1.5">
-                            <span className="inline-block w-3 h-3 rounded-full bg-green-400" />
-                            Slots available
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                            <span className="inline-block w-3 h-3 rounded-full bg-red-400" />
-                            Fully booked
-                        </span>
-                        {loadingMonth && (
-                            <span className="flex items-center gap-1.5 text-gray-400">
-                                <span className="inline-block w-3 h-3 rounded-full bg-gray-300 animate-pulse" />
-                                Loading availability…
-                            </span>
-                        )}
-                    </div>
                 </div>
 
                 {/* Main Content */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-                    {/* Calendar Section */}
+
+                    {/* ── Calendar ── */}
                     <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 lg:col-span-1">
                         <div className="mb-4">
                             <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1">
@@ -1233,85 +1290,46 @@ const TestCalendarIntegration = ({ price }) => {
                             <p className="text-xs sm:text-sm text-gray-500">
                                 Time zone: Australian Western Standard Time (GMT+8)
                             </p>
+                            {/* Legend */}
+                            <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                                <div className="flex items-center gap-1.5">
+                                    <div className="w-3 h-3 rounded-sm bg-emerald-500" />
+                                    <span>Available</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <div className="w-3 h-3 rounded-sm bg-red-400" />
+                                    <span>Fully Booked</span>
+                                </div>
+                            </div>
                         </div>
-
-                        {/*
-                          KEY FIX: Use `modifiers` + `modifiersStyles` instead of DayContent.
-                          react-day-picker applies these styles directly to the day button element,
-                          so the entire cell gets the green/red background — not just an inner span.
-                        */}
-                        <style>{`
-                            .rdp-day_available:not(.rdp-day_selected) {
-                                background-color: #bbf7d0 !important;
-                                color: #166534 !important;
-                                border-radius: 9999px;
-                                font-weight: 600;
-                            }
-                            .rdp-day_available:not(.rdp-day_selected):hover {
-                                background-color: #86efac !important;
-                            }
-                            .rdp-day_fullyBooked:not(.rdp-day_selected) {
-                                background-color: #fecaca !important;
-                                color: #991b1b !important;
-                                border-radius: 9999px;
-                                font-weight: 600;
-                                cursor: not-allowed !important;
-                                pointer-events: none;
-                            }
-                            .rdp-day_fullyBooked:not(.rdp-day_selected):hover {
-                                background-color: #fca5a5 !important;
-                            }
-                        `}</style>
 
                         <Calendar
                             mode="single"
                             selected={selectedDate}
-                            onSelect={(date) => {
-                                if (!date || isPastDate(date)) return;
-                                const key = formatDateKey(date);
-                                if (
-                                    key in monthAvailability &&
-                                    !monthAvailability[key]
-                                ) {
-                                    toast.error(
-                                        "No slots available on this day. Please choose another date.",
-                                        { duration: 3000 }
-                                    );
-                                    return;
-                                }
-                                setSelectedDate(date);
-                                setSelectedTime("");
-                                setAvailabilityMessage("");
-                                setIsAvailable(false);
-                                setAlternativeTimes([]);
-                                setTimeError("");
-                                toast.success(
-                                    `Selected date: ${formatDisplayDate(date)}`,
-                                    { duration: 2000 }
-                                );
-                            }}
-                            disabled={(date) => isPastDate(date)}
-                            onMonthChange={(month) => setVisibleMonth(month)}
+                            onSelect={handleDateSelect}
+                            onMonthChange={handleMonthChange}
+                            disabled={isPastDate}
                             modifiers={{
                                 available: availableDays,
-                                fullyBooked: fullyBookedDays,
+                                unavailable: unavailableDays,
                             }}
                             modifiersClassNames={{
-                                available: "rdp-day_available",
-                                fullyBooked: "rdp-day_fullyBooked",
+                                available:
+                                    "!bg-emerald-400 !text-white hover:!bg-emerald-600 !rounded-md !font-semibold",
+                                unavailable:
+                                    "!bg-red-400 !text-white hover:!bg-red-500 !rounded-md !font-semibold",
                             }}
-                            className="rounded-md border"
+                            className="rounded-md border
+                                [&_.rdp-day_selected]:!bg-indigo-600
+                                [&_.rdp-day_selected]:!text-white
+                                [&_.rdp-day_selected:hover]:!bg-indigo-700
+                                [&_.rdp-day_disabled]:!bg-transparent
+                                [&_.rdp-day_disabled]:!text-gray-300
+                                [&_.rdp-day_disabled]:cursor-not-allowed"
                         />
-
-                        {loadingMonth && (
-                            <div className="flex items-center gap-2 mt-3 text-xs text-gray-400">
-                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-400" />
-                                Fetching availability for this month…
-                            </div>
-                        )}
                     </div>
 
-                    {/* Time Selection Section */}
+                    {/* ── Time Selection ── */}
                     <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 lg:col-span-1">
                         <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1">
                             Select Test Time
@@ -1320,6 +1338,7 @@ const TestCalendarIntegration = ({ price }) => {
                             {formatDisplayDate(selectedDate)}
                         </p>
 
+                        {/* Quick-select dropdown */}
                         {availableTimeSlots.length > 0 && (
                             <div className="mb-4">
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1365,27 +1384,24 @@ const TestCalendarIntegration = ({ price }) => {
                                 <p className="text-xs text-gray-500 mb-2">
                                     Operating hours: 7:00 AM - 6:00 PM
                                 </p>
-                                <div className="relative">
-                                    <input
-                                        id="test-time"
-                                        type="time"
-                                        value={selectedTime}
-                                        onChange={handleTimeChange}
-                                        disabled={
-                                            !selectedDate ||
-                                            isPastDate(selectedDate)
-                                        }
-                                        min={getMinTime()}
-                                        max={getMaxTime()}
-                                        step="1800"
-                                        className={`w-full px-4 py-3 border ${
-                                            timeError
-                                                ? "border-red-300"
-                                                : "border-gray-300"
-                                        } rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition appearance-none`}
-                                        placeholder="HH:MM"
-                                    />
-                                </div>
+                                <input
+                                    id="test-time"
+                                    type="time"
+                                    value={selectedTime}
+                                    onChange={handleTimeChange}
+                                    disabled={
+                                        !selectedDate || isPastDate(selectedDate)
+                                    }
+                                    min={getMinTime()}
+                                    max={getMaxTime()}
+                                    step="1800"
+                                    className={`w-full px-4 py-3 border ${
+                                        timeError
+                                            ? "border-red-300"
+                                            : "border-gray-300"
+                                    } rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition appearance-none`}
+                                    placeholder="HH:MM"
+                                />
                                 {timeError && (
                                     <p className="text-red-600 text-xs mt-1">
                                         {timeError}
@@ -1413,6 +1429,7 @@ const TestCalendarIntegration = ({ price }) => {
                             </button>
                         </div>
 
+                        {/* Suggested alternative times */}
                         {alternativeTimes.length > 0 && (
                             <div className="mt-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
                                 <h4 className="font-medium text-indigo-800 mb-2">
@@ -1435,12 +1452,13 @@ const TestCalendarIntegration = ({ price }) => {
                                     ))}
                                 </div>
                                 <p className="text-xs text-indigo-600 mt-2">
-                                    Click on a suggested time to select it, then
+                                    Click a suggested time to select it, then
                                     check availability again.
                                 </p>
                             </div>
                         )}
 
+                        {/* Availability result message */}
                         {availabilityMessage && (
                             <div
                                 className={`mt-6 p-4 rounded-lg ${
@@ -1519,7 +1537,7 @@ const TestCalendarIntegration = ({ price }) => {
                         )}
                     </div>
 
-                    {/* Service Details Section */}
+                    {/* ── Service Details ── */}
                     <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 lg:col-span-1">
                         <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">
                             Test Package Details
@@ -1554,7 +1572,9 @@ const TestCalendarIntegration = ({ price }) => {
                                     </span>
                                 </div>
                                 <div className="flex justify-between text-xs sm:text-sm mb-2">
-                                    <span className="text-gray-600">Price:</span>
+                                    <span className="text-gray-600">
+                                        Price:
+                                    </span>
                                     <span className="font-medium text-gray-900">
                                         ${price.price}
                                     </span>
