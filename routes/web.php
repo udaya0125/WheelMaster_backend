@@ -291,6 +291,4 @@ Route::middleware('auth')->group(function () {
     //     return Inertia::render('PricePackages/TestCalendarIntegrationMobile');
     // });
 
-    Route::get('/test-packages/month-availability', [TestPackageController::class, 'getMonthAvailability'])->name('test-packages.month-availability');
-
 require __DIR__.'/auth.php';
