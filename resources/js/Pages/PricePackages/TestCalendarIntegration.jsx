@@ -794,7 +794,6 @@
 
 // export default TestCalendarIntegration;
 
-
 import { Calendar } from "@/components/ui/calendar";
 import axios from "axios";
 import React, { useEffect, useState } from "react";
@@ -861,7 +860,8 @@ const TestCalendarIntegration = ({ price }) => {
             const numberMatch = cleanString.match(/(\d+(?:\.\d+)?)/);
             if (numberMatch) {
                 const num = parseFloat(numberMatch[1]);
-                totalMinutes = num < 10 ? Math.round(num * 60) : Math.round(num);
+                totalMinutes =
+                    num < 10 ? Math.round(num * 60) : Math.round(num);
             }
         }
         return totalMinutes || 60;
@@ -937,12 +937,10 @@ const TestCalendarIntegration = ({ price }) => {
         setLoadingMonth(false);
     };
 
-    // Fetch month availability on mount and when visibleMonth changes
     useEffect(() => {
         fetchMonthAvailability(visibleMonth);
     }, [visibleMonth]);
 
-    // Fetch time slots when a date is selected
     useEffect(() => {
         if (selectedDate && !isPastDate(selectedDate)) {
             fetchAvailableTimeSlots();
@@ -1033,10 +1031,13 @@ const TestCalendarIntegration = ({ price }) => {
                 setAvailabilityMessage(
                     "✓ This time slot is available! You can proceed to book."
                 );
-                toast.success("Time slot is available! You can proceed to book.");
+                toast.success(
+                    "Time slot is available! You can proceed to book."
+                );
             } else {
                 setIsAvailable(false);
-                let message = response.data.message || "Time slot not available";
+                let message =
+                    response.data.message || "Time slot not available";
 
                 if (
                     response.data.alternative_times &&
@@ -1048,7 +1049,8 @@ const TestCalendarIntegration = ({ price }) => {
                         { duration: 5000 }
                     );
                 } else {
-                    message += "\n\nNo alternative times available for this duration.";
+                    message +=
+                        "\n\nNo alternative times available for this duration.";
                     toast.error(
                         "Time slot not available. Please contact us for assistance.",
                         { duration: 5000 }
@@ -1133,60 +1135,25 @@ const TestCalendarIntegration = ({ price }) => {
         setBookingDetails(null);
         setTimeError("");
         toast.success("Booking confirmed successfully!", { duration: 5000 });
-        // Refresh month view so the newly booked day reflects correctly
         fetchMonthAvailability(visibleMonth);
         fetchAvailableTimeSlots();
     };
 
-    // Color-coded day cells
-    const renderDayContent = (date) => {
-        const isSelected =
-            selectedDate && date.toDateString() === selectedDate.toDateString();
-        const isPast = isPastDate(date);
-        const key = formatDateKey(date);
-        const hasAvailability = monthAvailability[key];
-        const availabilityKnown = key in monthAvailability;
+    // Build modifier date arrays for react-day-picker
+    const availableDays = Object.entries(monthAvailability)
+        .filter(([, hasSlots]) => hasSlots === true)
+        .map(([key]) => new Date(key + "T00:00:00"));
 
-        if (isPast) {
-            return (
-                <span className="text-gray-400">{date.getDate()}</span>
-            );
-        }
-
-        if (isSelected) {
-            return <span>{date.getDate()}</span>;
-        }
-
-        if (loadingMonth || !availabilityKnown) {
-            return (
-                <span className="relative">
-                    {date.getDate()}
-                    <span className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-gray-300 rounded-full animate-pulse" />
-                </span>
-            );
-        }
-
-        return (
-            <span
-                className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-medium
-                    ${
-                        hasAvailability
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-700"
-                    }`}
-            >
-                {date.getDate()}
-            </span>
-        );
-    };
+    const fullyBookedDays = Object.entries(monthAvailability)
+        .filter(([, hasSlots]) => hasSlots === false)
+        .map(([key]) => new Date(key + "T00:00:00"));
 
     const getMinTime = () => "07:00";
 
     const getMaxTime = () => {
         const durationMinutes = parseDuration(price.duration);
-        const workingEnd = 18;
         const maxTestStartTime = new Date();
-        maxTestStartTime.setHours(workingEnd, 0 - durationMinutes, 0, 0);
+        maxTestStartTime.setHours(18, 0 - durationMinutes, 0, 0);
         if (maxTestStartTime.getHours() < 7) return "08:00";
         return (
             maxTestStartTime.getHours().toString().padStart(2, "0") +
@@ -1239,16 +1206,16 @@ const TestCalendarIntegration = ({ price }) => {
                     {/* Legend */}
                     <div className="flex items-center gap-5 mt-3 text-xs text-gray-500">
                         <span className="flex items-center gap-1.5">
-                            <span className="inline-block w-3 h-3 rounded-full bg-green-200" />
+                            <span className="inline-block w-3 h-3 rounded-full bg-green-400" />
                             Slots available
                         </span>
                         <span className="flex items-center gap-1.5">
-                            <span className="inline-block w-3 h-3 rounded-full bg-red-200" />
+                            <span className="inline-block w-3 h-3 rounded-full bg-red-400" />
                             Fully booked
                         </span>
                         {loadingMonth && (
                             <span className="flex items-center gap-1.5 text-gray-400">
-                                <span className="inline-block w-3 h-3 rounded-full bg-gray-200 animate-pulse" />
+                                <span className="inline-block w-3 h-3 rounded-full bg-gray-300 animate-pulse" />
                                 Loading availability…
                             </span>
                         )}
@@ -1267,6 +1234,35 @@ const TestCalendarIntegration = ({ price }) => {
                                 Time zone: Australian Western Standard Time (GMT+8)
                             </p>
                         </div>
+
+                        {/*
+                          KEY FIX: Use `modifiers` + `modifiersStyles` instead of DayContent.
+                          react-day-picker applies these styles directly to the day button element,
+                          so the entire cell gets the green/red background — not just an inner span.
+                        */}
+                        <style>{`
+                            .rdp-day_available:not(.rdp-day_selected) {
+                                background-color: #bbf7d0 !important;
+                                color: #166534 !important;
+                                border-radius: 9999px;
+                                font-weight: 600;
+                            }
+                            .rdp-day_available:not(.rdp-day_selected):hover {
+                                background-color: #86efac !important;
+                            }
+                            .rdp-day_fullyBooked:not(.rdp-day_selected) {
+                                background-color: #fecaca !important;
+                                color: #991b1b !important;
+                                border-radius: 9999px;
+                                font-weight: 600;
+                                cursor: not-allowed !important;
+                                pointer-events: none;
+                            }
+                            .rdp-day_fullyBooked:not(.rdp-day_selected):hover {
+                                background-color: #fca5a5 !important;
+                            }
+                        `}</style>
+
                         <Calendar
                             mode="single"
                             selected={selectedDate}
@@ -1294,17 +1290,25 @@ const TestCalendarIntegration = ({ price }) => {
                                     { duration: 2000 }
                                 );
                             }}
-                            disabled={(date) =>
-                                isPastDate(date) ||
-                                (formatDateKey(date) in monthAvailability &&
-                                    !monthAvailability[formatDateKey(date)])
-                            }
+                            disabled={(date) => isPastDate(date)}
                             onMonthChange={(month) => setVisibleMonth(month)}
-                            className="rounded-md border [&_.rdp-day_selected]:bg-indigo-600 [&_.rdp-day_selected]:text-white [&_.rdp-day_selected:hover]:bg-indigo-700 [&_.rdp-button:hover]:bg-indigo-50 [&_.rdp-day_today]:bg-gray-100 [&_.rdp-day_disabled]:opacity-100 [&_.rdp-day_disabled]:cursor-not-allowed"
-                            components={{
-                                DayContent: ({ date }) => renderDayContent(date),
+                            modifiers={{
+                                available: availableDays,
+                                fullyBooked: fullyBookedDays,
                             }}
+                            modifiersClassNames={{
+                                available: "rdp-day_available",
+                                fullyBooked: "rdp-day_fullyBooked",
+                            }}
+                            className="rounded-md border"
                         />
+
+                        {loadingMonth && (
+                            <div className="flex items-center gap-2 mt-3 text-xs text-gray-400">
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-400" />
+                                Fetching availability for this month…
+                            </div>
+                        )}
                     </div>
 
                     {/* Time Selection Section */}
@@ -1322,7 +1326,9 @@ const TestCalendarIntegration = ({ price }) => {
                                     Quick Select Available Times
                                 </label>
                                 <select
-                                    onChange={(e) => handleTimeSelect(e.target.value)}
+                                    onChange={(e) =>
+                                        handleTimeSelect(e.target.value)
+                                    }
                                     value={selectedTime}
                                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
                                 >
@@ -1366,7 +1372,8 @@ const TestCalendarIntegration = ({ price }) => {
                                         value={selectedTime}
                                         onChange={handleTimeChange}
                                         disabled={
-                                            !selectedDate || isPastDate(selectedDate)
+                                            !selectedDate ||
+                                            isPastDate(selectedDate)
                                         }
                                         min={getMinTime()}
                                         max={getMaxTime()}
@@ -1416,7 +1423,9 @@ const TestCalendarIntegration = ({ price }) => {
                                         <button
                                             key={index}
                                             onClick={() =>
-                                                handleTimeSelect(slot.time || slot)
+                                                handleTimeSelect(
+                                                    slot.time || slot
+                                                )
                                             }
                                             className="px-3 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-md text-sm transition-colors"
                                         >
@@ -1426,8 +1435,8 @@ const TestCalendarIntegration = ({ price }) => {
                                     ))}
                                 </div>
                                 <p className="text-xs text-indigo-600 mt-2">
-                                    Click on a suggested time to select it, then check
-                                    availability again.
+                                    Click on a suggested time to select it, then
+                                    check availability again.
                                 </p>
                             </div>
                         )}
@@ -1522,20 +1531,24 @@ const TestCalendarIntegration = ({ price }) => {
                                     {price.description}
                                 </h3>
                                 <p className="text-xs sm:text-sm text-gray-600">
-                                    Professional driving test preparation with certified
-                                    instructors
+                                    Professional driving test preparation with
+                                    certified instructors
                                 </p>
                             </div>
 
                             <div className="border-t pt-4">
                                 <div className="flex justify-between text-xs sm:text-sm mb-2">
-                                    <span className="text-gray-600">Operating Hours:</span>
+                                    <span className="text-gray-600">
+                                        Operating Hours:
+                                    </span>
                                     <span className="font-medium text-gray-900">
                                         7:00 AM - 6:00 PM
                                     </span>
                                 </div>
                                 <div className="flex justify-between text-xs sm:text-sm mb-2">
-                                    <span className="text-gray-600">Test Duration:</span>
+                                    <span className="text-gray-600">
+                                        Test Duration:
+                                    </span>
                                     <span className="font-medium text-gray-900">
                                         {price.duration}
                                     </span>
@@ -1570,7 +1583,9 @@ const TestCalendarIntegration = ({ price }) => {
                                                     Actual Test Time:
                                                 </span>
                                                 <span className="font-medium text-indigo-600 text-right">
-                                                    {formatTimeForDisplay(selectedTime)}{" "}
+                                                    {formatTimeForDisplay(
+                                                        selectedTime
+                                                    )}{" "}
                                                     ({price.duration})
                                                 </span>
                                             </div>
@@ -1588,7 +1603,9 @@ const TestCalendarIntegration = ({ price }) => {
                                     : "bg-gray-200 text-gray-400 cursor-not-allowed"
                             }`}
                         >
-                            {isAvailable ? "Proceed to Booking" : "Select Available Time"}
+                            {isAvailable
+                                ? "Proceed to Booking"
+                                : "Select Available Time"}
                         </button>
                     </div>
                 </div>
