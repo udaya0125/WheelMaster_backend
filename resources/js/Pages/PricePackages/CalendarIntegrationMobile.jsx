@@ -2318,7 +2318,7 @@
 
 // export default CalendarIntegrationMobile;
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
     ChevronDown,
     MapPin,
@@ -2355,7 +2355,6 @@ const CalendarIntegrationMobile = ({ price }) => {
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
-    const [isCalendarLoading, setIsCalendarLoading] = useState(true);
 
     // Time slots state
     const [timeSlots, setTimeSlots] = useState({});
@@ -2363,6 +2362,7 @@ const CalendarIntegrationMobile = ({ price }) => {
     const [showNextAvailability, setShowNextAvailability] = useState(false);
     const [nextAvailableDates, setNextAvailableDates] = useState([]);
     const [allDates, setAllDates] = useState([]);
+    const [loadingDates, setLoadingDates] = useState({}); // Track which dates are loading
 
     // Format date as YYYY-MM-DD for API calls
     const formatDateKey = (date) => {
@@ -2653,115 +2653,125 @@ const CalendarIntegrationMobile = ({ price }) => {
         return groups;
     }, {});
 
-    // Fetch time slots for selected date
-    useEffect(() => {
-        const fetchTimeSlots = async () => {
-            if (!selectedDate || !price?.id) return;
-
-            try {
-                setLoading(true);
-                const response = await axios.get(route("ourtimeslots.get"), {
-                    params: {
-                        date: selectedDate,
-                        price_id: price.id,
-                    },
-                });
-
-                if (response.data.success) {
-                    const allSlots = response.data.slots || [];
-
-                    const booked = allSlots
-                        .filter(
-                            (slot) =>
-                                slot.status === "reserved" ||
-                                slot.status === "blocked",
-                        )
-                        .map((slot) => {
-                            const startTime = slot.start_time;
-                            if (
-                                typeof startTime === "string" &&
-                                startTime.includes(":")
-                            ) {
-                                const parts = startTime.split(":");
-                                return `${parts[0]}:${parts[1]}`;
-                            }
-                            return startTime;
-                        });
-
-                    setBookedSlots(booked);
-
-                    const available = allSlots
-                        .filter((slot) => slot.status === "available")
-                        .map((slot) => {
-                            const startTime = slot.start_time;
-                            if (
-                                typeof startTime === "string" &&
-                                startTime.includes(":")
-                            ) {
-                                const parts = startTime.split(":");
-                                return `${parts[0]}:${parts[1]}`;
-                            }
-                            return startTime;
-                        });
-
-                    setTimeSlots((prev) => ({
-                        ...prev,
-                        [selectedDate]: available,
-                    }));
-                }
-            } catch (err) {
-                console.error("Error fetching time slots:", err);
-                toast.error("Error loading time slots. Please try again.");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchTimeSlots();
-    }, [selectedDate, price?.id]);
-
-    // Pre-fetch time slots for ALL dates in batches
-    useEffect(() => {
-        const prefetchSlotsForDates = async () => {
-            if (!price?.id || allDates.length === 0) return;
+    // Fetch time slots for a specific date (lazy loading)
+    const fetchSlotsForDate = useCallback(async (dateKey, isUserSelected = false) => {
+        // Don't fetch if already have slots or currently loading
+        if (timeSlots[dateKey] || loadingDates[dateKey]) return;
+        
+        // Don't fetch past dates
+        if (isPastDate(dateKey)) return;
+        
+        try {
+            // Mark this date as loading
+            setLoadingDates(prev => ({ ...prev, [dateKey]: true }));
             
-            // Only fetch if we haven't started prefetching yet
-            if (window._prefetchStarted) return;
-            window._prefetchStarted = true;
-            
-            setIsCalendarLoading(true);
-            const loadingToast = toast.loading("Loading availability calendar...", {
-                duration: Infinity, // Keep until complete
+            const response = await axios.get(route("ourtimeslots.get"), {
+                params: {
+                    date: dateKey,
+                    price_id: price.id,
+                },
             });
             
-            // Process dates in batches of 10 to avoid overwhelming the API
-            const BATCH_SIZE = 10;
-            const dateBatches = [];
-            
-            for (let i = 0; i < allDates.length; i += BATCH_SIZE) {
-                dateBatches.push(allDates.slice(i, i + BATCH_SIZE));
-            }
-            
-            let processedCount = 0;
-            
-            for (const batch of dateBatches) {
-                // Process batch in parallel
-                const batchPromises = batch.map(async (dateObj) => {
-                    const dateKey = dateObj.value;
-                    
-                    // Skip if already fetched
-                    if (timeSlots[dateKey]) return null;
-                    
-                    try {
-                        const response = await axios.get(route("ourtimeslots.get"), {
-                            params: {
-                                date: dateKey,
-                                price_id: price.id,
-                            },
+            if (response.data.success) {
+                const availableSlots = response.data.slots
+                    .filter((slot) => slot.status === "available")
+                    .map((slot) => {
+                        const startTime = slot.start_time;
+                        if (typeof startTime === "string" && startTime.includes(":")) {
+                            const parts = startTime.split(":");
+                            return `${parts[0]}:${parts[1]}`;
+                        }
+                        return startTime;
+                    });
+                
+                setTimeSlots((prev) => ({
+                    ...prev,
+                    [dateKey]: availableSlots,
+                }));
+                
+                // If this was triggered by user selecting the date, also update booked slots
+                if (isUserSelected) {
+                    const booked = response.data.slots
+                        .filter((slot) => slot.status === "reserved" || slot.status === "blocked")
+                        .map((slot) => {
+                            const startTime = slot.start_time;
+                            if (typeof startTime === "string" && startTime.includes(":")) {
+                                const parts = startTime.split(":");
+                                return `${parts[0]}:${parts[1]}`;
+                            }
+                            return startTime;
                         });
+                    setBookedSlots(booked);
+                }
+            }
+        } catch (err) {
+            console.error(`Error fetching slots for ${dateKey}:`, err);
+            // Set empty slots for this date to avoid retrying
+            setTimeSlots((prev) => ({
+                ...prev,
+                [dateKey]: [],
+            }));
+        } finally {
+            setLoadingDates(prev => ({ ...prev, [dateKey]: false }));
+        }
+    }, [price?.id, timeSlots, loadingDates]);
+
+    // Fetch slots when user scrolls through dropdown (visible dates)
+    const handleDropdownOpen = useCallback(() => {
+        // Fetch slots for the next 30 days when dropdown opens
+        const next30Days = allDates.slice(0, 30);
+        next30Days.forEach(dateObj => {
+            fetchSlotsForDate(dateObj.value);
+        });
+    }, [allDates, fetchSlotsForDate]);
+
+    // Fetch time slots for selected date
+    useEffect(() => {
+        const fetchTimeSlotsForSelected = async () => {
+            if (!selectedDate || !price?.id) return;
+            
+            // Fetch slots for this specific date
+            await fetchSlotsForDate(selectedDate, true);
+            setSelectedTime("");
+        };
+        
+        fetchTimeSlotsForSelected();
+    }, [selectedDate, price?.id, fetchSlotsForDate]);
+
+    // Get time slots for selected date
+    const getTimeSlotsForDate = (date) => {
+        if (!date) return [];
+        return timeSlots[date] || [];
+    };
+
+    // Find next available dates (optimized with cache)
+    const findNextAvailableDates = async () => {
+        try {
+            const availableDates = [];
+            const today = new Date();
+
+            for (let i = 1; i <= 30; i++) {
+                const nextDate = new Date(today);
+                nextDate.setDate(today.getDate() + i);
+                const dateKey = formatDateKey(nextDate);
+                
+                // Check cache first
+                let availableSlots = timeSlots[dateKey];
+                
+                if (!availableSlots) {
+                    try {
+                        const response = await axios.get(
+                            route("ourtimeslots.get"),
+                            {
+                                params: {
+                                    date: dateKey,
+                                    price_id: price.id,
+                                },
+                            },
+                        );
                         
                         if (response.data.success) {
-                            const availableSlots = response.data.slots
+                            availableSlots = response.data.slots
                                 .filter((slot) => slot.status === "available")
                                 .map((slot) => {
                                     const startTime = slot.start_time;
@@ -2772,110 +2782,20 @@ const CalendarIntegrationMobile = ({ price }) => {
                                     return startTime;
                                 });
                             
-                            return { dateKey, slots: availableSlots };
+                            // Cache the result
+                            setTimeSlots((prev) => ({
+                                ...prev,
+                                [dateKey]: availableSlots,
+                            }));
                         }
                     } catch (err) {
                         console.error(`Error fetching slots for ${dateKey}:`, err);
-                        return null;
+                        continue;
                     }
-                    return null;
-                });
-                
-                const results = await Promise.all(batchPromises);
-                
-                // Update state with all results from this batch
-                const updates = {};
-                results.forEach(result => {
-                    if (result) {
-                        updates[result.dateKey] = result.slots;
-                    }
-                });
-                
-                if (Object.keys(updates).length > 0) {
-                    setTimeSlots((prev) => ({
-                        ...prev,
-                        ...updates,
-                    }));
                 }
-                
-                processedCount += batch.length;
-                const percentage = Math.round((processedCount / allDates.length) * 100);
-                toast.loading(`Loading availability... ${percentage}%`, {
-                    id: loadingToast,
-                });
-                
-                // Small delay between batches
-                await new Promise(resolve => setTimeout(resolve, 300));
-            }
-            
-            setIsCalendarLoading(false);
-            toast.success("Calendar loaded successfully!", {
-                id: loadingToast,
-                duration: 3000,
-            });
-        };
-        
-        if (allDates.length > 0 && price?.id) {
-            prefetchSlotsForDates();
-        }
-    }, [allDates, price?.id]);
 
-    // Get time slots for selected date
-    const getTimeSlotsForDate = (date) => {
-        if (!date) return [];
-        return timeSlots[date] || [];
-    };
-
-    // Find next available dates
-    const findNextAvailableDates = async () => {
-        try {
-            const availableDates = [];
-            const today = new Date();
-
-            for (let i = 1; i <= 30; i++) {
-                const nextDate = new Date(today);
-                nextDate.setDate(today.getDate() + i);
-                const dateKey = formatDateKey(nextDate);
-
-                try {
-                    const response = await axios.get(
-                        route("ourtimeslots.get"),
-                        {
-                            params: {
-                                date: dateKey,
-                                price_id: price.id,
-                            },
-                        },
-                    );
-
-                    if (response.data.success) {
-                        const availableSlots = response.data.slots
-                            .filter((slot) => slot.status === "available")
-                            .map((slot) => {
-                                const startTime = slot.start_time;
-                                if (
-                                    typeof startTime === "string" &&
-                                    startTime.includes(":")
-                                ) {
-                                    const parts = startTime.split(":");
-                                    if (parts.length >= 2) {
-                                        return `${parts[0]}:${parts[1]}`;
-                                    }
-                                }
-                                return startTime;
-                            });
-
-                        setTimeSlots((prev) => ({
-                            ...prev,
-                            [dateKey]: availableSlots,
-                        }));
-
-                        if (availableSlots.length > 0) {
-                            availableDates.push(nextDate);
-                        }
-                    }
-                } catch (err) {
-                    console.error(`Error fetching slots for ${dateKey}:`, err);
+                if (availableSlots && availableSlots.length > 0) {
+                    availableDates.push(nextDate);
                 }
 
                 if (availableDates.length >= 3) {
@@ -3020,8 +2940,6 @@ const CalendarIntegrationMobile = ({ price }) => {
                 dropoff_location: formData.dropoff_location,
             };
 
-            console.log("Submitting booking:", bookingData);
-
             const response = await axios.post(
                 route("ourreservations.store"),
                 bookingData,
@@ -3140,7 +3058,7 @@ const CalendarIntegrationMobile = ({ price }) => {
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-6">
-                        {/* Date Selection with Color Indicators */}
+                        {/* Date Selection with Color Indicators - LAZY LOADING */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Available Date *
@@ -3149,6 +3067,7 @@ const CalendarIntegrationMobile = ({ price }) => {
                                 <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
                                 <select
                                     value={selectedDate}
+                                    onFocus={handleDropdownOpen}
                                     onChange={(e) => {
                                         const newDate = e.target.value;
                                         setSelectedDate(newDate);
@@ -3162,11 +3081,8 @@ const CalendarIntegrationMobile = ({ price }) => {
                                     }}
                                     className="w-full appearance-none bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 p-3 pl-10 transition"
                                     required
-                                    disabled={isCalendarLoading}
                                 >
-                                    <option value="">
-                                        {isCalendarLoading ? "Loading calendar..." : "Select a date"}
-                                    </option>
+                                    <option value="">Select a date</option>
                                     {Object.entries(groupedDates).map(
                                         ([monthYear, dates]) => (
                                             <optgroup
@@ -3177,7 +3093,7 @@ const CalendarIntegrationMobile = ({ price }) => {
                                                 {dates.map((date, i) => {
                                                     const hasAvailableSlots = timeSlots[date.value]?.length > 0;
                                                     const isPast = isPastDate(date.value);
-                                                    const isLoading = timeSlots[date.value] === undefined && !isPast;
+                                                    const isLoading = loadingDates[date.value];
                                                     
                                                     let textColorClass = "text-gray-900";
                                                     let backgroundColor = "transparent";
@@ -3195,7 +3111,7 @@ const CalendarIntegrationMobile = ({ price }) => {
                                                         textColorClass = "text-green-600 font-semibold";
                                                         backgroundColor = "#f0fdf4";
                                                         statusIcon = " ✓";
-                                                    } else if (!hasAvailableSlots && timeSlots[date.value] !== undefined) {
+                                                    } else if (!hasAvailableSlots && timeSlots[date.value] !== undefined && !isPast) {
                                                         textColorClass = "text-red-500";
                                                         backgroundColor = "#fef2f2";
                                                         statusIcon = " ✗";
@@ -3205,7 +3121,7 @@ const CalendarIntegrationMobile = ({ price }) => {
                                                         <option
                                                             key={i}
                                                             value={date.value}
-                                                            disabled={isPast || isLoading}
+                                                            disabled={isPast}
                                                             className={`py-1 ${textColorClass}`}
                                                             style={{ backgroundColor }}
                                                         >
@@ -3241,12 +3157,10 @@ const CalendarIntegrationMobile = ({ price }) => {
                                 </div>
                             </div>
                             
-                            {/* Loading progress text */}
-                            {isCalendarLoading && (
-                                <p className="mt-2 text-xs text-blue-600 text-center">
-                                    Fetching availability for all dates... This may take a moment.
-                                </p>
-                            )}
+                            {/* Info message */}
+                            <p className="mt-2 text-xs text-gray-500 text-center">
+                                Click on dropdown to load availability for upcoming dates
+                            </p>
                         </div>
 
                         {/* Time Selection */}
@@ -3280,9 +3194,14 @@ const CalendarIntegrationMobile = ({ price }) => {
                                 </select>
                                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
                             </div>
-                            {selectedDate && nonOverlappingSlots.length === 0 && !loading && (
+                            {selectedDate && nonOverlappingSlots.length === 0 && !loading && timeSlots[selectedDate] !== undefined && (
                                 <p className="mt-1 text-sm text-red-600">
                                     No available time slots for this date. Please select another date.
+                                </p>
+                            )}
+                            {selectedDate && loadingDates[selectedDate] && (
+                                <p className="mt-1 text-sm text-yellow-600">
+                                    Loading time slots...
                                 </p>
                             )}
                         </div>
