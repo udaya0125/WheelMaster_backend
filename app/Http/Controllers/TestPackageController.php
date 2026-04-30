@@ -425,7 +425,6 @@ class TestPackageController extends Controller
             'message' => 'Available',
         ];
     }
-
     /**
  * Get availability for entire month (which dates have any available slots)
  */
