@@ -794,6 +794,7 @@
 
 // export default TestCalendarIntegration;
 
+
 import { Calendar } from "@/components/ui/calendar";
 import axios from "axios";
 import React, { useEffect, useState, useCallback } from "react";
@@ -803,22 +804,22 @@ import { ChevronLeft } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 
 const TestCalendarIntegration = ({ price }) => {
-    const [selectedDate, setSelectedDate] = useState(new Date());
-    const [selectedTime, setSelectedTime] = useState("");
-    const [loading, setLoading] = useState(false);
+    const [selectedDate, setSelectedDate]       = useState(new Date());
+    const [selectedTime, setSelectedTime]       = useState("");
+    const [loading, setLoading]                 = useState(false);
     const [availabilityMessage, setAvailabilityMessage] = useState("");
-    const [isAvailable, setIsAvailable] = useState(false);
+    const [isAvailable, setIsAvailable]         = useState(false);
     const [alternativeTimes, setAlternativeTimes] = useState([]);
     const [showBookingForm, setShowBookingForm] = useState(false);
-    const [bookingDetails, setBookingDetails] = useState(null);
-    const [timeError, setTimeError] = useState("");
+    const [bookingDetails, setBookingDetails]   = useState(null);
+    const [timeError, setTimeError]             = useState("");
     const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
-    const [loadingSlots, setLoadingSlots] = useState(false);
+    const [loadingSlots, setLoadingSlots]       = useState(false);
 
-    // NEW: per-day availability for calendar coloring
+    // Per-day availability for calendar coloring
     // { "YYYY-MM-DD": "available" | "unavailable" }
     const [dayAvailability, setDayAvailability] = useState({});
-    const [currentMonth, setCurrentMonth] = useState(new Date());
+    const [currentMonth, setCurrentMonth]       = useState(new Date());
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -830,9 +831,9 @@ const TestCalendarIntegration = ({ price }) => {
 
     const formatDateKey = (date) => {
         if (!date) return "";
-        const year = date.getFullYear();
+        const year  = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, "0");
-        const day = String(date.getDate()).padStart(2, "0");
+        const day   = String(date.getDate()).padStart(2, "0");
         return `${year}-${month}-${day}`;
     };
 
@@ -840,29 +841,25 @@ const TestCalendarIntegration = ({ price }) => {
         if (!date) return "Select a date";
         return date.toLocaleDateString("en-US", {
             weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
+            year:    "numeric",
+            month:   "long",
+            day:     "numeric",
         });
     };
 
     const parseDuration = (durationString) => {
         if (!durationString) return 60;
-        const cleanString = durationString.trim().toLowerCase();
-        const hourMatch = cleanString.match(
-            /(\d+(?:\.\d+)?)\s*(?:hrs|hr|hour|hours)/,
-        );
-        const minuteMatch = cleanString.match(
-            /(\d+)\s*(?:min|mins|minute|minutes)/,
-        );
-        let totalMinutes = 0;
-        if (hourMatch) totalMinutes += parseFloat(hourMatch[1]) * 60;
+        const clean = durationString.trim().toLowerCase();
+        const hourMatch   = clean.match(/(\d+(?:\.\d+)?)\s*(?:hrs|hr|hour|hours)/);
+        const minuteMatch = clean.match(/(\d+)\s*(?:min|mins|minute|minutes)/);
+        let totalMinutes  = 0;
+        if (hourMatch)   totalMinutes += parseFloat(hourMatch[1]) * 60;
         if (minuteMatch) totalMinutes += parseInt(minuteMatch[1]);
         if (totalMinutes === 0) {
-            const numberMatch = cleanString.match(/(\d+(?:\.\d+)?)/);
-            if (numberMatch) {
-                const num = parseFloat(numberMatch[1]);
-                totalMinutes = num < 10 ? Math.round(num * 60) : Math.round(num);
+            const numMatch = clean.match(/(\d+(?:\.\d+)?)/);
+            if (numMatch) {
+                const n = parseFloat(numMatch[1]);
+                totalMinutes = n < 10 ? Math.round(n * 60) : Math.round(n);
             }
         }
         return totalMinutes || 60;
@@ -871,57 +868,60 @@ const TestCalendarIntegration = ({ price }) => {
     const formatTimeForDisplay = (time24) => {
         if (!time24) return "";
         const [hours, minutes] = time24.split(":").map(Number);
-        const period = hours >= 12 ? "PM" : "AM";
+        const period       = hours >= 12 ? "PM" : "AM";
         const displayHours = hours % 12 || 12;
         return `${displayHours}:${minutes.toString().padStart(2, "0")} ${period}`;
     };
 
     const validateTimeFormat = (time) => {
         if (!time) return false;
-        const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
-        return timeRegex.test(time);
+        return /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(time);
     };
 
     const formatTimeForApi = (time) => {
         if (!time) return "";
-        const [hours, minutes] = time.split(":").map(Number);
-        return `${hours.toString().padStart(2, "0")}:${minutes
-            .toString()
-            .padStart(2, "0")}`;
+        const [h, m] = time.split(":").map(Number);
+        return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
     };
 
-    const getMinTime = () => "07:00";
+    // Controller: earliest test time = 7:00 + 1 hr buffer = 08:00
+    const getMinTime = () => "08:00";
 
+    // Controller: test must end by 18:00  →  latest start = 18:00 - duration
     const getMaxTime = () => {
         const durationMinutes = parseDuration(price.duration);
-        const maxTestStartTime = new Date();
-        maxTestStartTime.setHours(18, 0 - durationMinutes, 0, 0);
-        if (maxTestStartTime.getHours() < 7) return "08:00";
-        return (
-            maxTestStartTime.getHours().toString().padStart(2, "0") +
-            ":" +
-            maxTestStartTime.getMinutes().toString().padStart(2, "0")
-        );
+        const totalEndMinutes = 18 * 60; // 18:00 in minutes
+        const maxStartMinutes = totalEndMinutes - durationMinutes;
+        const hh = Math.floor(maxStartMinutes / 60).toString().padStart(2, "0");
+        const mm = (maxStartMinutes % 60).toString().padStart(2, "0");
+        return `${hh}:${mm}`;
     };
 
-    // ─── Fetch month availability (for calendar coloring) ────────────────────
+    // ─── Fetch month availability (drives calendar green / red) ──────────────
+    //
+    // Calls the same endpoint as fetchAvailableTimeSlots but for every
+    // future day in the visible month, in parallel batches of 7.
+    // Result shape from controller: { success, available_slots: [...] }
+    // → green  if available_slots.length > 0
+    // → red    if available_slots.length === 0
 
     const fetchMonthAvailability = useCallback(
         async (monthDate) => {
             if (!price?.id) return;
 
-            const year = monthDate.getFullYear();
+            const year  = monthDate.getFullYear();
             const month = monthDate.getMonth();
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-            const datesToFetch = [];
+            const daysInMonth   = new Date(year, month + 1, 0).getDate();
+            const datesToFetch  = [];
 
             for (let d = 1; d <= daysInMonth; d++) {
                 const date = new Date(year, month, d);
                 if (date >= today) {
                     const key = formatDateKey(date);
+                    // Only fetch if not already cached
                     if (!dayAvailability[key]) {
                         datesToFetch.push(date);
                     }
@@ -930,7 +930,6 @@ const TestCalendarIntegration = ({ price }) => {
 
             if (datesToFetch.length === 0) return;
 
-            // Fetch in batches of 7
             const batchSize = 7;
             for (let i = 0; i < datesToFetch.length; i += batchSize) {
                 const batch = datesToFetch.slice(i, i + batchSize);
@@ -942,49 +941,37 @@ const TestCalendarIntegration = ({ price }) => {
                                 route("test-packages.available-slots"),
                                 {
                                     params: {
-                                        date: dateKey,
-                                        price_id: price.id,
-                                        duration_minutes: parseDuration(
-                                            price.duration,
-                                        ),
+                                        date:             dateKey,
+                                        price_id:         price.id,
+                                        duration_minutes: parseDuration(price.duration),
                                     },
                                 },
                             );
 
-                            if (response.data.success) {
-                                const slots = response.data.available_slots || [];
-                                setDayAvailability((prev) => ({
-                                    ...prev,
-                                    [dateKey]:
-                                        slots.length > 0
-                                            ? "available"
-                                            : "unavailable",
-                                }));
-                            } else {
-                                setDayAvailability((prev) => ({
-                                    ...prev,
-                                    [dateKey]: "unavailable",
-                                }));
-                            }
-                        } catch {
+                            const slots = response.data?.available_slots ?? [];
                             setDayAvailability((prev) => ({
                                 ...prev,
-                                [dateKey]: "unavailable",
+                                [dateKey]: slots.length > 0 ? "available" : "unavailable",
                             }));
+                        } catch {
+                            // On error, leave the day uncolored (don't mark as unavailable)
                         }
                     }),
                 );
             }
         },
+        // Re-run only when price changes; dayAvailability is NOT a dep
+        // because we guard with the !dayAvailability[key] check inside.
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [price?.id, price?.duration],
     );
 
+    // Run on mount and whenever the user navigates to a different month
     useEffect(() => {
         fetchMonthAvailability(currentMonth);
     }, [currentMonth, fetchMonthAvailability]);
 
-    // ─── Fetch available slots for the selected date ──────────────────────────
+    // ─── Fetch slots for the selected date (populates the time dropdown) ──────
 
     useEffect(() => {
         if (selectedDate && !isPastDate(selectedDate)) {
@@ -1001,42 +988,31 @@ const TestCalendarIntegration = ({ price }) => {
                 route("test-packages.available-slots"),
                 {
                     params: {
-                        date: formatDateKey(selectedDate),
-                        price_id: price.id,
+                        date:             formatDateKey(selectedDate),
+                        price_id:         price.id,
                         duration_minutes: parseDuration(price.duration),
                     },
                 },
             );
 
-            if (response.data.success) {
-                setAvailableTimeSlots(response.data.available_slots);
+            const slots   = response.data?.available_slots ?? [];
+            const dateKey = formatDateKey(selectedDate);
 
-                // Keep day availability in sync with selected date result
-                const dateKey = formatDateKey(selectedDate);
-                setDayAvailability((prev) => ({
-                    ...prev,
-                    [dateKey]:
-                        response.data.available_slots.length > 0
-                            ? "available"
-                            : "unavailable",
-                }));
+            setAvailableTimeSlots(slots);
 
-                if (response.data.available_slots.length > 0) {
-                    toast.success(
-                        `Found ${response.data.available_slots.length} available slots for this date`,
-                        { duration: 3000 },
-                    );
-                } else {
-                    toast.error("No available slots for this date");
-                }
+            // Sync the calendar dot for this date immediately
+            setDayAvailability((prev) => ({
+                ...prev,
+                [dateKey]: slots.length > 0 ? "available" : "unavailable",
+            }));
+
+            if (slots.length > 0) {
+                toast.success(
+                    `Found ${slots.length} available slot${slots.length !== 1 ? "s" : ""} for this date`,
+                    { duration: 3000 },
+                );
             } else {
-                setAvailableTimeSlots([]);
-                const dateKey = formatDateKey(selectedDate);
-                setDayAvailability((prev) => ({
-                    ...prev,
-                    [dateKey]: "unavailable",
-                }));
-                toast.error("No available slots found for this date");
+                toast.error("No available slots for this date");
             }
         } catch (error) {
             console.error("Error fetching available slots:", error);
@@ -1046,13 +1022,13 @@ const TestCalendarIntegration = ({ price }) => {
         }
     };
 
-    // ─── Check availability for a specific time ───────────────────────────────
+    // ─── Check availability for a specific typed / selected time ─────────────
 
     const checkTestAvailability = async () => {
         if (!selectedDate || !selectedTime) {
+            toast.error("Please select both date and time");
             setAvailabilityMessage("Please select both date and time");
             setIsAvailable(false);
-            toast.error("Please select both date and time");
             return;
         }
         if (!validateTimeFormat(selectedTime)) {
@@ -1070,14 +1046,13 @@ const TestCalendarIntegration = ({ price }) => {
         const loadingToast = toast.loading("Checking availability...");
 
         try {
-            const formattedTime = formatTimeForApi(selectedTime);
             const response = await axios.post(
                 route("test-packages.check-availability"),
                 {
-                    date: formatDateKey(selectedDate),
-                    test_time: formattedTime,
+                    date:             formatDateKey(selectedDate),
+                    test_time:        formatTimeForApi(selectedTime),
                     duration_minutes: parseDuration(price.duration),
-                    price_id: price.id,
+                    price_id:         price.id,
                 },
             );
 
@@ -1086,24 +1061,20 @@ const TestCalendarIntegration = ({ price }) => {
             if (response.data.available) {
                 setIsAvailable(true);
                 setBookingDetails({
-                    start_time: response.data.start_time,
-                    end_time: response.data.end_time,
+                    start_time:   response.data.start_time,
+                    end_time:     response.data.end_time,
                     buffer_start: response.data.start_time,
-                    buffer_end: response.data.end_time,
+                    buffer_end:   response.data.end_time,
                 });
                 setAvailabilityMessage(
                     "✓ This time slot is available! You can proceed to book.",
                 );
-                toast.success(
-                    "Time slot is available! You can proceed to book.",
-                );
+                toast.success("Time slot is available! You can proceed to book.");
             } else {
                 setIsAvailable(false);
                 let message = response.data.message || "Time slot not available";
-                if (
-                    response.data.alternative_times &&
-                    response.data.alternative_times.length > 0
-                ) {
+
+                if (response.data.alternative_times?.length > 0) {
                     setAlternativeTimes(response.data.alternative_times);
                     toast.error(
                         "Selected time not available. Check suggested times below.",
@@ -1116,38 +1087,29 @@ const TestCalendarIntegration = ({ price }) => {
                         { duration: 5000 },
                     );
                 }
+
                 message += "\n\nPlease contact us for assistance.";
                 setAvailabilityMessage(message);
             }
         } catch (error) {
-            console.error("Error checking availability:", error);
             toast.dismiss(loadingToast);
             setIsAvailable(false);
-            if (error.response && error.response.status === 422) {
+
+            if (error.response?.status === 422) {
                 const errors = error.response.data.errors;
                 if (errors?.test_time) {
-                    setAvailabilityMessage(
-                        `Validation error: ${errors.test_time[0]}`,
-                    );
+                    setAvailabilityMessage(`Validation error: ${errors.test_time[0]}`);
                     setTimeError(errors.test_time[0]);
                     toast.error(errors.test_time[0]);
                 } else if (errors?.price_id) {
-                    setAvailabilityMessage(
-                        `Validation error: ${errors.price_id[0]}`,
-                    );
+                    setAvailabilityMessage(`Validation error: ${errors.price_id[0]}`);
                     toast.error(errors.price_id[0]);
                 } else {
-                    setAvailabilityMessage(
-                        "Please check the time format (HH:MM) and try again.",
-                    );
-                    toast.error(
-                        "Please check the time format (HH:MM) and try again.",
-                    );
+                    setAvailabilityMessage("Please check the time format (HH:MM) and try again.");
+                    toast.error("Please check the time format (HH:MM) and try again.");
                 }
             } else {
-                setAvailabilityMessage(
-                    "Error checking availability. Please try again.",
-                );
+                setAvailabilityMessage("Error checking availability. Please try again.");
                 toast.error("Error checking availability. Please try again.");
             }
         } finally {
@@ -1163,9 +1125,7 @@ const TestCalendarIntegration = ({ price }) => {
         setIsAvailable(false);
         setAlternativeTimes([]);
         setTimeError("");
-        toast.success(`Selected time: ${formatTimeForDisplay(time24)}`, {
-            duration: 2000,
-        });
+        toast.success(`Selected time: ${formatTimeForDisplay(time24)}`, { duration: 2000 });
     };
 
     const handleTimeChange = (e) => {
@@ -1205,9 +1165,7 @@ const TestCalendarIntegration = ({ price }) => {
             setIsAvailable(false);
             setAlternativeTimes([]);
             setTimeError("");
-            toast.success(`Selected date: ${formatDisplayDate(date)}`, {
-                duration: 2000,
-            });
+            toast.success(`Selected date: ${formatDisplayDate(date)}`, { duration: 2000 });
         }
     };
 
@@ -1215,8 +1173,9 @@ const TestCalendarIntegration = ({ price }) => {
         setCurrentMonth(month);
     };
 
-    // ─── Build modifier date arrays for the Calendar ──────────────────────────
-    // Dates must use T00:00:00 to avoid UTC offset shifting the day in GMT+8
+    // ─── Build modifier date arrays ───────────────────────────────────────────
+    // IMPORTANT: use "T00:00:00" so the Date is midnight local time,
+    // not UTC midnight which shifts by +8 hours in AWST and lands on wrong day.
 
     const availableDays = Object.entries(dayAvailability)
         .filter(([, status]) => status === "available")
@@ -1237,12 +1196,12 @@ const TestCalendarIntegration = ({ price }) => {
                     style: { background: "#363636", color: "#fff" },
                     success: {
                         duration: 3000,
-                        style: { background: "#10b981", color: "#fff" },
+                        style:     { background: "#10b981", color: "#fff" },
                         iconTheme: { primary: "#fff", secondary: "#10b981" },
                     },
                     error: {
                         duration: 4000,
-                        style: { background: "#ef4444", color: "#fff" },
+                        style:     { background: "#ef4444", color: "#fff" },
                         iconTheme: { primary: "#fff", secondary: "#ef4444" },
                     },
                     loading: {
@@ -1267,11 +1226,10 @@ const TestCalendarIntegration = ({ price }) => {
                         Schedule Your Test Package
                     </h1>
                     <p className="text-gray-600 text-sm sm:text-base">
-                        Choose your test date and time. Operating hours: 7:00 AM - 6:00 PM
+                        Choose your test date and time. Operating hours: 7:00 AM – 6:00 PM
                     </p>
                 </div>
 
-                {/* Main Content */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
 
                     {/* ── Calendar ── */}
@@ -1283,6 +1241,7 @@ const TestCalendarIntegration = ({ price }) => {
                             <p className="text-xs sm:text-sm text-gray-500">
                                 Time zone: Australian Western Standard Time (GMT+8)
                             </p>
+
                             {/* Legend */}
                             <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                                 <div className="flex items-center gap-1.5">
@@ -1297,10 +1256,14 @@ const TestCalendarIntegration = ({ price }) => {
                         </div>
 
                         {/*
-                         * modifiers: passes named Date[] arrays to react-day-picker.
-                         * modifiersClassNames: applies those classes to the day <button>
-                         * directly — the only reliable way to color the full cell.
-                         * The `!` prefix forces Tailwind important to override rdp defaults.
+                         * modifiers      — passes named Date[] arrays to react-day-picker
+                         * modifiersClassNames — applied directly to the day <button>,
+                         *   coloring the entire cell (not just the text).
+                         * The Tailwind `!` prefix forces important so these win over
+                         * the default rdp styles.
+                         *
+                         * Selected day is overridden to indigo so it still stands out
+                         * even when it already has a green/red modifier.
                          */}
                         <Calendar
                             mode="single"
@@ -1309,7 +1272,7 @@ const TestCalendarIntegration = ({ price }) => {
                             onMonthChange={handleMonthChange}
                             disabled={isPastDate}
                             modifiers={{
-                                available: availableDays,
+                                available:   availableDays,
                                 unavailable: unavailableDays,
                             }}
                             modifiersClassNames={{
@@ -1344,9 +1307,7 @@ const TestCalendarIntegration = ({ price }) => {
                                     Quick Select Available Times
                                 </label>
                                 <select
-                                    onChange={(e) =>
-                                        handleTimeSelect(e.target.value)
-                                    }
+                                    onChange={(e) => handleTimeSelect(e.target.value)}
                                     value={selectedTime}
                                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
                                 >
@@ -1358,7 +1319,7 @@ const TestCalendarIntegration = ({ price }) => {
                                     ))}
                                 </select>
                                 <p className="text-xs text-gray-500 mt-1">
-                                    {availableTimeSlots.length} available slots
+                                    {availableTimeSlots.length} available slot{availableTimeSlots.length !== 1 ? "s" : ""}
                                 </p>
                             </div>
                         )}
@@ -1381,30 +1342,25 @@ const TestCalendarIntegration = ({ price }) => {
                                     Test Start Time (24-hour format) *
                                 </label>
                                 <p className="text-xs text-gray-500 mb-2">
-                                    Operating hours: 7:00 AM - 6:00 PM
+                                    {/* Earliest test time is 08:00 — controller requires 1 hr buffer before test */}
+                                    Test start: 8:00 AM – {formatTimeForDisplay(getMaxTime())} &nbsp;|&nbsp; Operating hours: 7:00 AM – 6:00 PM
                                 </p>
                                 <input
                                     id="test-time"
                                     type="time"
                                     value={selectedTime}
                                     onChange={handleTimeChange}
-                                    disabled={
-                                        !selectedDate || isPastDate(selectedDate)
-                                    }
+                                    disabled={!selectedDate || isPastDate(selectedDate)}
                                     min={getMinTime()}
                                     max={getMaxTime()}
                                     step="1800"
                                     className={`w-full px-4 py-3 border ${
-                                        timeError
-                                            ? "border-red-300"
-                                            : "border-gray-300"
+                                        timeError ? "border-red-300" : "border-gray-300"
                                     } rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition appearance-none`}
                                     placeholder="HH:MM"
                                 />
                                 {timeError && (
-                                    <p className="text-red-600 text-xs mt-1">
-                                        {timeError}
-                                    </p>
+                                    <p className="text-red-600 text-xs mt-1">{timeError}</p>
                                 )}
                             </div>
 
@@ -1428,7 +1384,7 @@ const TestCalendarIntegration = ({ price }) => {
                             </button>
                         </div>
 
-                        {/* Alternative times */}
+                        {/* Suggested alternative times */}
                         {alternativeTimes.length > 0 && (
                             <div className="mt-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
                                 <h4 className="font-medium text-indigo-800 mb-2">
@@ -1439,20 +1395,16 @@ const TestCalendarIntegration = ({ price }) => {
                                         <button
                                             key={index}
                                             onClick={() =>
-                                                handleTimeSelect(
-                                                    slot.time || slot,
-                                                )
+                                                handleTimeSelect(slot.time || slot)
                                             }
                                             className="px-3 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-md text-sm transition-colors"
                                         >
-                                            {slot.formatted ||
-                                                formatTimeForDisplay(slot)}
+                                            {slot.formatted || formatTimeForDisplay(slot)}
                                         </button>
                                     ))}
                                 </div>
                                 <p className="text-xs text-indigo-600 mt-2">
-                                    Click on a suggested time to select it, then
-                                    check availability again.
+                                    Click a suggested time to select it, then check availability again.
                                 </p>
                             </div>
                         )}
@@ -1469,17 +1421,11 @@ const TestCalendarIntegration = ({ price }) => {
                                 <div className="flex items-start">
                                     <div
                                         className={`flex-shrink-0 ${
-                                            isAvailable
-                                                ? "text-green-600"
-                                                : "text-red-600"
+                                            isAvailable ? "text-green-600" : "text-red-600"
                                         }`}
                                     >
                                         {isAvailable ? (
-                                            <svg
-                                                className="h-5 w-5"
-                                                fill="currentColor"
-                                                viewBox="0 0 20 20"
-                                            >
+                                            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
                                                 <path
                                                     fillRule="evenodd"
                                                     d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
@@ -1487,11 +1433,7 @@ const TestCalendarIntegration = ({ price }) => {
                                                 />
                                             </svg>
                                         ) : (
-                                            <svg
-                                                className="h-5 w-5"
-                                                fill="currentColor"
-                                                viewBox="0 0 20 20"
-                                            >
+                                            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
                                                 <path
                                                     fillRule="evenodd"
                                                     d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
@@ -1502,9 +1444,7 @@ const TestCalendarIntegration = ({ price }) => {
                                     </div>
                                     <div
                                         className={`ml-3 text-sm ${
-                                            isAvailable
-                                                ? "text-green-800"
-                                                : "text-red-800"
+                                            isAvailable ? "text-green-800" : "text-red-800"
                                         } whitespace-pre-line`}
                                     >
                                         <p>{availabilityMessage}</p>
@@ -1548,68 +1488,46 @@ const TestCalendarIntegration = ({ price }) => {
                                     {price.description}
                                 </h3>
                                 <p className="text-xs sm:text-sm text-gray-600">
-                                    Professional driving test preparation with
-                                    certified instructors
+                                    Professional driving test preparation with certified instructors
                                 </p>
                             </div>
 
                             <div className="border-t pt-4">
                                 <div className="flex justify-between text-xs sm:text-sm mb-2">
-                                    <span className="text-gray-600">
-                                        Operating Hours:
-                                    </span>
-                                    <span className="font-medium text-gray-900">
-                                        7:00 AM - 6:00 PM
-                                    </span>
+                                    <span className="text-gray-600">Operating Hours:</span>
+                                    <span className="font-medium text-gray-900">7:00 AM – 6:00 PM</span>
                                 </div>
                                 <div className="flex justify-between text-xs sm:text-sm mb-2">
-                                    <span className="text-gray-600">
-                                        Test Duration:
-                                    </span>
-                                    <span className="font-medium text-gray-900">
-                                        {price.duration}
-                                    </span>
+                                    <span className="text-gray-600">Test Duration:</span>
+                                    <span className="font-medium text-gray-900">{price.duration}</span>
                                 </div>
                                 <div className="flex justify-between text-xs sm:text-sm mb-2">
-                                    <span className="text-gray-600">
-                                        Price:
-                                    </span>
-                                    <span className="font-medium text-gray-900">
-                                        ${price.price}
-                                    </span>
+                                    <span className="text-gray-600">Price:</span>
+                                    <span className="font-medium text-gray-900">${price.price}</span>
                                 </div>
-                                {selectedDate &&
-                                    selectedTime &&
-                                    isAvailable &&
-                                    bookingDetails && (
-                                        <div className="mt-4 pt-4 border-t">
-                                            <div className="flex justify-between text-xs sm:text-sm mb-2">
-                                                <span className="text-gray-600">
-                                                    Total Booking Duration:
-                                                </span>
-                                                <span className="font-medium text-gray-900 text-right">
-                                                    {formatTimeForDisplay(
-                                                        bookingDetails.start_time,
-                                                    )}{" "}
-                                                    to{" "}
-                                                    {formatTimeForDisplay(
-                                                        bookingDetails.end_time,
-                                                    )}
-                                                </span>
-                                            </div>
-                                            <div className="flex justify-between text-xs sm:text-sm">
-                                                <span className="text-gray-600">
-                                                    Actual Test Time:
-                                                </span>
-                                                <span className="font-medium text-indigo-600 text-right">
-                                                    {formatTimeForDisplay(
-                                                        selectedTime,
-                                                    )}{" "}
-                                                    ({price.duration})
-                                                </span>
-                                            </div>
+                                <div className="flex justify-between text-xs sm:text-sm mb-2">
+                                    <span className="text-gray-600">Buffer Before Test:</span>
+                                    <span className="font-medium text-gray-900">1 hour</span>
+                                </div>
+
+                                {selectedDate && selectedTime && isAvailable && bookingDetails && (
+                                    <div className="mt-4 pt-4 border-t">
+                                        <div className="flex justify-between text-xs sm:text-sm mb-2">
+                                            <span className="text-gray-600">Total Booking:</span>
+                                            <span className="font-medium text-gray-900 text-right">
+                                                {formatTimeForDisplay(bookingDetails.start_time)}{" "}
+                                                to{" "}
+                                                {formatTimeForDisplay(bookingDetails.end_time)}
+                                            </span>
                                         </div>
-                                    )}
+                                        <div className="flex justify-between text-xs sm:text-sm">
+                                            <span className="text-gray-600">Actual Test Time:</span>
+                                            <span className="font-medium text-indigo-600 text-right">
+                                                {formatTimeForDisplay(selectedTime)} ({price.duration})
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -1622,9 +1540,7 @@ const TestCalendarIntegration = ({ price }) => {
                                     : "bg-gray-200 text-gray-400 cursor-not-allowed"
                             }`}
                         >
-                            {isAvailable
-                                ? "Proceed to Booking"
-                                : "Select Available Time"}
+                            {isAvailable ? "Proceed to Booking" : "Select Available Time"}
                         </button>
                     </div>
                 </div>
