@@ -2318,14 +2318,13 @@
 
 // export default CalendarIntegrationMobile;
 
+
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
     ChevronDown,
     MapPin,
     Calendar as CalendarIcon,
     Clock,
-    BookOpen,
-    CheckCircle,
     User,
     Mail,
     Phone,
@@ -3075,9 +3074,9 @@ const CalendarIntegrationMobile = ({ price }) => {
                                         setShowNextAvailability(false);
                                         
                                         // Show warning if date has no slots
-                                        if (newDate && (!timeSlots[newDate] || timeSlots[newDate].length === 0)) {
-                                            toast.error("No available time slots for this date");
-                                        }
+                                        // if (newDate && (!timeSlots[newDate] || timeSlots[newDate].length === 0)) {
+                                        //     toast.error("No available time slots for this date");
+                                        // }
                                     }}
                                     className="w-full appearance-none bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 p-3 pl-10 transition"
                                     required
@@ -3147,14 +3146,14 @@ const CalendarIntegrationMobile = ({ price }) => {
                                     <div className="w-3 h-3 rounded-full bg-red-500"></div>
                                     <span className="text-gray-600">No available slots</span>
                                 </div>
-                                <div className="flex items-center gap-1">
+                                {/* <div className="flex items-center gap-1">
                                     <div className="w-3 h-3 rounded-full bg-gray-300"></div>
                                     <span className="text-gray-600">Past date</span>
-                                </div>
-                                <div className="flex items-center gap-1">
+                                </div> */}
+                                {/* <div className="flex items-center gap-1">
                                     <div className="w-3 h-3 rounded-full bg-yellow-200"></div>
                                     <span className="text-gray-600">Loading...</span>
-                                </div>
+                                </div> */}
                             </div>
                             
                             {/* Info message */}

@@ -257,10 +257,6 @@ Route::middleware('auth')->group(function () {
     // Test Package routes for public access
     // --------------------------------------------------------------------------
 
-    // Route::post('/test-packages/check-availability', [TestPackageController::class, 'checkAvailability'])->name('test-packages.check-availability');
-    // Route::post('/test-packages/book', [TestPackageController::class, 'storeTestReservation'])->name('test-packages.store');
-
-    Route::get('/test-packages/available-slots', [TestPackageController::class, 'getAvailableTimeSlots'])->name('test-packages.available-slots');
     Route::post('/test-packages/check-availability', [TestPackageController::class, 'checkAvailability'])->name('test-packages.check-availability');
     Route::post('/test-packages/book', [TestPackageController::class, 'storeTestReservation'])->name('test-packages.store');
 
