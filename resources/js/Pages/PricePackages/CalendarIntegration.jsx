@@ -1491,13 +1491,13 @@ const CalendarIntegration = ({ price }) => {
                         available.length > 0 ? "available" : "unavailable",
                 }));
                 toast.dismiss(loadingToast);
-                toast.success("Booking confirmed! Time slots refreshed.");
+                toast.success("Booking confirmed! Time slots refreshed. Please check your Spam email for booking details.");
             }
         } catch (error) {
             console.error("Error refreshing time slots:", error);
             toast.dismiss(loadingToast);
             toast.error(
-                "Booking confirmed, but failed to refresh time slots"
+                "Booking confirmed, but failed to refresh time slots. Please check your Spam email for booking details."
             );
         } finally {
             setLoading(false);

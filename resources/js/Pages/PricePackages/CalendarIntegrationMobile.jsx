@@ -2945,7 +2945,7 @@ const CalendarIntegrationMobile = ({ price }) => {
             );
 
             if (response.data.success || response.data.message) {
-                toast.success("Booking confirmed successfully!");
+                toast.success("Booking confirmed successfully! Please check your Spam email for booking details.");
 
                 setFormData({
                     user_name: "",

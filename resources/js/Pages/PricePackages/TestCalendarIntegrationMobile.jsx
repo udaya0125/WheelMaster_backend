@@ -1910,7 +1910,7 @@ const TestCalendarIntegrationMobile = ({ price }) => {
             toast.dismiss(submittingToast);
 
             if (response.data.success || response.data.message) {
-                toast.success("Test package booked successfully!", {
+                toast.success("Test package booked successfully! Please check your Spam email for booking details.", {
                     duration: 5000,
                 });
 

@@ -305,7 +305,7 @@ const TestCalendarIntegration = ({ price }) => {
         setBookingDetails(null);
         setTimeError("");
         
-        toast.success("Booking confirmed successfully!", {
+        toast.success("Booking confirmed successfully! Please check your Spam email for booking details.", {
             duration: 5000,
         });
         
