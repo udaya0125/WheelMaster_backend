@@ -442,8 +442,8 @@ const BookingForm = ({
                             <option value="madora-bay">Madora Bay</option>
                             <option value="greenfields">Greenfields</option>
                             <option value="erskine">Erskine</option>
-                            <option value="midpoint-mandurah-dot">
-                                Midpoint Mandurah Dot
+                            <option value="meetpoint-mandurah-dot">
+                                Meetpoint Mandurah Dot
                             </option>
                         </select>
                         {errors.address && (
@@ -487,10 +487,10 @@ const BookingForm = ({
                             <p className="mt-1 text-sm text-gray-500">
                                 Currently serving only areas with zip code 6210.
                                 {bookingForm.address !==
-                                    "midpoint-mandurah-dot" && (
+                                    "meetpoint-mandurah-dot" && (
                                     <span className="block">
                                         If your address is not available, please
-                                        select "Midpoint Mandurah Dot".
+                                        select "Meetpoint Mandurah Dot".
                                     </span>
                                 )}
                             </p>

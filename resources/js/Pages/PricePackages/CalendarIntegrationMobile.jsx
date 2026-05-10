@@ -1088,8 +1088,8 @@ const CalendarIntegrationMobile = ({ price }) => {
                                         Greenfields
                                     </option>
                                     <option value="erskine">Erskine</option>
-                                    <option value="midpoint-mandurah-dot">
-                                        Midpoint Mandurah Dot
+                                    <option value="meetpoint-mandurah-dot">
+                                        Meetpoint Mandurah Dot
                                     </option>
                                 </select>
                                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
@@ -1134,10 +1134,10 @@ const CalendarIntegrationMobile = ({ price }) => {
                             ) : (
                                 <p className="mt-1 text-sm text-gray-500">
                                     Currently serving only areas with zip code 6210.
-                                    {formData.address !== "midpoint-mandurah-dot" && (
+                                    {formData.address !== "meetpoint-mandurah-dot" && (
                                         <span className="block">
                                             If your address is not available, please
-                                            select "Midpoint Mandurah Dot".
+                                            select "Meetpoint Mandurah Dot".
                                         </span>
                                     )}
                                 </p>
