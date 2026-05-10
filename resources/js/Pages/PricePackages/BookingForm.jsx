@@ -1045,7 +1045,7 @@ const BookingForm = ({
                             htmlFor="address"
                             className="block text-sm font-medium text-gray-700 mb-2"
                         >
-                            Address *
+                            Area *
                         </label>
                         <select
                             id="address"
@@ -1059,7 +1059,7 @@ const BookingForm = ({
                                     : "border-gray-300"
                             }`}
                         >
-                            <option value="">Select your Address</option>
+                            <option value="">Select your Area</option>
                             <option value="mandurah">Mandurah</option>
                             <option value="meadow-springs">
                                 Meadow Springs
