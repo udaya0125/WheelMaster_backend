@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BlockReservation;
 use App\Models\TimeSlot;
 use App\Models\UserReservation;
-use App\Models\BlockReservation;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -33,7 +33,7 @@ class TimeSlotController extends Controller
         foreach ($timeSlots as $slot) {
             foreach ($reservations as $reservation) {
                 if ($slot->start_time == $reservation->start_time) {
-                    $slot->status             = 'reserved';
+                    $slot->status = 'reserved';
                     $slot->reservation_details = $reservation;
                     break;
                 }
@@ -42,11 +42,11 @@ class TimeSlotController extends Controller
             if ($slot->status !== 'reserved') {
                 foreach ($blocks as $block) {
                     $blockStart = Carbon::parse($block->start_time);
-                    $blockEnd   = Carbon::parse($block->end_time);
-                    $slotStart  = Carbon::parse($slot->start_time);
+                    $blockEnd = Carbon::parse($block->end_time);
+                    $slotStart = Carbon::parse($slot->start_time);
 
                     if ($slotStart->between($blockStart, $blockEnd->subMinute())) {
-                        $slot->status        = 'blocked';
+                        $slot->status = 'blocked';
                         $slot->block_details = $block;
                         break;
                     }
@@ -76,17 +76,17 @@ class TimeSlotController extends Controller
 
         $blocks = BlockReservation::where('date', $date)->get();
 
-        $defaultSlots      = TimeSlot::generateDefaultSlotsForDate($date);
+        $defaultSlots = TimeSlot::generateDefaultSlotsForDate($date);
         $defaultStartTimes = collect($defaultSlots)->pluck('start_time')->toArray();
 
         $formattedSlots = $slots->map(function ($slot) use ($reservations, $blocks, $defaultStartTimes) {
-            $status    = $slot->status;
+            $status = $slot->status;
             $slotStart = Carbon::parse($slot->start_time);
-            $slotEnd   = Carbon::parse($slot->end_time);
+            $slotEnd = Carbon::parse($slot->end_time);
 
             foreach ($reservations as $reservation) {
                 $resStart = Carbon::parse($reservation->start_time);
-                $resEnd   = Carbon::parse($reservation->end_time);
+                $resEnd = Carbon::parse($reservation->end_time);
 
                 if ($slotStart->between($resStart, $resEnd->subMinute()) ||
                     $slotEnd->between($resStart, $resEnd->subMinute()) ||
@@ -99,7 +99,7 @@ class TimeSlotController extends Controller
             if ($status !== 'reserved') {
                 foreach ($blocks as $block) {
                     $blockStart = Carbon::parse($block->start_time);
-                    $blockEnd   = Carbon::parse($block->end_time);
+                    $blockEnd = Carbon::parse($block->end_time);
 
                     if ($slotStart->between($blockStart, $blockEnd->subMinute()) ||
                         $slotEnd->between($blockStart, $blockEnd->subMinute()) ||
@@ -111,21 +111,21 @@ class TimeSlotController extends Controller
             }
 
             return [
-                'id'              => $slot->id,
-                'start_time'      => substr($slot->start_time, 0, 5),
-                'end_time'        => substr($slot->end_time, 0, 5),
+                'id' => $slot->id,
+                'start_time' => substr($slot->start_time, 0, 5),
+                'end_time' => substr($slot->end_time, 0, 5),
                 'formatted_start' => $slot->formatted_start_time,
-                'formatted_end'   => $slot->formatted_end_time,
-                'status'          => $status,
+                'formatted_end' => $slot->formatted_end_time,
+                'status' => $status,
                 'is_default_time' => in_array($slot->start_time, $defaultStartTimes),
-                'isEditing'       => false,
+                'isEditing' => false,
             ];
         })->values();
 
         return response()->json([
             'success' => true,
-            'date'    => $date,
-            'slots'   => $formattedSlots,
+            'date' => $date,
+            'slots' => $formattedSlots,
         ]);
     }
 
@@ -134,7 +134,7 @@ class TimeSlotController extends Controller
      */
     private function buildFormattedSlots($date, $updatedSlots)
     {
-        $defaultSlots      = TimeSlot::generateDefaultSlotsForDate($date);
+        $defaultSlots = TimeSlot::generateDefaultSlotsForDate($date);
         $defaultStartTimes = collect($defaultSlots)->pluck('start_time')->toArray();
 
         $reservations = UserReservation::where('reservation_date', $date)
@@ -144,14 +144,14 @@ class TimeSlotController extends Controller
         $blocks = BlockReservation::where('date', $date)->get();
 
         return $updatedSlots->map(function ($slot) use ($reservations, $blocks, $defaultStartTimes) {
-            $status    = $slot->status;
+            $status = $slot->status;
             $slotStart = Carbon::parse($slot->start_time);
-            $slotEnd   = Carbon::parse($slot->end_time);
+            $slotEnd = Carbon::parse($slot->end_time);
 
             // Overlay reservations
             foreach ($reservations as $reservation) {
                 $resStart = Carbon::parse($reservation->start_time);
-                $resEnd   = Carbon::parse($reservation->end_time);
+                $resEnd = Carbon::parse($reservation->end_time);
 
                 if ($slotStart->between($resStart, $resEnd->subMinute()) ||
                     $slotEnd->between($resStart, $resEnd->subMinute()) ||
@@ -165,7 +165,7 @@ class TimeSlotController extends Controller
             if ($status !== 'reserved') {
                 foreach ($blocks as $block) {
                     $blockStart = Carbon::parse($block->start_time);
-                    $blockEnd   = Carbon::parse($block->end_time);
+                    $blockEnd = Carbon::parse($block->end_time);
 
                     if ($slotStart->between($blockStart, $blockEnd->subMinute()) ||
                         $slotEnd->between($blockStart, $blockEnd->subMinute()) ||
@@ -177,14 +177,14 @@ class TimeSlotController extends Controller
             }
 
             return [
-                'id'              => $slot->id,
-                'start_time'      => substr($slot->start_time, 0, 5),
-                'end_time'        => substr($slot->end_time, 0, 5),
+                'id' => $slot->id,
+                'start_time' => substr($slot->start_time, 0, 5),
+                'end_time' => substr($slot->end_time, 0, 5),
                 'formatted_start' => $slot->formatted_start_time,
-                'formatted_end'   => $slot->formatted_end_time,
-                'status'          => $status,
+                'formatted_end' => $slot->formatted_end_time,
+                'status' => $status,
                 'is_default_time' => in_array($slot->start_time, $defaultStartTimes),
-                'isEditing'       => false,
+                'isEditing' => false,
             ];
         })->values();
     }
@@ -198,8 +198,8 @@ class TimeSlotController extends Controller
 
         if ($durationMinutes > 20) {
             $startTimeCarbon = Carbon::parse($startTime);
-            $endTimeCarbon   = $startTimeCarbon->copy()->addMinutes($durationMinutes);
-            $currentTime     = $startTimeCarbon->copy();
+            $endTimeCarbon = $startTimeCarbon->copy()->addMinutes($durationMinutes);
+            $currentTime = $startTimeCarbon->copy();
 
             while ($currentTime < $endTimeCarbon) {
                 $timeSlot = TimeSlot::where('date', $date)
@@ -224,6 +224,7 @@ class TimeSlotController extends Controller
         if ($timeSlot) {
             $timeSlot->status = 'reserved';
             $timeSlot->save();
+
             return true;
         }
 
@@ -236,28 +237,28 @@ class TimeSlotController extends Controller
     public function updateSingleSlot(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'date'     => 'required|date',
+            'date' => 'required|date',
             'old_time' => 'required|date_format:H:i:s',
             'new_time' => 'required|date_format:H:i',
-            'index'    => 'required|integer',
+            'index' => 'required|integer',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors'  => $validator->errors(),
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         try {
-            $date        = $request->date;
-            $oldTime     = $request->old_time;
-            $newTime     = $request->new_time . ':00';
+            $date = $request->date;
+            $oldTime = $request->old_time;
+            $newTime = $request->new_time.':00';
             $targetIndex = $request->index;
 
             $newTimeCarbon = Carbon::parse($newTime);
-            $minTime       = Carbon::createFromTime(7, 0, 0);
-            $maxTime       = Carbon::createFromTime(18, 0, 0);
+            $minTime = Carbon::createFromTime(7, 0, 0);
+            $maxTime = Carbon::createFromTime(18, 0, 0);
 
             if ($newTimeCarbon < $minTime || $newTimeCarbon > $maxTime) {
                 return response()->json([
@@ -270,7 +271,7 @@ class TimeSlotController extends Controller
                 ->orderBy('start_time')
                 ->get();
 
-            if (!isset($allSlots[$targetIndex]) || $allSlots[$targetIndex]->start_time !== $oldTime) {
+            if (! isset($allSlots[$targetIndex]) || $allSlots[$targetIndex]->start_time !== $oldTime) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Slot not found or has been modified',
@@ -315,7 +316,7 @@ class TimeSlotController extends Controller
             }
 
             $targetSlot->start_time = $newTime;
-            $targetSlot->end_time   = Carbon::parse($newTime)->addMinutes(20)->format('H:i:s');
+            $targetSlot->end_time = Carbon::parse($newTime)->addMinutes(20)->format('H:i:s');
             $targetSlot->save();
 
             $currentTime = Carbon::parse($newTime)->addMinutes(20);
@@ -333,28 +334,28 @@ class TimeSlotController extends Controller
                     ->where('end_time', '>', $slot->start_time)
                     ->exists();
 
-                if (!$isSubsequentReserved && !$isSubsequentBlocked) {
+                if (! $isSubsequentReserved && ! $isSubsequentBlocked) {
                     $slot->start_time = $currentTime->format('H:i:s');
-                    $slot->end_time   = $currentTime->copy()->addMinutes(20)->format('H:i:s');
+                    $slot->end_time = $currentTime->copy()->addMinutes(20)->format('H:i:s');
                     $slot->save();
                 }
 
                 $currentTime->addMinutes(20);
             }
 
-            $updatedSlots   = TimeSlot::where('date', $date)->orderBy('start_time')->get();
+            $updatedSlots = TimeSlot::where('date', $date)->orderBy('start_time')->get();
             $formattedSlots = $this->buildFormattedSlots($date, $updatedSlots);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Time slot updated successfully',
-                'slots'   => $formattedSlots,
+                'slots' => $formattedSlots,
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error updating time slot: ' . $e->getMessage(),
+                'message' => 'Error updating time slot: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -365,20 +366,20 @@ class TimeSlotController extends Controller
     public function updateAvailability(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'date'       => 'required|date',
+            'date' => 'required|date',
             'start_time' => 'required|date_format:H:i',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors'  => $validator->errors(),
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         $selectedTime = Carbon::parse($request->start_time);
-        $minTime      = Carbon::createFromTime(7, 0);
-        $maxTime      = Carbon::createFromTime(17, 40);
+        $minTime = Carbon::createFromTime(7, 0);
+        $maxTime = Carbon::createFromTime(17, 40);
 
         if ($selectedTime < $minTime) {
             return response()->json([
@@ -410,17 +411,17 @@ class TimeSlotController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Time slots updated successfully from ' . $selectedTime->format('g:i A') . ' onwards',
-                'data'    => [
-                    'slots_before'  => $slotsBeforeSelected->values(),
-                    'all_slots'     => $allSlots,
+                'message' => 'Time slots updated successfully from '.$selectedTime->format('g:i A').' onwards',
+                'data' => [
+                    'slots_before' => $slotsBeforeSelected->values(),
+                    'all_slots' => $allSlots,
                     'modified_from' => $request->start_time,
                 ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error updating time slots: ' . $e->getMessage(),
+                'message' => 'Error updating time slots: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -437,7 +438,7 @@ class TimeSlotController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors'  => $validator->errors(),
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -447,18 +448,18 @@ class TimeSlotController extends Controller
             $slots = TimeSlot::generateDefaultSlotsForDate($request->date);
             TimeSlot::insert($slots);
 
-            $updatedSlots   = TimeSlot::where('date', $request->date)->orderBy('start_time')->get();
+            $updatedSlots = TimeSlot::where('date', $request->date)->orderBy('start_time')->get();
             $formattedSlots = $this->buildFormattedSlots($request->date, $updatedSlots);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Reset to default 7:00 AM start time',
-                'slots'   => $formattedSlots,
+                'slots' => $formattedSlots,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error resetting time slots: ' . $e->getMessage(),
+                'message' => 'Error resetting time slots: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -469,26 +470,26 @@ class TimeSlotController extends Controller
     public function updateSingleSlotWithSubsequent(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'date'           => 'required|date',
-            'start_index'    => 'required|integer',
+            'date' => 'required|date',
+            'start_index' => 'required|integer',
             'new_start_time' => 'required|date_format:H:i',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors'  => $validator->errors(),
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         try {
-            $date         = $request->date;
-            $startIndex   = $request->start_index;
-            $newStartTime = $request->new_start_time . ':00';
+            $date = $request->date;
+            $startIndex = $request->start_index;
+            $newStartTime = $request->new_start_time.':00';
 
             $newTimeCarbon = Carbon::parse($newStartTime);
-            $minTime       = Carbon::createFromTime(7, 0, 0);
-            $maxTime       = Carbon::createFromTime(18, 0, 0);
+            $minTime = Carbon::createFromTime(7, 0, 0);
+            $maxTime = Carbon::createFromTime(18, 0, 0);
 
             if ($newTimeCarbon < $minTime || $newTimeCarbon > $maxTime) {
                 return response()->json([
@@ -501,7 +502,7 @@ class TimeSlotController extends Controller
                 ->orderBy('start_time')
                 ->get();
 
-            if (!isset($allSlots[$startIndex])) {
+            if (! isset($allSlots[$startIndex])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Slot not found',
@@ -564,9 +565,9 @@ class TimeSlotController extends Controller
                     ->where('end_time', '>', $slot->start_time)
                     ->exists();
 
-                if (!$isSlotReserved && !$isSlotBlocked) {
+                if (! $isSlotReserved && ! $isSlotBlocked) {
                     $slot->start_time = $currentTime->format('H:i:s');
-                    $slot->end_time   = $currentTime->copy()->addMinutes(20)->format('H:i:s');
+                    $slot->end_time = $currentTime->copy()->addMinutes(20)->format('H:i:s');
                     $slot->save();
                 }
 
@@ -594,9 +595,9 @@ class TimeSlotController extends Controller
                     ->where('end_time', '>', $slot->start_time)
                     ->exists();
 
-                if (!$isSlotReserved && !$isSlotBlocked) {
+                if (! $isSlotReserved && ! $isSlotBlocked) {
                     $slot->start_time = $currentTime->format('H:i:s');
-                    $slot->end_time   = $currentTime->copy()->addMinutes(20)->format('H:i:s');
+                    $slot->end_time = $currentTime->copy()->addMinutes(20)->format('H:i:s');
                     $slot->save();
                 }
 
@@ -604,19 +605,19 @@ class TimeSlotController extends Controller
             }
 
             // ── Return refreshed slots with live reservation/block overlay ────
-            $updatedSlots   = TimeSlot::where('date', $date)->orderBy('start_time')->get();
+            $updatedSlots = TimeSlot::where('date', $date)->orderBy('start_time')->get();
             $formattedSlots = $this->buildFormattedSlots($date, $updatedSlots);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Time slots updated from ' . Carbon::parse($newStartTime)->format('g:i A') . ' (both directions)',
-                'slots'   => $formattedSlots,
+                'message' => 'Time slots updated from '.Carbon::parse($newStartTime)->format('g:i A').' (both directions)',
+                'slots' => $formattedSlots,
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error updating time slots: ' . $e->getMessage(),
+                'message' => 'Error updating time slots: '.$e->getMessage(),
             ], 500);
         }
     }
