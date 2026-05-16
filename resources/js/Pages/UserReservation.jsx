@@ -1,10 +1,4 @@
-import {
-    X,
-    Plus,
-    Edit,
-    Trash2,
-    Eye,
-} from "lucide-react";
+import { X, Plus, Edit, Trash2, Eye } from "lucide-react";
 import React, { useState, useMemo, useEffect } from "react";
 import axios from "axios";
 import { Link } from "@inertiajs/react";
@@ -12,7 +6,6 @@ import Wrapper from "@/AdminWrapper/Wrapper";
 import MyTable from "@/MyTable/MyTable";
 import AddReservationForm from "@/AddFormComponent/AddReservationForm";
 import EditReservationForm from "@/EditFormComponents/EditReservationForm";
-
 
 const UserReservation = () => {
     const [reservations, setReservations] = useState([]);
@@ -384,7 +377,6 @@ const UserReservation = () => {
 
                         {/* Controls: Search + Add + Filter Buttons */}
                         <div className="flex flex-wrap gap-2 items-center">
-
                             {/* Add New Reservation Button */}
                             <button
                                 onClick={handleAddReservation}
@@ -579,26 +571,48 @@ const UserReservation = () => {
                                     </h4>
                                     <div className="space-y-2">
                                         <div>
-                                            <span className="text-sm text-gray-500">Name:</span>
-                                            <p className="text-gray-900 font-medium">{viewingReservation.user_name}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-sm text-gray-500">Email:</span>
-                                            <p className="text-gray-900">{viewingReservation.email}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-sm text-gray-500">Phone:</span>
-                                            <p className="text-gray-900">
-                                                {viewingReservation.phone ? (
-                                                    <a href={`tel:${viewingReservation.phone}`} className="text-gray-900 hover:text-blue-600">
-                                                        {viewingReservation.phone}
-                                                    </a>
-                                                ) : "-"}
+                                            <span className="text-sm text-gray-500">
+                                                Name:
+                                            </span>
+                                            <p className="text-gray-900 font-medium">
+                                                {viewingReservation.user_name}
                                             </p>
                                         </div>
                                         <div>
-                                            <span className="text-sm text-gray-500">Address:</span>
-                                            <p className="text-gray-900">{viewingReservation.address || "-"}</p>
+                                            <span className="text-sm text-gray-500">
+                                                Email:
+                                            </span>
+                                            <p className="text-gray-900">
+                                                {viewingReservation.email}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <span className="text-sm text-gray-500">
+                                                Phone:
+                                            </span>
+                                            <p className="text-gray-900">
+                                                {viewingReservation.phone ? (
+                                                    <a
+                                                        href={`tel:${viewingReservation.phone}`}
+                                                        className="text-gray-900 hover:text-blue-600"
+                                                    >
+                                                        {
+                                                            viewingReservation.phone
+                                                        }
+                                                    </a>
+                                                ) : (
+                                                    "-"
+                                                )}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <span className="text-sm text-gray-500">
+                                                Address:
+                                            </span>
+                                            <p className="text-gray-900">
+                                                {viewingReservation.address ||
+                                                    "-"}
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
@@ -610,16 +624,31 @@ const UserReservation = () => {
                                     </h4>
                                     <div className="space-y-2">
                                         <div>
-                                            <span className="text-sm text-gray-500">Pickup Location:</span>
-                                            <p className="text-gray-900">{viewingReservation.pickup_location || "-"}</p>
+                                            <span className="text-sm text-gray-500">
+                                                Pickup Location:
+                                            </span>
+                                            <p className="text-gray-900">
+                                                {viewingReservation.pickup_location ||
+                                                    "-"}
+                                            </p>
                                         </div>
                                         <div>
-                                            <span className="text-sm text-gray-500">Dropoff Location:</span>
-                                            <p className="text-gray-900">{viewingReservation.dropoff_location || "-"}</p>
+                                            <span className="text-sm text-gray-500">
+                                                Dropoff Location:
+                                            </span>
+                                            <p className="text-gray-900">
+                                                {viewingReservation.dropoff_location ||
+                                                    "-"}
+                                            </p>
                                         </div>
                                         <div>
-                                            <span className="text-sm text-gray-500">Test Location:</span>
-                                            <p className="text-gray-900">{viewingReservation.test_location || "-"}</p>
+                                            <span className="text-sm text-gray-500">
+                                                Test Location:
+                                            </span>
+                                            <p className="text-gray-900">
+                                                {viewingReservation.test_location ||
+                                                    "-"}
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
@@ -631,12 +660,22 @@ const UserReservation = () => {
                                     </h4>
                                     <div className="space-y-2">
                                         <div>
-                                            <span className="text-sm text-gray-500">Package Type:</span>
-                                            <p className="text-gray-900">{viewingReservation.package_type || "-"}</p>
+                                            <span className="text-sm text-gray-500">
+                                                Package Type:
+                                            </span>
+                                            <p className="text-gray-900">
+                                                {viewingReservation.package_type ||
+                                                    "-"}
+                                            </p>
                                         </div>
                                         <div>
-                                            <span className="text-sm text-gray-500">Test Time:</span>
-                                            <p className="text-gray-900">{viewingReservation.test_time || "-"}</p>
+                                            <span className="text-sm text-gray-500">
+                                                Test Time:
+                                            </span>
+                                            <p className="text-gray-900">
+                                                {viewingReservation.test_time ||
+                                                    "-"}
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
@@ -648,22 +687,32 @@ const UserReservation = () => {
                                     </h4>
                                     <div className="space-y-2">
                                         <div>
-                                            <span className="text-sm text-gray-500">Date:</span>
+                                            <span className="text-sm text-gray-500">
+                                                Date:
+                                            </span>
                                             <p className="text-gray-900">
                                                 {viewingReservation.reservation_date
-                                                    ? new Date(viewingReservation.reservation_date).toLocaleDateString("en-US", {
-                                                          weekday: "long",
-                                                          year: "numeric",
-                                                          month: "long",
-                                                          day: "numeric",
-                                                      })
+                                                    ? new Date(
+                                                          viewingReservation.reservation_date,
+                                                      ).toLocaleDateString(
+                                                          "en-US",
+                                                          {
+                                                              weekday: "long",
+                                                              year: "numeric",
+                                                              month: "long",
+                                                              day: "numeric",
+                                                          },
+                                                      )
                                                     : "-"}
                                             </p>
                                         </div>
                                         <div>
-                                            <span className="text-sm text-gray-500">Time Slot:</span>
+                                            <span className="text-sm text-gray-500">
+                                                Time Slot:
+                                            </span>
                                             <p className="text-gray-900">
-                                                {viewingReservation.start_time} - {viewingReservation.end_time}
+                                                {viewingReservation.start_time}{" "}
+                                                - {viewingReservation.end_time}
                                             </p>
                                         </div>
                                     </div>
@@ -683,61 +732,111 @@ const UserReservation = () => {
                                     </button> */}
 
                                     {/* Accept Button */}
-                                    {viewingReservation.status !== "Accepted" && (
+                                    {viewingReservation.status !==
+                                        "Accepted" && (
                                         <button
-                                            onClick={() => updateStatus(viewingReservation.id, "Accepted")}
-                                            disabled={updatingId === viewingReservation.id}
+                                            onClick={() =>
+                                                updateStatus(
+                                                    viewingReservation.id,
+                                                    "Accepted",
+                                                )
+                                            }
+                                            disabled={
+                                                updatingId ===
+                                                viewingReservation.id
+                                            }
                                             className={`px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center gap-2 ${
-                                                updatingId === viewingReservation.id ? "opacity-50 cursor-not-allowed" : ""
+                                                updatingId ===
+                                                viewingReservation.id
+                                                    ? "opacity-50 cursor-not-allowed"
+                                                    : ""
                                             }`}
                                         >
-                                            {updatingId === viewingReservation.id ? (
+                                            {updatingId ===
+                                            viewingReservation.id ? (
                                                 <>
                                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                                                     Processing...
                                                 </>
                                             ) : (
-                                                <><span>✓</span> Accept Reservation</>
+                                                <>
+                                                    <span>✓</span> Accept
+                                                    Reservation
+                                                </>
                                             )}
                                         </button>
                                     )}
 
                                     {/* Reject Button */}
-                                    {viewingReservation.status !== "Rejected" && (
+                                    {viewingReservation.status !==
+                                        "Rejected" && (
                                         <button
-                                            onClick={() => updateStatus(viewingReservation.id, "Rejected")}
-                                            disabled={updatingId === viewingReservation.id}
+                                            onClick={() =>
+                                                updateStatus(
+                                                    viewingReservation.id,
+                                                    "Rejected",
+                                                )
+                                            }
+                                            disabled={
+                                                updatingId ===
+                                                viewingReservation.id
+                                            }
                                             className={`px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex items-center gap-2 ${
-                                                updatingId === viewingReservation.id ? "opacity-50 cursor-not-allowed" : ""
+                                                updatingId ===
+                                                viewingReservation.id
+                                                    ? "opacity-50 cursor-not-allowed"
+                                                    : ""
                                             }`}
                                         >
-                                            {updatingId === viewingReservation.id ? (
+                                            {updatingId ===
+                                            viewingReservation.id ? (
                                                 <>
                                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                                                     Processing...
                                                 </>
                                             ) : (
-                                                <><span>✗</span> Reject Reservation</>
+                                                <>
+                                                    <span>✗</span> Reject
+                                                    Reservation
+                                                </>
                                             )}
                                         </button>
                                     )}
 
                                     {/* Reset Button */}
-                                    {(viewingReservation.status === "Accepted" || viewingReservation.status === "Rejected") && (
+                                    {(viewingReservation.status ===
+                                        "Accepted" ||
+                                        viewingReservation.status ===
+                                            "Rejected") && (
                                         <button
-                                            onClick={() => updateStatus(viewingReservation.id, "Pending")}
-                                            disabled={updatingId === viewingReservation.id}
+                                            onClick={() =>
+                                                updateStatus(
+                                                    viewingReservation.id,
+                                                    "Pending",
+                                                )
+                                            }
+                                            disabled={
+                                                updatingId ===
+                                                viewingReservation.id
+                                            }
                                             className={`px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors flex items-center gap-2 ${
-                                                updatingId === viewingReservation.id ? "opacity-50 cursor-not-allowed" : ""
+                                                updatingId ===
+                                                viewingReservation.id
+                                                    ? "opacity-50 cursor-not-allowed"
+                                                    : ""
                                             }`}
                                         >
-                                            {updatingId === viewingReservation.id ? (
+                                            {updatingId ===
+                                            viewingReservation.id ? (
                                                 <>
                                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                                                     Processing...
                                                 </>
                                             ) : (
-                                                <><span>↻</span> Reset to Pending</>
+                                                <>
+                                                    <span>↻</span> Reset to
+                                                    Pending
+                                                </>
                                             )}
                                         </button>
                                     )}
