@@ -205,7 +205,7 @@
 //     // ─── auto-calculate times (only if end time wasn't manually changed) ───────────────────────────────────
 //     useEffect(() => {
 //         if (isManualEndTime) return; // Skip auto-calculation if user manually set end time
-        
+
 //         if (!selectedPackage?.duration) return;
 //         const durationMinutes = parseDurationToMinutes(selectedPackage.duration);
 //         if (!durationMinutes) return;
@@ -463,7 +463,7 @@
 //                             <label className="block text-sm font-medium text-gray-700 mb-2">Pickup Location *</label>
 //                             <div className="flex gap-2">
 //                                 <div className="relative flex-1">
-//                                     <input type="text" name="pickup_location" value={formData.pickup_location} 
+//                                     <input type="text" name="pickup_location" value={formData.pickup_location}
 //                                         onChange={handleChange}
 //                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
 //                                         placeholder="Enter pickup location" required />
@@ -483,7 +483,7 @@
 //                             <label className="block text-sm font-medium text-gray-700 mb-2">Dropoff Location *</label>
 //                             <div className="flex gap-2">
 //                                 <div className="relative flex-1">
-//                                     <input type="text" name="dropoff_location" value={formData.dropoff_location} 
+//                                     <input type="text" name="dropoff_location" value={formData.dropoff_location}
 //                                         onChange={handleChange}
 //                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
 //                                         placeholder="Enter dropoff location" required />
@@ -769,12 +769,16 @@ const EditReservationForm = ({
                 const pricesData = response.data.data;
                 setPrices(pricesData);
                 const uniqueCategories = [
-                    ...new Set(pricesData.map((p) => p.category).filter(Boolean)),
+                    ...new Set(
+                        pricesData.map((p) => p.category).filter(Boolean),
+                    ),
                 ];
                 setCategories(uniqueCategories);
             } catch (err) {
                 console.error("Error fetching prices:", err);
-                alert("Failed to load price packages. Please refresh the page.");
+                alert(
+                    "Failed to load price packages. Please refresh the page.",
+                );
             } finally {
                 setFetchingPrices(false);
             }
@@ -834,32 +838,47 @@ const EditReservationForm = ({
             package_type: realCategory,
             price_id: reservationToEdit.price_id.toString(),
         }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [prices, reservationToEdit]);
 
     // ─── auto-calculate times ────────────────────────────────────────────────────
     useEffect(() => {
         if (isManualEndTime) return;
         if (!selectedPackage?.duration) return;
-        const durationMinutes = parseDurationToMinutes(selectedPackage.duration);
+        const durationMinutes = parseDurationToMinutes(
+            selectedPackage.duration,
+        );
         if (!durationMinutes) return;
 
         if (isTestPackage() && formData.test_time) {
-            const calcStart = calculateStartTimeFromTest(formData.test_time, durationMinutes);
-            const calcEnd   = calculateEndTime(formData.test_time, 60);
+            const calcStart = calculateStartTimeFromTest(
+                formData.test_time,
+                durationMinutes,
+            );
+            const calcEnd = calculateEndTime(formData.test_time, 60);
             setFormData((prev) => {
-                if (prev.start_time === calcStart && prev.end_time === calcEnd) return prev;
+                if (prev.start_time === calcStart && prev.end_time === calcEnd)
+                    return prev;
                 return { ...prev, start_time: calcStart, end_time: calcEnd };
             });
         } else if (!isTestPackage() && formData.start_time) {
-            const calcEnd = calculateEndTime(formData.start_time, durationMinutes);
+            const calcEnd = calculateEndTime(
+                formData.start_time,
+                durationMinutes,
+            );
             setFormData((prev) => {
                 if (prev.end_time === calcEnd) return prev;
                 return { ...prev, end_time: calcEnd };
             });
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedPackage?.id, formData.test_time, formData.start_time, formData.package_type, isManualEndTime]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        selectedPackage?.id,
+        formData.test_time,
+        formData.start_time,
+        formData.package_type,
+        isManualEndTime,
+    ]);
 
     // ─── category change handler ─────────────────────────────────────────────────
     const handleCategoryChange = (newCategory) => {
@@ -897,8 +916,14 @@ const EditReservationForm = ({
     const handleChange = (e) => {
         const { name, value } = e.target;
 
-        if (name === "package_type") { handleCategoryChange(value); return; }
-        if (name === "price_id")     { handlePackageChange(value);  return; }
+        if (name === "package_type") {
+            handleCategoryChange(value);
+            return;
+        }
+        if (name === "price_id") {
+            handlePackageChange(value);
+            return;
+        }
 
         if (name === "end_time") {
             setIsManualEndTime(true);
@@ -912,9 +937,9 @@ const EditReservationForm = ({
                 setIsManualEndTime(false);
                 setFormData((prev) => ({
                     ...prev,
-                    test_time:  value,
+                    test_time: value,
                     start_time: calculateStartTimeFromTest(value, mins),
-                    end_time:   calculateEndTime(value, 60),
+                    end_time: calculateEndTime(value, 60),
                 }));
                 return;
             }
@@ -927,7 +952,7 @@ const EditReservationForm = ({
                 setFormData((prev) => ({
                     ...prev,
                     start_time: value,
-                    end_time:   calculateEndTime(value, mins),
+                    end_time: calculateEndTime(value, mins),
                 }));
                 return;
             }
@@ -951,9 +976,11 @@ const EditReservationForm = ({
         for (const field of required) {
             if (!formData[field] || !formData[field].toString().trim()) {
                 const label =
-                    field === "package_type" ? "category"
-                  : field === "price_id"     ? "package"
-                  : field;
+                    field === "package_type"
+                        ? "category"
+                        : field === "price_id"
+                          ? "package"
+                          : field;
                 alert(`❌ ${label.replace(/_/g, " ")} is required`);
                 return false;
             }
@@ -993,26 +1020,29 @@ const EditReservationForm = ({
         setError(null);
         setSuccessMessage(null);
 
-        const packageDescription = selectedPackage?.description || formData.package_type;
+        const packageDescription =
+            selectedPackage?.description || formData.package_type;
 
         try {
             const submitData = {
-                user_name:        formData.user_name,
-                phone:            formData.phone,
-                address:          formData.address,
-                package_type:     packageDescription,
-                price_id:         parseInt(formData.price_id),
+                user_name: formData.user_name,
+                phone: formData.phone,
+                address: formData.address,
+                package_type: packageDescription,
+                price_id: parseInt(formData.price_id),
                 reservation_date: formData.reservation_date,
-                start_time:       formData.start_time,
-                end_time:         formData.end_time,
+                start_time: formData.start_time,
+                end_time: formData.end_time,
                 ...(isTestPackage() && {
-                    test_time:     formData.test_time,
+                    test_time: formData.test_time,
                     test_location: formData.test_location,
                 }),
             };
 
             const response = await axios.put(
-                route("ouruserreservations.update", { id: reservationToEdit.id }),
+                route("ouruserreservations.update", {
+                    id: reservationToEdit.id,
+                }),
                 submitData,
             );
 
@@ -1028,12 +1058,16 @@ const EditReservationForm = ({
                 if (errs && Array.isArray(errs)) {
                     alert(`❌ Validation Error:\n${errs.join("\n")}`);
                 } else if (msg?.toLowerCase().includes("blocked")) {
-                    alert("❌ This time slot is already BLOCKED by administrator.\n\nPlease select a different time.");
+                    alert(
+                        "❌ This time slot is already BLOCKED by administrator.\n\nPlease select a different time.",
+                    );
                 } else if (
                     msg?.toLowerCase().includes("booked") ||
                     msg?.toLowerCase().includes("reserved")
                 ) {
-                    alert("❌ This time slot is already BOOKED.\n\nPlease select a different time.");
+                    alert(
+                        "❌ This time slot is already BOOKED.\n\nPlease select a different time.",
+                    );
                 } else {
                     alert(`❌ Error: ${msg || "Failed to update reservation"}`);
                 }
@@ -1050,7 +1084,6 @@ const EditReservationForm = ({
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl my-8 max-h-[90vh] overflow-y-auto">
-
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-white z-10">
                     <h2 className="text-xl font-semibold text-gray-800">
@@ -1072,7 +1105,6 @@ const EditReservationForm = ({
 
                 <form onSubmit={handleSubmit} className="p-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
                         {/* ── Personal Info ── */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1143,13 +1175,19 @@ const EditReservationForm = ({
                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 required
                             >
-                                <option value="">Select a package category</option>
+                                <option value="">
+                                    Select a package category
+                                </option>
                                 {categories.map((cat) => (
-                                    <option key={cat} value={cat}>{cat}</option>
+                                    <option key={cat} value={cat}>
+                                        {cat}
+                                    </option>
                                 ))}
                             </select>
                             {fetchingPrices && categories.length === 0 && (
-                                <p className="text-sm text-gray-500 mt-1">Loading categories...</p>
+                                <p className="text-sm text-gray-500 mt-1">
+                                    Loading categories...
+                                </p>
                             )}
                         </div>
 
@@ -1165,20 +1203,28 @@ const EditReservationForm = ({
                                     onChange={handleChange}
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     required
-                                    disabled={fetchingPrices || filteredPackages.length === 0}
+                                    disabled={
+                                        fetchingPrices ||
+                                        filteredPackages.length === 0
+                                    }
                                 >
                                     <option value="">Choose a package</option>
                                     {filteredPackages.map((pkg) => (
                                         <option key={pkg.id} value={pkg.id}>
-                                            {pkg.description}{pkg.price ? ` - $${pkg.price}` : ""}
+                                            {pkg.description}
+                                            {pkg.price
+                                                ? ` - $${pkg.price}`
+                                                : ""}
                                         </option>
                                     ))}
                                 </select>
-                                {filteredPackages.length === 0 && !fetchingPrices && (
-                                    <p className="text-sm text-red-500 mt-1">
-                                        No packages available in this category
-                                    </p>
-                                )}
+                                {filteredPackages.length === 0 &&
+                                    !fetchingPrices && (
+                                        <p className="text-sm text-red-500 mt-1">
+                                            No packages available in this
+                                            category
+                                        </p>
+                                    )}
                             </div>
                         )}
 
@@ -1246,7 +1292,10 @@ const EditReservationForm = ({
                                     </div>
                                     {selectedPackage?.duration && (
                                         <p className="text-xs text-gray-500 mt-1">
-                                            Start time will be automatically calculated {selectedPackage.duration} before test time
+                                            Start time will be automatically
+                                            calculated{" "}
+                                            {selectedPackage.duration} before
+                                            test time
                                         </p>
                                     )}
                                 </div>
@@ -1276,12 +1325,14 @@ const EditReservationForm = ({
                             </div>
                             {!isTestPackage() && selectedPackage?.duration && (
                                 <p className="text-xs text-gray-500 mt-1">
-                                    End time will be automatically calculated based on {selectedPackage.duration}
+                                    End time will be automatically calculated
+                                    based on {selectedPackage.duration}
                                 </p>
                             )}
                             {isTestPackage() && (
                                 <p className="text-xs text-gray-500 mt-1">
-                                    Start time is automatically calculated based on test time
+                                    Start time is automatically calculated based
+                                    on test time
                                 </p>
                             )}
                         </div>
@@ -1307,14 +1358,18 @@ const EditReservationForm = ({
                             </div>
                             {isTestPackage() && !isManualEndTime && (
                                 <p className="text-xs text-gray-500 mt-1">
-                                    End time is set to 1 hour after test time (you can manually change it)
+                                    End time is set to 1 hour after test time
+                                    (you can manually change it)
                                 </p>
                             )}
-                            {!isTestPackage() && !isManualEndTime && selectedPackage?.duration && (
-                                <p className="text-xs text-gray-500 mt-1">
-                                    End time is automatically calculated (you can manually change it)
-                                </p>
-                            )}
+                            {!isTestPackage() &&
+                                !isManualEndTime &&
+                                selectedPackage?.duration && (
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        End time is automatically calculated
+                                        (you can manually change it)
+                                    </p>
+                                )}
                             {isManualEndTime && (
                                 <p className="text-xs text-blue-500 mt-1">
                                     Manual override - auto-calculation disabled
@@ -1326,15 +1381,35 @@ const EditReservationForm = ({
                     {/* ── Selected Package Summary ── */}
                     {selectedPackage && (
                         <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                            <h3 className="font-medium text-green-800 mb-2">Selected Package Details:</h3>
+                            <h3 className="font-medium text-green-800 mb-2">
+                                Selected Package Details:
+                            </h3>
                             <p className="text-sm text-green-600">
-                                <span className="font-medium">Category:</span> {selectedPackage.category}<br />
-                                <span className="font-medium">Package:</span> {selectedPackage.description}<br />
+                                <span className="font-medium">Category:</span>{" "}
+                                {selectedPackage.category}
+                                <br />
+                                <span className="font-medium">
+                                    Package:
+                                </span>{" "}
+                                {selectedPackage.description}
+                                <br />
                                 {selectedPackage.price && (
-                                    <><span className="font-medium">Price:</span> ${selectedPackage.price}<br /></>
+                                    <>
+                                        <span className="font-medium">
+                                            Price:
+                                        </span>{" "}
+                                        ${selectedPackage.price}
+                                        <br />
+                                    </>
                                 )}
                                 {selectedPackage.duration && (
-                                    <><span className="font-medium">Duration:</span> {selectedPackage.duration}<br /></>
+                                    <>
+                                        <span className="font-medium">
+                                            Duration:
+                                        </span>{" "}
+                                        {selectedPackage.duration}
+                                        <br />
+                                    </>
                                 )}
                             </p>
                         </div>
@@ -1372,7 +1447,6 @@ const EditReservationForm = ({
 };
 
 export default EditReservationForm;
-
 
 // import React, { useState, useEffect, useCallback } from "react";
 // import axios from "axios";
@@ -1564,7 +1638,7 @@ export default EditReservationForm;
 //     // ─── auto-calculate times (only if end time wasn't manually changed) ───────────────────────────────────
 //     useEffect(() => {
 //         if (isManualEndTime) return; // Skip auto-calculation if user manually set end time
-        
+
 //         if (!selectedPackage?.duration) return;
 //         const durationMinutes = parseDurationToMinutes(selectedPackage.duration);
 //         if (!durationMinutes) return;
@@ -1996,8 +2070,6 @@ export default EditReservationForm;
 // };
 
 // export default EditReservationForm;
-
-
 
 // import React, { useState, useEffect, useCallback } from "react";
 // import axios from "axios";
