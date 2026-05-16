@@ -21,13 +21,13 @@ class PriceController extends Controller
         ], 200);
     }
 
-    public function indexShowPriceSlug ($slug)
+    public function indexShowPriceSlug($slug)
     {
         $price = Price::where('slug', $slug)->firstOrFail();
 
         return response()->json([
             'success' => true,
-            'data' => $price
+            'data' => $price,
         ]);
     }
 
@@ -38,7 +38,7 @@ class PriceController extends Controller
 
             return Inertia::render('PricePackages/CalendarIntegrationWrapper', [
                 'price' => $price,
-            ]);    
+            ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
                 'success' => false,
@@ -57,7 +57,7 @@ class PriceController extends Controller
 
             return Inertia::render('PricePackages/TestCalendarIntegrationWrapper', [
                 'price' => $price,
-            ]);    
+            ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
                 'success' => false,
@@ -73,11 +73,11 @@ class PriceController extends Controller
     {
         $validated = $request->validate([
             'description' => 'required|string|max:255',
-            'price'       => 'required|numeric',
-            'features'    => 'nullable|string',
-            'duration'    => 'required|string|max:255',
-            'discount'    => 'nullable|string|max:255',
-            'category'    => 'nullable|string|max:255',
+            'price' => 'required|numeric',
+            'features' => 'nullable|string',
+            'duration' => 'required|string|max:255',
+            'discount' => 'nullable|string|max:255',
+            'category' => 'nullable|string|max:255',
         ]);
 
         $price = Price::create($validated);
@@ -98,11 +98,11 @@ class PriceController extends Controller
 
         $validated = $request->validate([
             'description' => 'sometimes|required|string|max:255',
-            'price'       => 'sometimes|required|numeric',
-            'features'    => 'nullable|string',
-            'duration'    => 'sometimes|required|string|max:255',
-            'discount'    => 'nullable|string|max:255',
-            'category'    => 'nullable|string|max:255',
+            'price' => 'sometimes|required|numeric',
+            'features' => 'nullable|string',
+            'duration' => 'sometimes|required|string|max:255',
+            'discount' => 'nullable|string|max:255',
+            'category' => 'nullable|string|max:255',
         ]);
 
         $price->update($validated);
@@ -110,7 +110,7 @@ class PriceController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Price package updated successfully.',
-            'data' => $price->fresh(),  
+            'data' => $price->fresh(),
         ], 200);
     }
 

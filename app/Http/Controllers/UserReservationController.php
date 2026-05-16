@@ -562,7 +562,7 @@ class UserReservationController extends Controller
         }
 
         try {
-             $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
+            $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
             // $adminEmail = env('ADMIN_EMAIL', 'wheelmaster@outlook.com.au');
             Mail::to($adminEmail)->send(new ReservationCreated($reservation, true));
         } catch (\Exception $e) {
@@ -588,8 +588,8 @@ class UserReservationController extends Controller
         }
 
         try {
-             $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
-           // $adminEmail = env('ADMIN_EMAIL', 'wheelmaster@outlook.com.au');
+            $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
+            // $adminEmail = env('ADMIN_EMAIL', 'wheelmaster@outlook.com.au');
             Mail::to($adminEmail)->send(new ReservationCreated($firstReservation, true, $sessionCount));
         } catch (\Exception $e) {
             Log::error('Failed to send admin bundle email: '.$e->getMessage());
@@ -612,8 +612,8 @@ class UserReservationController extends Controller
         }
 
         try {
-             $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
-           // $adminEmail = env('ADMIN_EMAIL', 'wheelmaster@outlook.com.au');
+            $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
+            // $adminEmail = env('ADMIN_EMAIL', 'wheelmaster@outlook.com.au');
             Mail::to($adminEmail)->send(new ReservationStatusUpdated($reservation, true));
         } catch (\Exception $e) {
             Log::error('Failed to send admin status update email: '.$e->getMessage());

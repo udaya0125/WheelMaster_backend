@@ -6,9 +6,9 @@ use App\Mail\ReservationCreated;
 use App\Models\BlockReservation;
 use App\Models\Notification;
 use App\Models\Price;
+use App\Models\TimeSlot;
 use App\Models\UserReservation;
 use Carbon\Carbon;
-use App\Models\TimeSlot;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -308,8 +308,8 @@ class ReservationController extends Controller
 
         // Send email to admin
         try {
-           // $adminEmail = env('ADMIN_EMAIL', 'wheelmaster@outlook.com.au');
-             $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
+            // $adminEmail = env('ADMIN_EMAIL', 'wheelmaster@outlook.com.au');
+            $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
             Mail::to($adminEmail)->send(new ReservationCreated($reservation, true));
         } catch (\Exception $e) {
             Log::error('Failed to send admin email: '.$e->getMessage());

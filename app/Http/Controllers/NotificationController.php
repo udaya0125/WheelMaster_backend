@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Notification;
-use Illuminate\Http\Request;
 
 class NotificationController extends Controller
 {
@@ -23,7 +22,7 @@ class NotificationController extends Controller
 
         return response()->json([
             'success' => true,
-            'notification' => $notification
+            'notification' => $notification,
         ]);
     }
 

@@ -17,7 +17,7 @@ class UserController extends Controller
 
         return response()->json([
             'success' => true,
-            'data'    => $users,
+            'data' => $users,
         ], 200);
     }
 
@@ -27,21 +27,21 @@ class UserController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name'     => 'required|string|max:255',
-            'email'    => 'required|email|unique:users,email',
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
             'password' => 'required|string|min:6',
         ]);
 
         $user = User::create([
-            'name'     => $validated['name'],
-            'email'    => $validated['email'],
+            'name' => $validated['name'],
+            'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
         ]);
 
         return response()->json([
             'success' => true,
             'message' => 'User created successfully.',
-            'data'    => $user,
+            'data' => $user,
         ], 201);
     }
 
@@ -52,7 +52,7 @@ class UserController extends Controller
     {
         $user = User::find($id);
 
-        if (!$user) {
+        if (! $user) {
             return response()->json([
                 'success' => false,
                 'message' => 'User not found.',
@@ -60,8 +60,8 @@ class UserController extends Controller
         }
 
         $validated = $request->validate([
-            'name'     => 'sometimes|string|max:255',
-            'email'    => 'sometimes|email|unique:users,email,' . $id,
+            'name' => 'sometimes|string|max:255',
+            'email' => 'sometimes|email|unique:users,email,'.$id,
             'password' => 'sometimes|string|min:6',
         ]);
 
@@ -74,7 +74,7 @@ class UserController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'User updated successfully.',
-            'data'    => $user,
+            'data' => $user,
         ], 200);
     }
 
@@ -85,7 +85,7 @@ class UserController extends Controller
     {
         $user = User::find($id);
 
-        if (!$user) {
+        if (! $user) {
             return response()->json([
                 'success' => false,
                 'message' => 'User not found.',

@@ -8,8 +8,8 @@ use App\Models\Notification;
 use App\Models\Price;
 use App\Models\UserReservation;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class TestPackageController extends Controller
@@ -157,7 +157,7 @@ class TestPackageController extends Controller
             })
             ->exists();
 
-        return !$hasReservation && !$hasBlock;
+        return ! $hasReservation && ! $hasBlock;
     }
 
     /**
@@ -254,7 +254,7 @@ class TestPackageController extends Controller
 
         $availabilityData = $availabilityCheck->getData();
 
-        if (!$availabilityData->available) {
+        if (! $availabilityData->available) {
             return response()->json([
                 'success' => false,
                 'message' => 'Time slot no longer available',
@@ -276,14 +276,14 @@ class TestPackageController extends Controller
             'test_time' => $request->test_time,
             'test_location' => $request->test_location,
             'price_id' => $request->price_id,
-            'package_type' => 'Test Package: ' . $testType,
+            'package_type' => 'Test Package: '.$testType,
             'test_type' => $testType,
             'status' => 'Pending',
             'notes' => json_encode([
                 'test_type' => $testType,
                 'actual_test_time' => $request->test_time,
                 'test_location' => $request->test_location,
-                'test_duration' => $durationMinutes . ' minutes',
+                'test_duration' => $durationMinutes.' minutes',
                 'buffer_before_test' => '1 hour',
                 'calculated_start_time' => $startTime->format('H:i:s'),
                 'calculated_end_time' => $endTime->format('H:i:s'),
@@ -293,7 +293,7 @@ class TestPackageController extends Controller
 
         // Create notification for new reservation - FIXED: Removed duplicate field
         $notification = Notification::create([
-            'message' => "New test package reservation from {$reservation->user_name} for {$reservation->reservation_date} " .
+            'message' => "New test package reservation from {$reservation->user_name} for {$reservation->reservation_date} ".
                         "({$startTime->format('h:i A')} - {$endTime->format('h:i A')})",
             'is_read' => false,
             'type' => 'test_package',
@@ -304,16 +304,16 @@ class TestPackageController extends Controller
         try {
             Mail::to($reservation->email)->send(new ReservationCreated($reservation, false));
         } catch (\Exception $e) {
-            Log::error('Failed to send customer email: ' . $e->getMessage());
+            Log::error('Failed to send customer email: '.$e->getMessage());
         }
 
         // Send email to admin
         try {
-             $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
-           // $adminEmail = env('ADMIN_EMAIL', 'wheelmaster@outlook.com.au');
+            $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
+            // $adminEmail = env('ADMIN_EMAIL', 'wheelmaster@outlook.com.au');
             Mail::to($adminEmail)->send(new ReservationCreated($reservation, true));
         } catch (\Exception $e) {
-            Log::error('Failed to send admin email: ' . $e->getMessage());
+            Log::error('Failed to send admin email: '.$e->getMessage());
         }
 
         return response()->json([
@@ -324,7 +324,7 @@ class TestPackageController extends Controller
                 'test_time' => $request->test_time,
                 'start_time' => $startTime->format('H:i:s'),
                 'end_time' => $endTime->format('H:i:s'),
-                'duration' => $durationMinutes . ' minutes',
+                'duration' => $durationMinutes.' minutes',
                 'price_id' => $request->price_id,
             ],
         ], 201);

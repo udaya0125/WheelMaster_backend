@@ -18,7 +18,7 @@ class TestimonialController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Testimonials fetched successfully',
-            'data' => $testimonials
+            'data' => $testimonials,
         ], 200);
     }
 
@@ -28,10 +28,10 @@ class TestimonialController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'author_name'  => 'required|string|max:255',
-            'comment'      => 'required|string',
+            'author_name' => 'required|string|max:255',
+            'comment' => 'required|string',
             'author_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
-            'author_role'  => 'nullable|string|max:255',
+            'author_role' => 'nullable|string|max:255',
         ]);
 
         // Handle Image Upload
@@ -44,45 +44,45 @@ class TestimonialController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Testimonial created successfully',
-            'data' => $testimonial
+            'data' => $testimonial,
         ], 201);
     }
 
     /**
      * Update the specified testimonial.
      */
-   public function update(Request $request, $id)
-{
-    $testimonial = Testimonial::findOrFail($id);
+    public function update(Request $request, $id)
+    {
+        $testimonial = Testimonial::findOrFail($id);
 
-    $validated = $request->validate([
-        'author_name'  => 'sometimes|required|string|max:255',
-        'comment'      => 'sometimes|required|string',
-        'author_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
-        'author_role'  => 'nullable|string|max:255',
-    ]);
+        $validated = $request->validate([
+            'author_name' => 'sometimes|required|string|max:255',
+            'comment' => 'sometimes|required|string',
+            'author_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'author_role' => 'nullable|string|max:255',
+        ]);
 
-    // Handle image replacement only if new image is provided
-    if ($request->hasFile('author_image')) {
-        // Delete old image if exists
-        if ($testimonial->author_image) {
-            Storage::disk('public')->delete($testimonial->author_image);
+        // Handle image replacement only if new image is provided
+        if ($request->hasFile('author_image')) {
+            // Delete old image if exists
+            if ($testimonial->author_image) {
+                Storage::disk('public')->delete($testimonial->author_image);
+            }
+
+            $validated['author_image'] = $request->file('author_image')->store('testimonials', 'public');
+        } else {
+            // If no new image is provided, keep the existing one
+            unset($validated['author_image']);
         }
 
-        $validated['author_image'] = $request->file('author_image')->store('testimonials', 'public');
-    } else {
-        // If no new image is provided, keep the existing one
-        unset($validated['author_image']);
+        $testimonial->update($validated);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Testimonial updated successfully',
+            'data' => $testimonial,
+        ], 200);
     }
-
-    $testimonial->update($validated);
-
-    return response()->json([
-        'status' => 'success',
-        'message' => 'Testimonial updated successfully',
-        'data' => $testimonial
-    ], 200);
-}
 
     /**
      * Remove the specified testimonial from storage.
@@ -100,7 +100,7 @@ class TestimonialController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Testimonial deleted successfully'
+            'message' => 'Testimonial deleted successfully',
         ], 200);
     }
 }

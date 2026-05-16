@@ -14,6 +14,7 @@ class GalleryController extends Controller
     public function index()
     {
         $galleries = Gallery::all();
+
         return response()->json($galleries);
     }
 
@@ -30,7 +31,7 @@ class GalleryController extends Controller
 
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $image) {
-                $path = $image->store('galleries', 'public'); 
+                $path = $image->store('galleries', 'public');
 
                 $gallery = Gallery::create([
                     'image_path' => $path,
@@ -38,7 +39,6 @@ class GalleryController extends Controller
 
                 $createdGalleries[] = $gallery;
 
-               
             }
         }
 
@@ -64,8 +64,6 @@ class GalleryController extends Controller
         }
 
         $gallery->delete();
-
-       
 
         return response()->json(['message' => 'Image deleted successfully!']);
     }
