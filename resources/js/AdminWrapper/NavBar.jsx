@@ -34,7 +34,7 @@ const NavBar = ({ onMenuToggle }) => {
                     description: notification.message,
                     time: formatTime(notification.created_at),
                     read: Boolean(notification.is_read),
-                })
+                }),
             );
             setNotifications(formattedNotifications);
         } catch (error) {
@@ -45,7 +45,7 @@ const NavBar = ({ onMenuToggle }) => {
         }
     };
 
-//  console.log("Notifications state:", notifications); // Debug log
+    //  console.log("Notifications state:", notifications); // Debug log
 
     const formatTime = (timestamp) => {
         if (!timestamp) return "Just now";
@@ -95,7 +95,7 @@ const NavBar = ({ onMenuToggle }) => {
         try {
             await axios.patch(route("notifications.markAsRead", id));
             setNotifications((prev) =>
-                prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+                prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
             );
         } catch (error) {
             console.error("Error marking notification as read:", error);
@@ -281,7 +281,7 @@ const NavBar = ({ onMenuToggle }) => {
                                                                         <button
                                                                             onClick={() =>
                                                                                 markAsRead(
-                                                                                    notification.id
+                                                                                    notification.id,
                                                                                 )
                                                                             }
                                                                             className="p-1 hover:bg-green-100 rounded"
@@ -293,7 +293,7 @@ const NavBar = ({ onMenuToggle }) => {
                                                                     <button
                                                                         onClick={() =>
                                                                             deleteNotification(
-                                                                                notification.id
+                                                                                notification.id,
                                                                             )
                                                                         }
                                                                         className="p-1 hover:bg-red-100 rounded"
@@ -304,7 +304,7 @@ const NavBar = ({ onMenuToggle }) => {
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                    )
+                                                    ),
                                                 )}
                                             </div>
                                         ) : (
