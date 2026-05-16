@@ -98,19 +98,19 @@
 //     // Updated extractLessonCount function to handle both patterns
 //     const extractLessonCount = (description) => {
 //         if (!description) return 1;
-        
+
 //         // Pattern 1: "10 x Driving Lessons" or "5x Lessons"
 //         const multiplyMatch = description.match(/^(\d+)\s*[x×]\s*/i);
 //         if (multiplyMatch) return parseInt(multiplyMatch[1]);
-        
+
 //         // Pattern 2: "10-Hour Express Test Prep" or "5-Hour Package"
 //         const hourMatch = description.match(/^(\d+)-Hour/i);
 //         if (hourMatch) return parseInt(hourMatch[1]);
-        
+
 //         // Pattern 3: "10 Hours Package" or "5 hours training"
 //         const hoursMatch = description.match(/^(\d+)\s+hours?/i);
 //         if (hoursMatch) return parseInt(hoursMatch[1]);
-        
+
 //         return 1;
 //     };
 
@@ -327,7 +327,7 @@
 //     const updateBundleSession = (index, field, value) => {
 //         const newSessions = [...bundleSessions];
 //         newSessions[index][field] = value;
-        
+
 //         // Auto-calculate end time only when start_time changes and duration exists
 //         if (field === "start_time" && selectedPackage?.duration && value) {
 //             const mins = parseDurationToMinutes(selectedPackage.duration);
@@ -335,7 +335,7 @@
 //                 newSessions[index].end_time = calculateEndTime(value, mins);
 //             }
 //         }
-        
+
 //         setBundleSessions(newSessions);
 //     };
 
@@ -1240,7 +1240,6 @@
 // };
 
 // export default AddReservationForm;
-
 
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
@@ -2365,9 +2364,6 @@ const AddReservationForm = ({ isOpen, onClose, onSuccess }) => {
 
 export default AddReservationForm;
 
-
-
-
 // import React, { useState, useEffect, useCallback } from "react";
 // import axios from "axios";
 // import { X, Calendar, Clock, Mail, Phone, Home, MapPin } from "lucide-react";
@@ -2468,19 +2464,19 @@ export default AddReservationForm;
 //     // Updated extractLessonCount function to handle both patterns
 //     const extractLessonCount = (description) => {
 //         if (!description) return 1;
-        
+
 //         // Pattern 1: "10 x Driving Lessons" or "5x Lessons"
 //         const multiplyMatch = description.match(/^(\d+)\s*[x×]\s*/i);
 //         if (multiplyMatch) return parseInt(multiplyMatch[1]);
-        
+
 //         // Pattern 2: "10-Hour Express Test Prep" or "5-Hour Package"
 //         const hourMatch = description.match(/^(\d+)-Hour/i);
 //         if (hourMatch) return parseInt(hourMatch[1]);
-        
+
 //         // Pattern 3: "10 Hours Package" or "5 hours training"
 //         const hoursMatch = description.match(/^(\d+)\s+hours?/i);
 //         if (hoursMatch) return parseInt(hoursMatch[1]);
-        
+
 //         return 1;
 //     };
 
@@ -2680,7 +2676,7 @@ export default AddReservationForm;
 //     const updateBundleSession = (index, field, value) => {
 //         const newSessions = [...bundleSessions];
 //         newSessions[index][field] = value;
-        
+
 //         // Auto-calculate end time only when start_time changes and duration exists
 //         if (field === "start_time" && selectedPackage?.duration && value) {
 //             const mins = parseDurationToMinutes(selectedPackage.duration);
@@ -2688,7 +2684,7 @@ export default AddReservationForm;
 //                 newSessions[index].end_time = calculateEndTime(value, mins);
 //             }
 //         }
-        
+
 //         setBundleSessions(newSessions);
 //     };
 
@@ -3569,7 +3565,6 @@ export default AddReservationForm;
 // };
 
 // export default AddReservationForm;
-
 
 // import React, { useState, useEffect, useCallback } from "react";
 // import axios from "axios";
@@ -4757,4 +4752,3 @@ export default AddReservationForm;
 // };
 
 // export default AddReservationForm;
-
