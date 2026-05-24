@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Mail;
 
 class UserReservationController extends Controller
 {
+    private const BOOKING_BUFFER_MINUTES = 20;
+
     // ---------------------------------------
     // Helper: Extract number of lessons from package description
     // ---------------------------------------
@@ -82,45 +84,59 @@ class UserReservationController extends Controller
         return null;
     }
 
+    private function bookingBufferEnd($endTime)
+    {
+        return Carbon::parse($endTime)->addMinutes(self::BOOKING_BUFFER_MINUTES);
+    }
+
+    private function hasBlockOverlap($date, Carbon $start, Carbon $bufferEnd)
+    {
+        return BlockReservation::where('date', $date)
+            ->get()
+            ->contains(function ($block) use ($start, $bufferEnd) {
+                $blockStart = Carbon::parse($block->start_time);
+                $blockEnd = Carbon::parse($block->end_time);
+
+                return $blockStart < $bufferEnd && $blockEnd > $start;
+            });
+    }
+
+    private function hasReservationOverlap($date, $priceId, Carbon $start, Carbon $bufferEnd, $excludeId = null)
+    {
+        $query = UserReservation::where('reservation_date', $date)
+            ->where('price_id', $priceId)
+            ->where('status', '!=', 'Rejected');
+
+        if ($excludeId) {
+            $query->where('id', '!=', $excludeId);
+        }
+
+        return $query->get()->contains(function ($reservation) use ($start, $bufferEnd) {
+            $reservationStart = Carbon::parse($reservation->start_time);
+            $reservationBufferEnd = $this->bookingBufferEnd($reservation->end_time);
+
+            return $reservationStart < $bufferEnd && $reservationBufferEnd > $start;
+        });
+    }
+
     // ---------------------------------------
     // Helper: Check if a single session is available
     // ---------------------------------------
     private function isSessionAvailable($date, $startTime, $endTime, $priceId, $excludeId = null)
     {
         $dateFormatted = Carbon::parse($date)->format('Y-m-d');
-        $startFormatted = Carbon::parse($startTime)->format('H:i:s');
-        $endFormatted = Carbon::parse($endTime)->format('H:i:s');
+        $requestStart = Carbon::parse($startTime);
+        $requestBufferEnd = $this->bookingBufferEnd($endTime);
 
         // Check blocked slots
-        $blocked = BlockReservation::where('date', $dateFormatted)
-            ->where(function ($query) use ($startFormatted, $endFormatted) {
-                $query->where(function ($q) use ($startFormatted, $endFormatted) {
-                    $q->where('start_time', '<', $endFormatted)
-                        ->where('end_time', '>', $startFormatted);
-                });
-            })
-            ->exists();
+        $blocked = $this->hasBlockOverlap($dateFormatted, $requestStart, $requestBufferEnd);
 
         if ($blocked) {
             return false;
         }
 
         // Check existing reservations
-        $query = UserReservation::where('reservation_date', $dateFormatted)
-            ->where('price_id', $priceId)
-            ->where('status', '!=', 'Rejected')
-            ->where(function ($query) use ($startFormatted, $endFormatted) {
-                $query->where(function ($q) use ($startFormatted, $endFormatted) {
-                    $q->where('start_time', '<', $endFormatted)
-                        ->where('end_time', '>', $startFormatted);
-                });
-            });
-
-        if ($excludeId) {
-            $query->where('id', '!=', $excludeId);
-        }
-
-        return ! $query->exists();
+        return ! $this->hasReservationOverlap($dateFormatted, $priceId, $requestStart, $requestBufferEnd, $excludeId);
     }
 
     // ---------------------------------------
@@ -174,18 +190,12 @@ class UserReservationController extends Controller
 
         $requestStart = Carbon::parse($request->start_time);
         $requestEnd = Carbon::parse($request->end_time);
+        $requestBufferEnd = $this->bookingBufferEnd($request->end_time);
         $reservationDate = Carbon::parse($request->reservation_date)->format('Y-m-d');
         $priceId = $request->price_id;
 
         // Check for blocked slots
-        $existingBlock = BlockReservation::where('date', $reservationDate)
-            ->where(function ($query) use ($requestStart, $requestEnd) {
-                $query->where(function ($q) use ($requestStart, $requestEnd) {
-                    $q->where('start_time', '<', $requestEnd->format('H:i:s'))
-                        ->where('end_time', '>', $requestStart->format('H:i:s'));
-                });
-            })
-            ->exists();
+        $existingBlock = $this->hasBlockOverlap($reservationDate, $requestStart, $requestBufferEnd);
 
         if ($existingBlock) {
             return response()->json([
@@ -195,16 +205,7 @@ class UserReservationController extends Controller
         }
 
         // Check for existing reservations
-        $existingReservation = UserReservation::where('reservation_date', $reservationDate)
-            ->where('price_id', $priceId)
-            ->where('status', '!=', 'Rejected')
-            ->where(function ($query) use ($requestStart, $requestEnd) {
-                $query->where(function ($q) use ($requestStart, $requestEnd) {
-                    $q->where('start_time', '<', $requestEnd->format('H:i:s'))
-                        ->where('end_time', '>', $requestStart->format('H:i:s'));
-                });
-            })
-            ->exists();
+        $existingReservation = $this->hasReservationOverlap($reservationDate, $priceId, $requestStart, $requestBufferEnd);
 
         if ($existingReservation) {
             return response()->json([
@@ -383,18 +384,12 @@ class UserReservationController extends Controller
 
         $requestStart = Carbon::parse($request->start_time);
         $requestEnd = Carbon::parse($request->end_time);
+        $requestBufferEnd = $this->bookingBufferEnd($request->end_time);
         $reservationDate = Carbon::parse($request->reservation_date)->format('Y-m-d');
         $priceId = $request->price_id;
 
         // Check for blocked slots
-        $existingBlock = BlockReservation::where('date', $reservationDate)
-            ->where(function ($query) use ($requestStart, $requestEnd) {
-                $query->where(function ($q) use ($requestStart, $requestEnd) {
-                    $q->where('start_time', '<', $requestEnd->format('H:i:s'))
-                        ->where('end_time', '>', $requestStart->format('H:i:s'));
-                });
-            })
-            ->exists();
+        $existingBlock = $this->hasBlockOverlap($reservationDate, $requestStart, $requestBufferEnd);
 
         if ($existingBlock) {
             return response()->json([
@@ -404,17 +399,13 @@ class UserReservationController extends Controller
         }
 
         // Check for overlapping reservations
-        $overlappingReservation = UserReservation::where('reservation_date', $reservationDate)
-            ->where('price_id', $priceId)
-            ->where('id', '!=', $reservation->id)
-            ->where('status', '!=', 'Rejected')
-            ->where(function ($query) use ($requestStart, $requestEnd) {
-                $query->where(function ($q) use ($requestStart, $requestEnd) {
-                    $q->where('start_time', '<', $requestEnd->format('H:i:s'))
-                        ->where('end_time', '>', $requestStart->format('H:i:s'));
-                });
-            })
-            ->exists();
+        $overlappingReservation = $this->hasReservationOverlap(
+            $reservationDate,
+            $priceId,
+            $requestStart,
+            $requestBufferEnd,
+            $reservation->id
+        );
 
         if ($overlappingReservation) {
             return response()->json([
@@ -478,17 +469,15 @@ class UserReservationController extends Controller
 
         // For Accepting or Resetting to Pending, check for conflicts
         if ($newStatus === 'Accepted' || $newStatus === 'Pending') {
-            $overlappingReservation = UserReservation::where('reservation_date', $reservation->reservation_date)
-                ->where('price_id', $reservation->price_id)
-                ->where('id', '!=', $reservation->id)
-                ->where('status', '!=', 'Rejected')
-                ->where(function ($query) use ($reservation) {
-                    $query->where(function ($q) use ($reservation) {
-                        $q->where('start_time', '<', $reservation->end_time)
-                            ->where('end_time', '>', $reservation->start_time);
-                    });
-                })
-                ->first();
+            $reservationStart = Carbon::parse($reservation->start_time);
+            $reservationBufferEnd = $this->bookingBufferEnd($reservation->end_time);
+            $overlappingReservation = $this->hasReservationOverlap(
+                $reservation->reservation_date,
+                $reservation->price_id,
+                $reservationStart,
+                $reservationBufferEnd,
+                $reservation->id
+            );
 
             if ($overlappingReservation) {
                 return response()->json([
@@ -497,14 +486,11 @@ class UserReservationController extends Controller
                 ], 409);
             }
 
-            $blockedSlot = BlockReservation::where('date', $reservation->reservation_date)
-                ->where(function ($query) use ($reservation) {
-                    $query->where(function ($q) use ($reservation) {
-                        $q->where('start_time', '<', $reservation->end_time)
-                            ->where('end_time', '>', $reservation->start_time);
-                    });
-                })
-                ->exists();
+            $blockedSlot = $this->hasBlockOverlap(
+                $reservation->reservation_date,
+                $reservationStart,
+                $reservationBufferEnd
+            );
 
             if ($blockedSlot) {
                 return response()->json([

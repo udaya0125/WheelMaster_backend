@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\Mail;
 
 class ReservationController extends Controller
 {
+    private const BOOKING_BUFFER_MINUTES = 20;
+
     private function generateTimeSlots()
     {
         $slots = [];
@@ -77,6 +79,8 @@ class ReservationController extends Controller
     {
         $now = Carbon::now();
         $isToday = $date === $now->format('Y-m-d');
+        $price = $priceId ? Price::find($priceId) : null;
+        $durationMinutes = $this->parseDurationToMinutes($price?->duration);
 
         // Fetch all blocks (blocks are price-independent - they affect all prices)
         $blocks = BlockReservation::where('date', $date)
@@ -111,7 +115,7 @@ class ReservationController extends Controller
         foreach ($reservations as $reservation) {
             $busyPeriods[] = [
                 'start' => Carbon::parse($reservation->start_time),
-                'end' => Carbon::parse($reservation->end_time),
+                'end' => Carbon::parse($reservation->end_time)->addMinutes(self::BOOKING_BUFFER_MINUTES),
                 'type' => 'reservation',
                 'price_id' => $reservation->price_id,
             ];
@@ -133,7 +137,7 @@ class ReservationController extends Controller
         foreach ($busyPeriods as $period) {
             // If current time is before this busy period starts, add available slots
             if ($currentTime < $period['start']) {
-                $this->addAvailableSlots($availableSlots, $currentTime, $period['start'], $isToday, $now);
+                $this->addAvailableSlots($availableSlots, $currentTime, $period['start'], $isToday, $now, $durationMinutes);
             }
 
             // Move current time to the end of this busy period
@@ -142,7 +146,7 @@ class ReservationController extends Controller
 
         // Add available slots from last busy period to end of working hours
         if ($currentTime < $workingHoursEnd) {
-            $this->addAvailableSlots($availableSlots, $currentTime, $workingHoursEnd, $isToday, $now);
+            $this->addAvailableSlots($availableSlots, $currentTime, $workingHoursEnd, $isToday, $now, $durationMinutes);
         }
 
         // For today, filter out past slots
@@ -161,7 +165,7 @@ class ReservationController extends Controller
     }
 
     // Helper to add available slots between two times
-    private function addAvailableSlots(&$availableSlots, $startTime, $endTime, $isToday, $now)
+    private function addAvailableSlots(&$availableSlots, $startTime, $endTime, $isToday, $now, $durationMinutes = 60)
     {
         $slotDuration = 30; // minutes
 
@@ -169,9 +173,12 @@ class ReservationController extends Controller
 
         while ($current < $endTime) {
             $slotEnd = $current->copy()->addMinutes($slotDuration);
+            $bookingBufferEnd = $current->copy()
+                ->addMinutes($durationMinutes)
+                ->addMinutes(self::BOOKING_BUFFER_MINUTES);
 
             // If slot would go past end time, break
-            if ($slotEnd > $endTime) {
+            if ($slotEnd > $endTime || $bookingBufferEnd > $endTime) {
                 break;
             }
 
@@ -187,6 +194,31 @@ class ReservationController extends Controller
 
             $current->addMinutes($slotDuration);
         }
+    }
+
+    private function parseDurationToMinutes($duration)
+    {
+        if (! $duration) {
+            return 60;
+        }
+
+        $duration = strtolower(trim((string) $duration));
+        $totalMinutes = 0;
+
+        if (preg_match('/(\d+(?:\.\d+)?)\s*(?:hrs|hr|hour|hours)/', $duration, $matches)) {
+            $totalMinutes += (float) $matches[1] * 60;
+        }
+
+        if (preg_match('/(\d+)\s*(?:min|mins|minute|minutes)/', $duration, $matches)) {
+            $totalMinutes += (int) $matches[1];
+        }
+
+        if ($totalMinutes === 0 && preg_match('/(\d+(?:\.\d+)?)/', $duration, $matches)) {
+            $number = (float) $matches[1];
+            $totalMinutes = $number < 10 ? $number * 60 : $number;
+        }
+
+        return (int) round($totalMinutes ?: 60);
     }
 
     // Check availability for a given date and price
@@ -241,15 +273,16 @@ class ReservationController extends Controller
         // Convert times to Carbon for easier comparison
         $requestStart = Carbon::parse($request->start_time);
         $requestEnd = Carbon::parse($request->end_time);
+        $requestBufferEnd = $requestEnd->copy()->addMinutes(self::BOOKING_BUFFER_MINUTES);
         $reservationDate = Carbon::parse($request->reservation_date)->format('Y-m-d');
         $priceId = $request->price_id;
 
         // Check if selected slot overlaps with any blocked reservation (blocks affect all prices)
         $existingBlock = BlockReservation::where('date', $reservationDate)
-            ->where(function ($query) use ($requestStart, $requestEnd) {
-                $query->where(function ($q) use ($requestStart, $requestEnd) {
-                    // Check if blocked slot overlaps with requested time
-                    $q->where('start_time', '<', $requestEnd->format('H:i:s'))
+            ->where(function ($query) use ($requestStart, $requestBufferEnd) {
+                $query->where(function ($q) use ($requestStart, $requestBufferEnd) {
+                    // Check if blocked slot overlaps with requested lesson plus travel buffer.
+                    $q->where('start_time', '<', $requestBufferEnd->format('H:i:s'))
                         ->where('end_time', '>', $requestStart->format('H:i:s'));
                 });
             })
@@ -263,14 +296,14 @@ class ReservationController extends Controller
         $existingReservation = UserReservation::where('reservation_date', $reservationDate)
             ->where('price_id', $priceId) // Only check reservations for the same price
             ->where('status', '!=', 'Rejected')
-            ->where(function ($query) use ($requestStart, $requestEnd) {
-                $query->where(function ($q) use ($requestStart, $requestEnd) {
-                    // Check if reservation overlaps with requested time
-                    $q->where('start_time', '<', $requestEnd->format('H:i:s'))
-                        ->where('end_time', '>', $requestStart->format('H:i:s'));
-                });
-            })
-            ->exists();
+            ->get()
+            ->contains(function ($reservation) use ($requestStart, $requestBufferEnd) {
+                $existingStart = Carbon::parse($reservation->start_time);
+                $existingBufferEnd = Carbon::parse($reservation->end_time)
+                    ->addMinutes(self::BOOKING_BUFFER_MINUTES);
+
+                return $existingStart < $requestBufferEnd && $existingBufferEnd > $requestStart;
+            });
 
         if ($existingReservation) {
             return response()->json(['error' => 'Selected time slot is already reserved for this service'], 409);

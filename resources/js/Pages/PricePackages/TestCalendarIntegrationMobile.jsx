@@ -426,10 +426,16 @@ const TestCalendarIntegrationMobile = ({ price }) => {
     };
 
     // Validate zip code - only allow 6210
+    // const validateZipCode = (zip) => {
+    //     const cleanZip = zip.replace(/\D/g, "");
+    //     return cleanZip === "6210";
+    // };
+
     const validateZipCode = (zip) => {
-        const cleanZip = zip.replace(/\D/g, "");
-        return cleanZip === "6210";
-    };
+    const cleanZip = zip.replace(/\D/g, "");
+
+    return ["6210", "6180", "6175"].includes(cleanZip);
+};
 
     // Extract package name from price description
     const extractPackageName = (description) => {
@@ -487,7 +493,7 @@ const TestCalendarIntegrationMobile = ({ price }) => {
         // Validate zip code
         if (bookingForm.zip_code && !validateZipCode(bookingForm.zip_code)) {
             newErrors.zip_code =
-                "Sorry, we currently only serve areas with zip code 6210";
+                "Sorry, we currently only serve areas with zip codes 6210, 6180, or 6175";
         }
 
         if (Object.keys(newErrors).length > 0) {
@@ -1123,6 +1129,9 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                             <option value="meetpoint-mandurah-dot">
                                                 Meetpoint Mandurah Dot
                                             </option>
+                                             <option value="singleton">
+                                                Singleton 
+                                            </option>
                                         </select>
                                         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
                                     </div>
@@ -1139,7 +1148,7 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                         htmlFor="zip_code"
                                         className="block text-sm font-medium text-gray-700 mb-2"
                                     >
-                                        Zip Code *
+                                        Post Code *
                                     </label>
                                     <div className="relative">
                                         <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -1155,7 +1164,7 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                                     ? "border-red-500"
                                                     : "border-gray-300"
                                             }`}
-                                            placeholder="6210"
+                                            placeholder="6210, 6180, or 6175"
                                             maxLength="5"
                                         />
                                     </div>
@@ -1170,7 +1179,7 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                         // </p>
                                         <p className="mt-1 text-sm text-gray-500">
                                             Currently serving only areas with
-                                            zip code 6210.
+                                            zip codes 6210, 6180, or 6175.
                                             {bookingForm.address !==
                                                 "meetpoint-mandurah-dot" && (
                                                 <span className="block">

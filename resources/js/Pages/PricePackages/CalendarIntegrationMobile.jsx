@@ -15,6 +15,8 @@ import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
 import { Link } from "@inertiajs/react";
 
+const BOOKING_BUFFER_MINUTES = 20;
+
 const CalendarIntegrationMobile = ({ price }) => {
     const [selectedDate, setSelectedDate] = useState("");
     const [selectedTime, setSelectedTime] = useState("");
@@ -164,12 +166,10 @@ const CalendarIntegrationMobile = ({ price }) => {
         }
     };
 
-    // Get non-overlapping slots with 30-minute buffer after booked slots
+    // The backend already filters slots by package duration, buffer, blocks, and reservations.
     const getNonOverlappingSlots = (slots) => {
         if (!slots || slots.length === 0) return [];
-
         const durationMinutes = parseDuration(price?.duration);
-        const result = [];
 
         const timeToMinutes = (timeStr) => {
             const [h, m] = timeStr.split(":").map(Number);
@@ -187,33 +187,7 @@ const CalendarIntegrationMobile = ({ price }) => {
             return timeA - timeB;
         });
 
-        // Create a set of booked start times and track their end times
-        const bookedPeriods = [];
-        for (const bookedTime of bookedSlots) {
-            const bookedMinutes = timeToMinutes(bookedTime);
-            bookedPeriods.push({
-                start: bookedMinutes,
-                end: bookedMinutes + 30,
-            });
-        }
-
-        // Merge overlapping booked periods
-        const mergedBookedPeriods = [];
-        if (bookedPeriods.length > 0) {
-            bookedPeriods.sort((a, b) => a.start - b.start);
-
-            let current = bookedPeriods[0];
-            for (let i = 1; i < bookedPeriods.length; i++) {
-                if (bookedPeriods[i].start <= current.end) {
-                    current.end = Math.max(current.end, bookedPeriods[i].end);
-                } else {
-                    mergedBookedPeriods.push(current);
-                    current = bookedPeriods[i];
-                }
-            }
-            mergedBookedPeriods.push(current);
-        }
-
+        const displaySlots = [];
         let nextAllowedStart = -1;
 
         for (const slot of sortedSlots) {
@@ -225,37 +199,15 @@ const CalendarIntegrationMobile = ({ price }) => {
             }
 
             const startMinutes = timeToMinutes(startTimeStr);
-            const slotEndMinutes = startMinutes + durationMinutes;
-
-            let isBlocked = false;
-            for (const period of mergedBookedPeriods) {
-                if (
-                    startMinutes < period.end &&
-                    slotEndMinutes > period.start
-                ) {
-                    isBlocked = true;
-                    break;
-                }
-                if (
-                    startMinutes >= period.end &&
-                    startMinutes < period.end + 30
-                ) {
-                    isBlocked = true;
-                    break;
-                }
-            }
-
-            if (isBlocked) {
-                continue;
-            }
 
             if (nextAllowedStart === -1 || startMinutes >= nextAllowedStart) {
-                result.push(slot);
-                nextAllowedStart = startMinutes + durationMinutes;
+                displaySlots.push(slot);
+                nextAllowedStart =
+                    startMinutes + durationMinutes + BOOKING_BUFFER_MINUTES;
             }
         }
 
-        return result;
+        return displaySlots;
     };
 
     // Format time slot for display
@@ -535,10 +487,15 @@ const CalendarIntegrationMobile = ({ price }) => {
     };
 
     // Validate zip code - only allow 6210
+    // const validateZipCode = (zip) => {
+    //     const cleanZip = zip.replace(/\D/g, "");
+    //     return cleanZip === "6210";
+    // };
     const validateZipCode = (zip) => {
-        const cleanZip = zip.replace(/\D/g, "");
-        return cleanZip === "6210";
-    };
+    const cleanZip = zip.replace(/\D/g, "");
+
+    return ["6210", "6180", "6175"].includes(cleanZip);
+};
 
     // Handle form submission
     const handleSubmit = async (e) => {
@@ -567,7 +524,7 @@ const CalendarIntegrationMobile = ({ price }) => {
 
         if (formData.zip_code && !validateZipCode(formData.zip_code)) {
             newErrors.zip_code =
-                "Sorry, we currently only serve areas with zip code 6210";
+                "Sorry, we currently only serve areas with zip codes 6210, 6180, or 6175";
         }
 
         if (!selectedDate) {
@@ -886,7 +843,7 @@ const CalendarIntegrationMobile = ({ price }) => {
 
                         {/* Next Availability Button */}
                         {selectedDate &&
-                            currentTimeSlots.length === 0 &&
+                            nonOverlappingSlots.length === 0 &&
                             !loading &&
                             !showNextAvailability && (
                                 <button
@@ -1091,6 +1048,9 @@ const CalendarIntegrationMobile = ({ price }) => {
                                     <option value="meetpoint-mandurah-dot">
                                         Meetpoint Mandurah Dot
                                     </option>
+                                    <option value="singleton">
+                                        Singleton 
+                                    </option>
                                 </select>
                                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
                             </div>
@@ -1107,7 +1067,7 @@ const CalendarIntegrationMobile = ({ price }) => {
                                 htmlFor="zip_code"
                                 className="block text-sm font-medium text-gray-700 mb-2"
                             >
-                                Zip Code *
+                                Post Code *
                             </label>
                             <div className="relative">
                                 <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -1122,7 +1082,7 @@ const CalendarIntegrationMobile = ({ price }) => {
                                             ? "border-red-500"
                                             : "border-gray-300"
                                     }`}
-                                    placeholder="6210"
+                                    placeholder="6210, 6180, or 6175"
                                     maxLength="5"
                                     required
                                 />
@@ -1133,7 +1093,7 @@ const CalendarIntegrationMobile = ({ price }) => {
                                 </p>
                             ) : (
                                 <p className="mt-1 text-sm text-gray-500">
-                                    Currently serving only areas with zip code 6210.
+                                    Currently serving only areas with zip codes 6210, 6180, or 6175.
                                     {formData.address !== "meetpoint-mandurah-dot" && (
                                         <span className="block">
                                             If your address is not available, please

@@ -29,6 +29,8 @@ const BlockReservation = () => {
     const [showEditForm, setShowEditForm] = useState(false);
     const [editingSlot, setEditingSlot] = useState(null);
     const [blockMode, setBlockMode] = useState("single");
+    const [blockAction, setBlockAction] = useState("block_time");
+    const [editBlockAction, setEditBlockAction] = useState("block_time");
     const [formData, setFormData] = useState({
         date: "",
         endDate: "",
@@ -106,12 +108,14 @@ const BlockReservation = () => {
     const openBlockSlotForm = () => {
         setShowBlockSlotForm(true);
         setBlockMode("single");
+        setBlockAction("block_time");
         setFormData({ date: "", endDate: "", startTime: "07:00", endTime: "08:00", reason: "" });
         setFormError("");
     };
 
     const closeBlockSlotForm = () => {
         setShowBlockSlotForm(false);
+        setBlockAction("block_time");
         setFormData({ date: "", endDate: "", startTime: "07:00", endTime: "08:00", reason: "" });
         setFormError("");
     };
@@ -131,6 +135,8 @@ const BlockReservation = () => {
             return "Please select both start and end time.";
         if (formData.startTime >= formData.endTime)
             return "End time must be after start time.";
+        if (blockAction === "open_window" && (formData.startTime < "07:00" || formData.endTime > "18:00"))
+            return "Open windows must be between 7:00 AM and 6:00 PM.";
         return "";
     };
 
@@ -148,6 +154,7 @@ const BlockReservation = () => {
                 end_time: formData.endTime,
                 duration,
                 reason: formData.reason || "No reason provided",
+                block_action: blockAction,
             });
             setReloadTrigger((prev) => !prev);
             closeBlockSlotForm();
@@ -168,6 +175,7 @@ const BlockReservation = () => {
             endTime: slot.end_time,
             reason: slot.reason === "No reason provided" ? "" : slot.reason || "",
         });
+        setEditBlockAction("block_time");
         setEditFormError("");
         setShowEditForm(true);
     };
@@ -176,6 +184,7 @@ const BlockReservation = () => {
     const closeEditForm = () => {
         setShowEditForm(false);
         setEditingSlot(null);
+        setEditBlockAction("block_time");
         setEditFormData({ date: "", startTime: "07:00", endTime: "08:00", reason: "" });
         setEditFormError("");
     };
@@ -192,7 +201,9 @@ const BlockReservation = () => {
             return "Please select both start and end time.";
         if (editFormData.startTime >= editFormData.endTime)
             return "End time must be after start time.";
-        const hasOverlap = blockedSlots.some(
+        if (editBlockAction === "open_window" && (editFormData.startTime < "07:00" || editFormData.endTime > "18:00"))
+            return "Open windows must be between 7:00 AM and 6:00 PM.";
+        const hasOverlap = editBlockAction === "block_time" && blockedSlots.some(
             (slot) =>
                 slot.id !== editingSlot.id &&
                 slot.date === editFormData.date &&
@@ -219,6 +230,7 @@ const BlockReservation = () => {
                 end_time: editFormData.endTime,
                 duration,
                 reason: editFormData.reason || "No reason provided",
+                block_action: editBlockAction,
             });
             setReloadTrigger((prev) => !prev);
             closeEditForm();
@@ -307,8 +319,38 @@ const BlockReservation = () => {
         <Wrapper>
             {/* ── Create Modal ── */}
             {showBlockSlotForm && (
-                <ModalShell title="Block Time Slot" onClose={closeBlockSlotForm}>
+                <ModalShell title="Manage Availability" onClose={closeBlockSlotForm}>
                     <form onSubmit={handleBlockSlotSubmit} className="space-y-4">
+
+                        {/* Action Toggle */}
+                        <div className="grid grid-cols-2 rounded-lg border border-gray-200 overflow-hidden">
+                            {[
+                                { value: "block_time", label: "Block time" },
+                                { value: "open_window", label: "Open only" },
+                            ].map((action) => (
+                                <button
+                                    key={action.value}
+                                    type="button"
+                                    onClick={() => {
+                                        setBlockAction(action.value);
+                                        setFormError("");
+                                    }}
+                                    className={`py-2 px-3 text-sm font-medium transition-colors ${
+                                        blockAction === action.value
+                                            ? "bg-indigo-600 text-white"
+                                            : "bg-white text-gray-600 hover:bg-gray-50"
+                                    }`}
+                                >
+                                    {action.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+                            {blockAction === "open_window"
+                                ? "Customers can book only inside the selected time window. The rest of the day is blocked automatically."
+                                : "Customers cannot book inside the selected time window."}
+                        </div>
 
                         {/* Mode Toggle */}
                         <div className="flex rounded-lg border border-gray-200 overflow-hidden">
@@ -370,7 +412,9 @@ const BlockReservation = () => {
                             ].map(({ label, name, value }) => (
                                 <div key={name}>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        {label}
+                                        {blockAction === "open_window"
+                                            ? label.replace("Time", "Open")
+                                            : label}
                                     </label>
                                     <input
                                         type="time"
@@ -418,7 +462,11 @@ const BlockReservation = () => {
                                 disabled={submitting}
                                 className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
                             >
-                                {submitting ? "Blocking..." : "Block Time Slot"}
+                                {submitting
+                                    ? "Saving..."
+                                    : blockAction === "open_window"
+                                      ? "Open This Window"
+                                      : "Block Time Slot"}
                             </button>
                         </div>
                     </form>
@@ -429,6 +477,36 @@ const BlockReservation = () => {
             {showEditForm && editingSlot && (
                 <ModalShell title="Edit Blocked Time Slot" onClose={closeEditForm}>
                     <form onSubmit={handleEditSubmit} className="space-y-4">
+
+                        {/* Action Toggle */}
+                        <div className="grid grid-cols-2 rounded-lg border border-gray-200 overflow-hidden">
+                            {[
+                                { value: "block_time", label: "Block time" },
+                                { value: "open_window", label: "Open only" },
+                            ].map((action) => (
+                                <button
+                                    key={action.value}
+                                    type="button"
+                                    onClick={() => {
+                                        setEditBlockAction(action.value);
+                                        setEditFormError("");
+                                    }}
+                                    className={`py-2 px-3 text-sm font-medium transition-colors ${
+                                        editBlockAction === action.value
+                                            ? "bg-indigo-600 text-white"
+                                            : "bg-white text-gray-600 hover:bg-gray-50"
+                                    }`}
+                                >
+                                    {action.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+                            {editBlockAction === "open_window"
+                                ? "This will replace the selected block with automatic blocks before and after the open window."
+                                : "Customers cannot book inside the selected time window."}
+                        </div>
 
                         {/* Info badge */}
                         {/* <div className="flex items-center gap-2 px-3 py-2 bg-indigo-50 border border-indigo-100 rounded-md text-sm text-indigo-700">
@@ -459,7 +537,9 @@ const BlockReservation = () => {
                             ].map(({ label, name, value }) => (
                                 <div key={name}>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        {label}
+                                        {editBlockAction === "open_window"
+                                            ? label.replace("Time", "Open")
+                                            : label}
                                     </label>
                                     <input
                                         type="time"
@@ -507,7 +587,11 @@ const BlockReservation = () => {
                                 disabled={editSubmitting}
                                 className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
                             >
-                                {editSubmitting ? "Saving..." : "Save Changes"}
+                                {editSubmitting
+                                    ? "Saving..."
+                                    : editBlockAction === "open_window"
+                                      ? "Open This Window"
+                                      : "Save Changes"}
                             </button>
                         </div>
                     </form>

@@ -27,6 +27,7 @@ class BlockReservationController extends Controller
             'end_time' => 'required',
             'duration' => 'required|numeric',
             'reason' => 'nullable|string',
+            'block_action' => 'nullable|in:block_time,open_window',
         ]);
 
         $startDate = Carbon::parse($validated['start_date']);
@@ -42,15 +43,27 @@ class BlockReservationController extends Controller
 
         $created = [];
         $current = $startDate->copy();
+        $blockAction = $validated['block_action'] ?? 'block_time';
 
         while ($current->lte($endDate)) {
-            $created[] = BlockReservation::create([
-                'date' => $current->toDateString(),
-                'start_time' => $validated['start_time'],
-                'end_time' => $validated['end_time'],
-                'duration' => $validated['duration'],
-                'reason' => $validated['reason'] ?? 'No reason provided',
-            ]);
+            if ($blockAction === 'open_window') {
+                BlockReservation::where('date', $current->toDateString())->delete();
+
+                $created = array_merge($created, $this->createOpenWindowBlocks(
+                    $current->toDateString(),
+                    $validated['start_time'],
+                    $validated['end_time'],
+                    $validated['reason'] ?? 'Open window'
+                ));
+            } else {
+                $created[] = BlockReservation::create([
+                    'date' => $current->toDateString(),
+                    'start_time' => $validated['start_time'],
+                    'end_time' => $validated['end_time'],
+                    'duration' => $validated['duration'],
+                    'reason' => $validated['reason'] ?? 'No reason provided',
+                ]);
+            }
             $current->addDay();
         }
 
@@ -59,6 +72,36 @@ class BlockReservationController extends Controller
             'message' => count($created).' day(s) blocked successfully.',
             'data' => $created,
         ], 201);
+    }
+
+    private function createOpenWindowBlocks($date, $openStartTime, $openEndTime, $reason)
+    {
+        $workingStart = Carbon::createFromTime(7, 0, 0);
+        $workingEnd = Carbon::createFromTime(18, 0, 0);
+        $openStart = Carbon::parse($openStartTime);
+        $openEnd = Carbon::parse($openEndTime);
+        $blocks = [];
+
+        $ranges = [
+            [$workingStart, $openStart],
+            [$openEnd, $workingEnd],
+        ];
+
+        foreach ($ranges as [$start, $end]) {
+            if ($start >= $end) {
+                continue;
+            }
+
+            $blocks[] = BlockReservation::create([
+                'date' => $date,
+                'start_time' => $start->format('H:i:s'),
+                'end_time' => $end->format('H:i:s'),
+                'duration' => round($start->diffInMinutes($end) / 60, 1),
+                'reason' => $reason,
+            ]);
+        }
+
+        return $blocks;
     }
 
     public function update(Request $request, $id)
@@ -71,7 +114,26 @@ class BlockReservationController extends Controller
             'end_time' => 'sometimes',
             'duration' => 'sometimes|numeric',
             'reason' => 'nullable|string',
+            'block_action' => 'nullable|in:block_time,open_window',
         ]);
+
+        if (($validated['block_action'] ?? 'block_time') === 'open_window') {
+            $date = $validated['date'] ?? $block->date;
+            $startTime = $validated['start_time'] ?? $block->start_time;
+            $endTime = $validated['end_time'] ?? $block->end_time;
+            $reason = $validated['reason'] ?? $block->reason ?? 'Open window';
+
+            BlockReservation::where('date', $date)->delete();
+            $created = $this->createOpenWindowBlocks($date, $startTime, $endTime, $reason);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Availability window updated successfully.',
+                'data' => $created,
+            ]);
+        }
+
+        unset($validated['block_action']);
 
         $block->update($validated);
 

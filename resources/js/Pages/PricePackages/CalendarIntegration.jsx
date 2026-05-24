@@ -6,6 +6,8 @@ import { Link } from "@inertiajs/react";
 import { ChevronLeft } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 
+const BOOKING_BUFFER_MINUTES = 20;
+
 const CalendarIntegration = ({ price }) => {
     const [timeSlots, setTimeSlots] = useState({});
     const [selectedDate, setSelectedDate] = useState(new Date());
@@ -298,7 +300,6 @@ const CalendarIntegration = ({ price }) => {
     const getNonOverlappingSlots = (slots) => {
         if (!slots || slots.length === 0) return [];
         const durationMinutes = parseDuration(price.duration);
-        const result = [];
         const timeToMinutes = (timeStr) => {
             const [h, m] = timeStr.split(":").map(Number);
             return h * 60 + m;
@@ -312,25 +313,10 @@ const CalendarIntegration = ({ price }) => {
             );
             return timeA - timeB;
         });
-        const bookedPeriods = bookedSlots.map((t) => {
-            const m = timeToMinutes(t);
-            return { start: m, end: m + 20 };
-        });
-        const mergedBookedPeriods = [];
-        if (bookedPeriods.length > 0) {
-            bookedPeriods.sort((a, b) => a.start - b.start);
-            let current = bookedPeriods[0];
-            for (let i = 1; i < bookedPeriods.length; i++) {
-                if (bookedPeriods[i].start <= current.end) {
-                    current.end = Math.max(current.end, bookedPeriods[i].end);
-                } else {
-                    mergedBookedPeriods.push(current);
-                    current = bookedPeriods[i];
-                }
-            }
-            mergedBookedPeriods.push(current);
-        }
+
+        const displaySlots = [];
         let nextAllowedStart = -1;
+
         for (const slot of sortedSlots) {
             let startTimeStr =
                 typeof slot === "string" ? slot : slot?.start_time;
@@ -338,32 +324,17 @@ const CalendarIntegration = ({ price }) => {
                 const parts = startTimeStr.split(":");
                 startTimeStr = `${parts[0]}:${parts[1]}`;
             }
+
             const startMinutes = timeToMinutes(startTimeStr);
-            const slotEndMinutes = startMinutes + durationMinutes;
-            let isBlocked = false;
-            for (const period of mergedBookedPeriods) {
-                if (
-                    startMinutes < period.end &&
-                    slotEndMinutes > period.start
-                ) {
-                    isBlocked = true;
-                    break;
-                }
-                if (
-                    startMinutes >= period.end &&
-                    startMinutes < period.end + 20
-                ) {
-                    isBlocked = true;
-                    break;
-                }
-            }
-            if (isBlocked) continue;
+
             if (nextAllowedStart === -1 || startMinutes >= nextAllowedStart) {
-                result.push(slot);
-                nextAllowedStart = startMinutes + durationMinutes;
+                displaySlots.push(slot);
+                nextAllowedStart =
+                    startMinutes + durationMinutes + BOOKING_BUFFER_MINUTES;
             }
         }
-        return result;
+
+        return displaySlots;
     };
 
     const getTimeSlotDisplay = (slot) => {
@@ -557,6 +528,7 @@ const CalendarIntegration = ({ price }) => {
     // ─── Render ───────────────────────────────────────────────────────────────
 
     const currentTimeSlots = getTimeSlotsForDate(selectedDate);
+    const displayTimeSlots = getNonOverlappingSlots(currentTimeSlots);
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -680,25 +652,23 @@ const CalendarIntegration = ({ price }) => {
                                     Loading time slots...
                                 </p>
                             </div>
-                        ) : currentTimeSlots.length > 0 ? (
+                        ) : displayTimeSlots.length > 0 ? (
                             <div className="grid grid-cols-2 sm:grid-cols-2 gap-2 sm:gap-3">
-                                {getNonOverlappingSlots(currentTimeSlots).map(
-                                    (time, index) => (
-                                        <button
-                                            key={index}
-                                            onClick={() =>
-                                                setSelectedTime(time)
-                                            }
-                                            className={`py-2 sm:py-3 px-3 sm:px-4 rounded-lg border-2 transition-all duration-200 font-medium text-sm sm:text-base ${
-                                                selectedTime === time
-                                                    ? "border-indigo-600 bg-indigo-600 text-white shadow-md"
-                                                    : "border-gray-200 hover:border-indigo-300 text-gray-700 hover:bg-indigo-50"
-                                            }`}
-                                        >
-                                            {getTimeSlotDisplay(time)}
-                                        </button>
-                                    )
-                                )}
+                                {displayTimeSlots.map((time, index) => (
+                                    <button
+                                        key={index}
+                                        onClick={() =>
+                                            setSelectedTime(time)
+                                        }
+                                        className={`py-2 sm:py-3 px-3 sm:px-4 rounded-lg border-2 transition-all duration-200 font-medium text-sm sm:text-base ${
+                                            selectedTime === time
+                                                ? "border-indigo-600 bg-indigo-600 text-white shadow-md"
+                                                : "border-gray-200 hover:border-indigo-300 text-gray-700 hover:bg-indigo-50"
+                                        }`}
+                                    >
+                                        {getTimeSlotDisplay(time)}
+                                    </button>
+                                ))}
                             </div>
                         ) : (
                             <div className="text-center py-4">

@@ -63,6 +63,7 @@ class TimeSlotController extends Controller
     public function getSlotsForDate(Request $request)
     {
         $date = $request->get('date', Carbon::now()->format('Y-m-d'));
+        $priceId = $request->get('price_id');
 
         TimeSlot::initializeForDateRange($date, $date);
 
@@ -70,16 +71,22 @@ class TimeSlotController extends Controller
             ->orderBy('start_time')
             ->get();
 
-        $reservations = UserReservation::where('reservation_date', $date)
-            ->where('status', '!=', 'Rejected')
-            ->get();
+        $reservationsQuery = UserReservation::where('reservation_date', $date)
+            ->where('status', '!=', 'Rejected');
+
+        if ($priceId) {
+            $reservationsQuery->where('price_id', $priceId);
+        }
+
+        $reservations = $reservationsQuery->get();
 
         $blocks = BlockReservation::where('date', $date)->get();
+        $durationMinutes = $this->getDurationMinutesForPrice($priceId);
 
         $defaultSlots = TimeSlot::generateDefaultSlotsForDate($date);
         $defaultStartTimes = collect($defaultSlots)->pluck('start_time')->toArray();
 
-        $formattedSlots = $slots->map(function ($slot) use ($reservations, $blocks, $defaultStartTimes) {
+        $formattedSlots = $slots->map(function ($slot) use ($reservations, $blocks, $defaultStartTimes, $date, $priceId, $durationMinutes) {
             $status = $slot->status;
             $slotStart = Carbon::parse($slot->start_time);
             $slotEnd = Carbon::parse($slot->end_time);
@@ -110,6 +117,10 @@ class TimeSlotController extends Controller
                 }
             }
 
+            if ($status === 'available' && $priceId && ! $this->isBookableForDuration($date, $priceId, $slotStart, $durationMinutes)) {
+                $status = 'blocked';
+            }
+
             return [
                 'id' => $slot->id,
                 'start_time' => substr($slot->start_time, 0, 5),
@@ -127,6 +138,73 @@ class TimeSlotController extends Controller
             'date' => $date,
             'slots' => $formattedSlots,
         ]);
+    }
+
+    private function getDurationMinutesForPrice($priceId)
+    {
+        if (! $priceId) {
+            return 20;
+        }
+
+        $price = \App\Models\Price::find($priceId);
+
+        return $this->parseDurationToMinutes($price?->duration);
+    }
+
+    private function parseDurationToMinutes($duration)
+    {
+        if (! $duration) {
+            return 60;
+        }
+
+        $duration = strtolower(trim((string) $duration));
+        $totalMinutes = 0;
+
+        if (preg_match('/(\d+(?:\.\d+)?)\s*(?:hrs|hr|hour|hours)/', $duration, $matches)) {
+            $totalMinutes += (float) $matches[1] * 60;
+        }
+
+        if (preg_match('/(\d+)\s*(?:min|mins|minute|minutes)/', $duration, $matches)) {
+            $totalMinutes += (int) $matches[1];
+        }
+
+        if ($totalMinutes === 0 && preg_match('/(\d+(?:\.\d+)?)/', $duration, $matches)) {
+            $number = (float) $matches[1];
+            $totalMinutes = $number < 10 ? $number * 60 : $number;
+        }
+
+        return (int) round($totalMinutes ?: 60);
+    }
+
+    private function isBookableForDuration($date, $priceId, Carbon $startTime, $durationMinutes)
+    {
+        $bufferEnd = $startTime->copy()
+            ->addMinutes($durationMinutes)
+            ->addMinutes(20);
+
+        if ($bufferEnd > Carbon::createFromTime(18, 0, 0)) {
+            return false;
+        }
+
+        $hasBlock = BlockReservation::where('date', $date)
+            ->where('start_time', '<', $bufferEnd->format('H:i:s'))
+            ->where('end_time', '>', $startTime->format('H:i:s'))
+            ->exists();
+
+        if ($hasBlock) {
+            return false;
+        }
+
+        return ! UserReservation::where('reservation_date', $date)
+            ->where('price_id', $priceId)
+            ->where('status', '!=', 'Rejected')
+            ->get()
+            ->contains(function ($reservation) use ($startTime, $bufferEnd) {
+                $existingStart = Carbon::parse($reservation->start_time);
+                $existingBufferEnd = Carbon::parse($reservation->end_time)->addMinutes(20);
+
+                return $existingStart < $bufferEnd && $existingBufferEnd > $startTime;
+            });
     }
 
     /**

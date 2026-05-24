@@ -12,24 +12,38 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 
-//-----------------------------------------------------------------------
-// Web routes duplicated in API for access
-//-----------------------------------------------------------------------
-Route::get('/ourgallery', [GalleryController::class, 'index']);
+    // ############################################################################
+    // Web routes duplicated in API for access
+    // ############################################################################
 
 
-Route::get('/testimonials', [TestimonialController::class, 'index']);
+    // ############################################################################
+    // API routes for the Gallery Controller, Testimonial Controller, Price Controller and Blog Controller
+    // ############################################################################
 
+    Route::get('/ourgallery', [GalleryController::class, 'index']);
 
-Route::get('/ourprice', [PriceController::class, 'index']);
+    // ############################################################################
+    // API routes for the  Testimonial Controller
+    // ############################################################################
+    Route::get('/testimonials', [TestimonialController::class, 'index']);
+    // ############################################################################
+    // API routes for the  Price Controller 
+    // ############################################################################
 
+    Route::get('/ourprice', [PriceController::class, 'index']);
 
-Route::get('/ourblog', [BlogController::class, 'index']);
+    // ############################################################################
+    // API routes for the  Blog Controller
+    // ############################################################################
+    Route::get('/ourblog', [BlogController::class, 'index']);
 
+    // ############################################################################
+    // API routes for the  Blog Controller slug
+    // ############################################################################
+    Route::get('/blog/{slug}', [BlogController::class, 'indexShowBlogSlug']);
 
-Route::get('/blog/{slug}', [BlogController::class, 'indexShowBlogSlug']);
-
-
-Route::get('/ourprice/{slug}', [PriceController::class, 'indexShowPriceSlug']);
-
-
+    // ############################################################################
+    // API routes for the Price Controller slug
+    // ############################################################################
+    Route::get('/ourprice/{slug}', [PriceController::class, 'indexShowPriceSlug']);
