@@ -18,7 +18,7 @@ Route::get('/user', function (Request $request) {
 
 
     // ############################################################################
-    // API routes for the Gallery Controller, Testimonial Controller, Price Controller and Blog Controller
+    // API routes for the Gallery Controller
     // ############################################################################
 
     Route::get('/ourgallery', [GalleryController::class, 'index']);
