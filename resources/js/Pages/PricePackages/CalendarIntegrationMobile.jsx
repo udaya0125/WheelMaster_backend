@@ -287,21 +287,21 @@
 //     const fetchSlotsForDate = useCallback(async (dateKey, isUserSelected = false) => {
 //         // Don't fetch if already have slots or currently loading
 //         if (timeSlots[dateKey] || loadingDates[dateKey]) return;
-
+        
 //         // Don't fetch past dates
 //         if (isPastDate(dateKey)) return;
-
+        
 //         try {
 //             // Mark this date as loading
 //             setLoadingDates(prev => ({ ...prev, [dateKey]: true }));
-
+            
 //             const response = await axios.get(route("ourtimeslots.get"), {
 //                 params: {
 //                     date: dateKey,
 //                     price_id: price.id,
 //                 },
 //             });
-
+            
 //             if (response.data.success) {
 //                 const availableSlots = response.data.slots
 //                     .filter((slot) => slot.status === "available")
@@ -313,12 +313,12 @@
 //                         }
 //                         return startTime;
 //                     });
-
+                
 //                 setTimeSlots((prev) => ({
 //                     ...prev,
 //                     [dateKey]: availableSlots,
 //                 }));
-
+                
 //                 // If this was triggered by user selecting the date, also update booked slots
 //                 if (isUserSelected) {
 //                     const booked = response.data.slots
@@ -359,12 +359,12 @@
 //     useEffect(() => {
 //         const fetchTimeSlotsForSelected = async () => {
 //             if (!selectedDate || !price?.id) return;
-
+            
 //             // Fetch slots for this specific date
 //             await fetchSlotsForDate(selectedDate, true);
 //             setSelectedTime("");
 //         };
-
+        
 //         fetchTimeSlotsForSelected();
 //     }, [selectedDate, price?.id, fetchSlotsForDate]);
 
@@ -384,10 +384,10 @@
 //                 const nextDate = new Date(today);
 //                 nextDate.setDate(today.getDate() + i);
 //                 const dateKey = formatDateKey(nextDate);
-
+                
 //                 // Check cache first
 //                 let availableSlots = timeSlots[dateKey];
-
+                
 //                 if (!availableSlots) {
 //                     try {
 //                         const response = await axios.get(
@@ -399,7 +399,7 @@
 //                                 },
 //                             },
 //                         );
-
+                        
 //                         if (response.data.success) {
 //                             availableSlots = response.data.slots
 //                                 .filter((slot) => slot.status === "available")
@@ -411,7 +411,7 @@
 //                                     }
 //                                     return startTime;
 //                                 });
-
+                            
 //                             // Cache the result
 //                             setTimeSlots((prev) => ({
 //                                 ...prev,
@@ -708,7 +708,7 @@
 //                                         setSelectedDate(newDate);
 //                                         setSelectedTime("");
 //                                         setShowNextAvailability(false);
-
+                                        
 //                                         // Show warning if date has no slots
 //                                         // if (newDate && (!timeSlots[newDate] || timeSlots[newDate].length === 0)) {
 //                                         //     toast.error("No available time slots for this date");
@@ -729,11 +729,11 @@
 //                                                     const hasAvailableSlots = timeSlots[date.value]?.length > 0;
 //                                                     const isPast = isPastDate(date.value);
 //                                                     const isLoading = loadingDates[date.value];
-
+                                                    
 //                                                     let textColorClass = "text-gray-900";
 //                                                     let backgroundColor = "transparent";
 //                                                     let statusIcon = "";
-
+                                                    
 //                                                     if (isPast) {
 //                                                         textColorClass = "text-gray-400";
 //                                                         backgroundColor = "#f3f4f6";
@@ -751,7 +751,7 @@
 //                                                         backgroundColor = "#fef2f2";
 //                                                         statusIcon = " ✗";
 //                                                     }
-
+                                                    
 //                                                     return (
 //                                                         <option
 //                                                             key={i}
@@ -771,7 +771,7 @@
 //                                 </select>
 //                                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
 //                             </div>
-
+                            
 //                             {/* Legend for color indicators */}
 //                             <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
 //                                 <div className="flex items-center gap-1">
@@ -791,7 +791,7 @@
 //                                     <span className="text-gray-600">Loading...</span>
 //                                 </div> */}
 //                             </div>
-
+                            
 //                             {/* Info message */}
 //                             <p className="mt-2 text-xs text-gray-500 text-center">
 //                                 Click on dropdown to load availability for upcoming dates
@@ -1049,7 +1049,7 @@
 //                                         Meetpoint Mandurah Dot
 //                                     </option>
 //                                     <option value="singleton">
-//                                         Singleton
+//                                         Singleton 
 //                                     </option>
 //                                 </select>
 //                                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
@@ -1217,6 +1217,7 @@
 
 // export default CalendarIntegrationMobile;
 
+
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
     ChevronDown,
@@ -1262,9 +1263,8 @@ const CalendarIntegrationMobile = ({ price }) => {
     const [nextAvailableDates, setNextAvailableDates] = useState([]);
     const [allDates, setAllDates] = useState([]);
     const [loadingDates, setLoadingDates] = useState({});
-    const [loadingTimeSlots, setLoadingTimeSlots] = useState(false); // New state for time slots loading
+    const [loadingTimeSlots, setLoadingTimeSlots] = useState(false);
     const dropdownRef = useRef(null);
-    const hasFetchedInitialRef = useRef(false);
 
     // Format date as YYYY-MM-DD for API calls
     const formatDateKey = (date) => {
@@ -1588,6 +1588,17 @@ const CalendarIntegrationMobile = ({ price }) => {
         },
         [price?.id, timeSlots, loadingDates],
     );
+
+    // Handle dropdown open - fetch slots for visible dates
+    const handleDropdownOpen = useCallback(() => {
+        // Fetch slots for visible dates when dropdown opens
+        const visibleDates = allDates.slice(0, 30);
+        visibleDates.forEach((dateObj) => {
+            if (!timeSlots[dateObj.value] && !loadingDates[dateObj.value] && !isPastDate(dateObj.value)) {
+                fetchSlotsForDate(dateObj.value);
+            }
+        });
+    }, [allDates, timeSlots, loadingDates, fetchSlotsForDate]);
 
     // Fetch slots when user scrolls through dropdown
     const handleScroll = useCallback((e) => {
@@ -2493,6 +2504,7 @@ const CalendarIntegrationMobile = ({ price }) => {
 };
 
 export default CalendarIntegrationMobile;
+
 
 // import React, { useState, useEffect } from "react";
 // import {
@@ -4813,3 +4825,5 @@ export default CalendarIntegrationMobile;
 // };
 
 // export default CalendarIntegrationMobile;
+
+
