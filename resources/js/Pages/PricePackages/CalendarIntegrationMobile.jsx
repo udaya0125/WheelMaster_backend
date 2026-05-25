@@ -287,21 +287,21 @@
 //     const fetchSlotsForDate = useCallback(async (dateKey, isUserSelected = false) => {
 //         // Don't fetch if already have slots or currently loading
 //         if (timeSlots[dateKey] || loadingDates[dateKey]) return;
-        
+
 //         // Don't fetch past dates
 //         if (isPastDate(dateKey)) return;
-        
+
 //         try {
 //             // Mark this date as loading
 //             setLoadingDates(prev => ({ ...prev, [dateKey]: true }));
-            
+
 //             const response = await axios.get(route("ourtimeslots.get"), {
 //                 params: {
 //                     date: dateKey,
 //                     price_id: price.id,
 //                 },
 //             });
-            
+
 //             if (response.data.success) {
 //                 const availableSlots = response.data.slots
 //                     .filter((slot) => slot.status === "available")
@@ -313,12 +313,12 @@
 //                         }
 //                         return startTime;
 //                     });
-                
+
 //                 setTimeSlots((prev) => ({
 //                     ...prev,
 //                     [dateKey]: availableSlots,
 //                 }));
-                
+
 //                 // If this was triggered by user selecting the date, also update booked slots
 //                 if (isUserSelected) {
 //                     const booked = response.data.slots
@@ -359,12 +359,12 @@
 //     useEffect(() => {
 //         const fetchTimeSlotsForSelected = async () => {
 //             if (!selectedDate || !price?.id) return;
-            
+
 //             // Fetch slots for this specific date
 //             await fetchSlotsForDate(selectedDate, true);
 //             setSelectedTime("");
 //         };
-        
+
 //         fetchTimeSlotsForSelected();
 //     }, [selectedDate, price?.id, fetchSlotsForDate]);
 
@@ -384,10 +384,10 @@
 //                 const nextDate = new Date(today);
 //                 nextDate.setDate(today.getDate() + i);
 //                 const dateKey = formatDateKey(nextDate);
-                
+
 //                 // Check cache first
 //                 let availableSlots = timeSlots[dateKey];
-                
+
 //                 if (!availableSlots) {
 //                     try {
 //                         const response = await axios.get(
@@ -399,7 +399,7 @@
 //                                 },
 //                             },
 //                         );
-                        
+
 //                         if (response.data.success) {
 //                             availableSlots = response.data.slots
 //                                 .filter((slot) => slot.status === "available")
@@ -411,7 +411,7 @@
 //                                     }
 //                                     return startTime;
 //                                 });
-                            
+
 //                             // Cache the result
 //                             setTimeSlots((prev) => ({
 //                                 ...prev,
@@ -708,7 +708,7 @@
 //                                         setSelectedDate(newDate);
 //                                         setSelectedTime("");
 //                                         setShowNextAvailability(false);
-                                        
+
 //                                         // Show warning if date has no slots
 //                                         // if (newDate && (!timeSlots[newDate] || timeSlots[newDate].length === 0)) {
 //                                         //     toast.error("No available time slots for this date");
@@ -729,11 +729,11 @@
 //                                                     const hasAvailableSlots = timeSlots[date.value]?.length > 0;
 //                                                     const isPast = isPastDate(date.value);
 //                                                     const isLoading = loadingDates[date.value];
-                                                    
+
 //                                                     let textColorClass = "text-gray-900";
 //                                                     let backgroundColor = "transparent";
 //                                                     let statusIcon = "";
-                                                    
+
 //                                                     if (isPast) {
 //                                                         textColorClass = "text-gray-400";
 //                                                         backgroundColor = "#f3f4f6";
@@ -751,7 +751,7 @@
 //                                                         backgroundColor = "#fef2f2";
 //                                                         statusIcon = " ✗";
 //                                                     }
-                                                    
+
 //                                                     return (
 //                                                         <option
 //                                                             key={i}
@@ -771,7 +771,7 @@
 //                                 </select>
 //                                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
 //                             </div>
-                            
+
 //                             {/* Legend for color indicators */}
 //                             <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
 //                                 <div className="flex items-center gap-1">
@@ -791,7 +791,7 @@
 //                                     <span className="text-gray-600">Loading...</span>
 //                                 </div> */}
 //                             </div>
-                            
+
 //                             {/* Info message */}
 //                             <p className="mt-2 text-xs text-gray-500 text-center">
 //                                 Click on dropdown to load availability for upcoming dates
@@ -1049,7 +1049,7 @@
 //                                         Meetpoint Mandurah Dot
 //                                     </option>
 //                                     <option value="singleton">
-//                                         Singleton 
+//                                         Singleton
 //                                     </option>
 //                                 </select>
 //                                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
@@ -1216,7 +1216,6 @@
 // };
 
 // export default CalendarIntegrationMobile;
-
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
@@ -1504,73 +1503,86 @@ const CalendarIntegrationMobile = ({ price }) => {
     }, {});
 
     // Fetch time slots for a specific date (lazy loading)
-    const fetchSlotsForDate = useCallback(async (dateKey, isUserSelected = false) => {
-        // Don't fetch if already have slots or currently loading
-        if (timeSlots[dateKey] || loadingDates[dateKey]) return;
-        
-        // Don't fetch past dates
-        if (isPastDate(dateKey)) return;
-        
-        try {
-            // Mark this date as loading
-            setLoadingDates(prev => ({ ...prev, [dateKey]: true }));
-            
-            const response = await axios.get(route("ourtimeslots.get"), {
-                params: {
-                    date: dateKey,
-                    price_id: price.id,
-                },
-            });
-            
-            if (response.data.success) {
-                const availableSlots = response.data.slots
-                    .filter((slot) => slot.status === "available")
-                    .map((slot) => {
-                        const startTime = slot.start_time;
-                        if (typeof startTime === "string" && startTime.includes(":")) {
-                            const parts = startTime.split(":");
-                            return `${parts[0]}:${parts[1]}`;
-                        }
-                        return startTime;
-                    });
-                
-                setTimeSlots((prev) => ({
-                    ...prev,
-                    [dateKey]: availableSlots,
-                }));
-                
-                // If this was triggered by user selecting the date, also update booked slots
-                if (isUserSelected) {
-                    const booked = response.data.slots
-                        .filter((slot) => slot.status === "reserved" || slot.status === "blocked")
+    const fetchSlotsForDate = useCallback(
+        async (dateKey, isUserSelected = false) => {
+            // Don't fetch if already have slots or currently loading
+            if (timeSlots[dateKey] || loadingDates[dateKey]) return;
+
+            // Don't fetch past dates
+            if (isPastDate(dateKey)) return;
+
+            try {
+                // Mark this date as loading
+                setLoadingDates((prev) => ({ ...prev, [dateKey]: true }));
+
+                const response = await axios.get(route("ourtimeslots.get"), {
+                    params: {
+                        date: dateKey,
+                        price_id: price.id,
+                    },
+                });
+
+                if (response.data.success) {
+                    const availableSlots = response.data.slots
+                        .filter((slot) => slot.status === "available")
                         .map((slot) => {
                             const startTime = slot.start_time;
-                            if (typeof startTime === "string" && startTime.includes(":")) {
+                            if (
+                                typeof startTime === "string" &&
+                                startTime.includes(":")
+                            ) {
                                 const parts = startTime.split(":");
                                 return `${parts[0]}:${parts[1]}`;
                             }
                             return startTime;
                         });
-                    setBookedSlots(booked);
+
+                    setTimeSlots((prev) => ({
+                        ...prev,
+                        [dateKey]: availableSlots,
+                    }));
+
+                    // If this was triggered by user selecting the date, also update booked slots
+                    if (isUserSelected) {
+                        const booked = response.data.slots
+                            .filter(
+                                (slot) =>
+                                    slot.status === "reserved" ||
+                                    slot.status === "blocked",
+                            )
+                            .map((slot) => {
+                                const startTime = slot.start_time;
+                                if (
+                                    typeof startTime === "string" &&
+                                    startTime.includes(":")
+                                ) {
+                                    const parts = startTime.split(":");
+                                    return `${parts[0]}:${parts[1]}`;
+                                }
+                                return startTime;
+                            });
+                        setBookedSlots(booked);
+                    }
                 }
+            } catch (err) {
+                console.error(`Error fetching slots for ${dateKey}:`, err);
+                // Set empty slots for this date to avoid retrying
+                setTimeSlots((prev) => ({
+                    ...prev,
+                    [dateKey]: [],
+                }));
+            } finally {
+                setLoadingDates((prev) => ({ ...prev, [dateKey]: false }));
             }
-        } catch (err) {
-            console.error(`Error fetching slots for ${dateKey}:`, err);
-            // Set empty slots for this date to avoid retrying
-            setTimeSlots((prev) => ({
-                ...prev,
-                [dateKey]: [],
-            }));
-        } finally {
-            setLoadingDates(prev => ({ ...prev, [dateKey]: false }));
-        }
-    }, [price?.id, timeSlots, loadingDates]);
+        },
+        [price?.id, timeSlots, loadingDates],
+    );
 
     // Fetch slots when user scrolls through dropdown (visible dates)
     const handleDropdownOpen = useCallback(() => {
         // Fetch slots for the next 30 days when dropdown opens
         const next30Days = allDates.slice(0, 30);
-        next30Days.forEach(dateObj => {
+        next30Days.forEach((dateObj) => {
             fetchSlotsForDate(dateObj.value);
         });
     }, [allDates, fetchSlotsForDate]);
@@ -1579,12 +1591,12 @@ const CalendarIntegrationMobile = ({ price }) => {
     useEffect(() => {
         const fetchTimeSlotsForSelected = async () => {
             if (!selectedDate || !price?.id) return;
-            
+
             // Fetch slots for this specific date
             await fetchSlotsForDate(selectedDate, true);
             setSelectedTime("");
         };
-        
+
         fetchTimeSlotsForSelected();
     }, [selectedDate, price?.id, fetchSlotsForDate]);
 
@@ -1604,10 +1616,10 @@ const CalendarIntegrationMobile = ({ price }) => {
                 const nextDate = new Date(today);
                 nextDate.setDate(today.getDate() + i);
                 const dateKey = formatDateKey(nextDate);
-                
+
                 // Check cache first
                 let availableSlots = timeSlots[dateKey];
-                
+
                 if (!availableSlots) {
                     try {
                         const response = await axios.get(
@@ -1619,19 +1631,22 @@ const CalendarIntegrationMobile = ({ price }) => {
                                 },
                             },
                         );
-                        
+
                         if (response.data.success) {
                             availableSlots = response.data.slots
                                 .filter((slot) => slot.status === "available")
                                 .map((slot) => {
                                     const startTime = slot.start_time;
-                                    if (typeof startTime === "string" && startTime.includes(":")) {
+                                    if (
+                                        typeof startTime === "string" &&
+                                        startTime.includes(":")
+                                    ) {
                                         const parts = startTime.split(":");
                                         return `${parts[0]}:${parts[1]}`;
                                     }
                                     return startTime;
                                 });
-                            
+
                             // Cache the result
                             setTimeSlots((prev) => ({
                                 ...prev,
@@ -1639,7 +1654,10 @@ const CalendarIntegrationMobile = ({ price }) => {
                             }));
                         }
                     } catch (err) {
-                        console.error(`Error fetching slots for ${dateKey}:`, err);
+                        console.error(
+                            `Error fetching slots for ${dateKey}:`,
+                            err,
+                        );
                         continue;
                     }
                 }
@@ -1796,7 +1814,9 @@ const CalendarIntegrationMobile = ({ price }) => {
             );
 
             if (response.data.success || response.data.message) {
-                toast.success("Booking confirmed successfully! Please check your Spam email for booking details.");
+                toast.success(
+                    "Booking confirmed successfully! Please check your Spam email for booking details.",
+                );
 
                 setFormData({
                     user_name: "",
@@ -1936,39 +1956,67 @@ const CalendarIntegrationMobile = ({ price }) => {
                                                 className="font-semibold text-gray-700"
                                             >
                                                 {dates.map((date, i) => {
-                                                    const hasAvailableSlots = timeSlots[date.value]?.length > 0;
-                                                    const isPast = isPastDate(date.value);
-                                                    const isLoading = loadingDates[date.value];
-                                                    
-                                                    let textColorClass = "text-gray-900";
-                                                    let backgroundColor = "transparent";
+                                                    const hasAvailableSlots =
+                                                        timeSlots[date.value]
+                                                            ?.length > 0;
+                                                    const isPast = isPastDate(
+                                                        date.value,
+                                                    );
+                                                    const isLoading =
+                                                        loadingDates[
+                                                            date.value
+                                                        ];
+
+                                                    let textColorClass =
+                                                        "text-gray-900";
+                                                    let backgroundColor =
+                                                        "transparent";
                                                     let statusIcon = "";
-                                                    
+
                                                     if (isPast) {
-                                                        textColorClass = "text-gray-400";
-                                                        backgroundColor = "#f3f4f6";
+                                                        textColorClass =
+                                                            "text-gray-400";
+                                                        backgroundColor =
+                                                            "#f3f4f6";
                                                         statusIcon = " (Past)";
                                                     } else if (isLoading) {
-                                                        textColorClass = "text-gray-500";
-                                                        backgroundColor = "#fef3c7";
-                                                        statusIcon = " (Loading...)";
-                                                    } else if (hasAvailableSlots) {
-                                                        textColorClass = "text-green-600 font-semibold";
-                                                        backgroundColor = "#f0fdf4";
+                                                        textColorClass =
+                                                            "text-gray-500";
+                                                        backgroundColor =
+                                                            "#fef3c7";
+                                                        statusIcon =
+                                                            " (Loading...)";
+                                                    } else if (
+                                                        hasAvailableSlots
+                                                    ) {
+                                                        textColorClass =
+                                                            "text-green-600 font-semibold";
+                                                        backgroundColor =
+                                                            "#f0fdf4";
                                                         statusIcon = " ✓";
-                                                    } else if (!hasAvailableSlots && timeSlots[date.value] !== undefined && !isPast) {
-                                                        textColorClass = "text-red-500";
-                                                        backgroundColor = "#fef2f2";
+                                                    } else if (
+                                                        !hasAvailableSlots &&
+                                                        timeSlots[
+                                                            date.value
+                                                        ] !== undefined &&
+                                                        !isPast
+                                                    ) {
+                                                        textColorClass =
+                                                            "text-red-500";
+                                                        backgroundColor =
+                                                            "#fef2f2";
                                                         statusIcon = " ✗";
                                                     }
-                                                    
+
                                                     return (
                                                         <option
                                                             key={i}
                                                             value={date.value}
                                                             disabled={isPast}
                                                             className={`py-1 ${textColorClass}`}
-                                                            style={{ backgroundColor }}
+                                                            style={{
+                                                                backgroundColor,
+                                                            }}
                                                         >
                                                             {date.display}
                                                             {statusIcon}
@@ -1981,22 +2029,32 @@ const CalendarIntegrationMobile = ({ price }) => {
                                 </select>
                                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
                             </div>
-                            
+
                             {/* Legend for color indicators */}
                             <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
                                 <div className="flex items-center gap-1">
-                                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                                    <span className="text-gray-600">Has available slots</span>
+                                    <span className="text-green-500 text-sm">
+                                        ✔️
+                                    </span>
+                                    <span className="text-gray-600">
+                                        Has available slots
+                                    </span>
                                 </div>
+
                                 <div className="flex items-center gap-1">
-                                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                                    <span className="text-gray-600">No available slots</span>
+                                    <span className="text-red-500 text-sm">
+                                        ❌
+                                    </span>
+                                    <span className="text-gray-600">
+                                        No available slots
+                                    </span>
                                 </div>
                             </div>
-                            
+
                             {/* Info message */}
                             <p className="mt-2 text-xs text-gray-500 text-center">
-                                Click on dropdown to load availability for upcoming dates
+                                Click on dropdown to load availability for
+                                upcoming dates
                             </p>
                         </div>
 
@@ -2031,11 +2089,15 @@ const CalendarIntegrationMobile = ({ price }) => {
                                 </select>
                                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
                             </div>
-                            {selectedDate && nonOverlappingSlots.length === 0 && !loading && timeSlots[selectedDate] !== undefined && (
-                                <p className="mt-1 text-sm text-red-600">
-                                    No available time slots for this date. Please select another date.
-                                </p>
-                            )}
+                            {selectedDate &&
+                                nonOverlappingSlots.length === 0 &&
+                                !loading &&
+                                timeSlots[selectedDate] !== undefined && (
+                                    <p className="mt-1 text-sm text-red-600">
+                                        No available time slots for this date.
+                                        Please select another date.
+                                    </p>
+                                )}
                             {selectedDate && loadingDates[selectedDate] && (
                                 <p className="mt-1 text-sm text-yellow-600">
                                     Loading time slots...
@@ -2223,9 +2285,7 @@ const CalendarIntegrationMobile = ({ price }) => {
                                             : "border-gray-300"
                                     }`}
                                 >
-                                    <option value="">
-                                        Select your Area
-                                    </option>
+                                    <option value="">Select your Area</option>
                                     <option value="mandurah">Mandurah</option>
                                     <option value="meadow-springs">
                                         Meadow Springs
@@ -2250,9 +2310,7 @@ const CalendarIntegrationMobile = ({ price }) => {
                                     <option value="meetpoint-mandurah-dot">
                                         Meetpoint Mandurah Dot
                                     </option>
-                                    <option value="singleton">
-                                        Singleton 
-                                    </option>
+                                    <option value="singleton">Singleton</option>
                                 </select>
                                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
                             </div>
@@ -2295,11 +2353,14 @@ const CalendarIntegrationMobile = ({ price }) => {
                                 </p>
                             ) : (
                                 <p className="mt-1 text-sm text-gray-500">
-                                    Currently serving only areas with zip codes 6210, 6180, or 6175.
-                                    {formData.address !== "meetpoint-mandurah-dot" && (
+                                    Currently serving only areas with zip codes
+                                    6210, 6180, or 6175.
+                                    {formData.address !==
+                                        "meetpoint-mandurah-dot" && (
                                         <span className="block">
-                                            If your address is not available, please
-                                            select "Meetpoint Mandurah Dot".
+                                            If your address is not available,
+                                            please select "Meetpoint Mandurah
+                                            Dot".
                                         </span>
                                     )}
                                 </p>
@@ -2409,7 +2470,6 @@ const CalendarIntegrationMobile = ({ price }) => {
 };
 
 export default CalendarIntegrationMobile;
-
 
 // import React, { useState, useEffect } from "react";
 // import {
@@ -4730,5 +4790,3 @@ export default CalendarIntegrationMobile;
 // };
 
 // export default CalendarIntegrationMobile;
-
-
