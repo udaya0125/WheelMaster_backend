@@ -1261,7 +1261,10 @@ const CalendarIntegrationMobile = ({ price }) => {
     const [showNextAvailability, setShowNextAvailability] = useState(false);
     const [nextAvailableDates, setNextAvailableDates] = useState([]);
     const [allDates, setAllDates] = useState([]);
-    const [loadingDates, setLoadingDates] = useState({}); // Track which dates are loading
+    const [loadingDates, setLoadingDates] = useState({});
+    const [loadingTimeSlots, setLoadingTimeSlots] = useState(false); // New state for time slots loading
+    const dropdownRef = useRef(null);
+    const hasFetchedInitialRef = useRef(false);
 
     // Format date as YYYY-MM-DD for API calls
     const formatDateKey = (date) => {
@@ -1490,6 +1493,14 @@ const CalendarIntegrationMobile = ({ price }) => {
             });
         }
         setAllDates(dates);
+        
+        // Initial fetch for the first 7 days when component mounts
+        const initialDates = dates.slice(0, 7);
+        initialDates.forEach((dateObj) => {
+            if (!isPastDate(dateObj.value)) {
+                fetchSlotsForDate(dateObj.value);
+            }
+        });
     }, []);
 
     // Group dates by monthYear
@@ -1578,23 +1589,35 @@ const CalendarIntegrationMobile = ({ price }) => {
         [price?.id, timeSlots, loadingDates],
     );
 
-    // Fetch slots when user scrolls through dropdown (visible dates)
-    const handleDropdownOpen = useCallback(() => {
-        // Fetch slots for the next 30 days when dropdown opens
-        const next30Days = allDates.slice(0, 30);
-        next30Days.forEach((dateObj) => {
-            fetchSlotsForDate(dateObj.value);
-        });
-    }, [allDates, fetchSlotsForDate]);
+    // Fetch slots when user scrolls through dropdown
+    const handleScroll = useCallback((e) => {
+        const select = e.target;
+        const selectedIndex = select.selectedIndex;
+        
+        // Fetch next 5 dates when user gets close to the bottom
+        const totalOptions = select.options.length;
+        if (selectedIndex > totalOptions - 10) {
+            // User is near the bottom, fetch more dates
+            const visibleDates = allDates.slice(0, totalOptions);
+            const datesToFetch = visibleDates.slice(-10);
+            datesToFetch.forEach((dateObj) => {
+                if (!timeSlots[dateObj.value] && !loadingDates[dateObj.value] && !isPastDate(dateObj.value)) {
+                    fetchSlotsForDate(dateObj.value);
+                }
+            });
+        }
+    }, [allDates, timeSlots, loadingDates, fetchSlotsForDate]);
 
     // Fetch time slots for selected date
     useEffect(() => {
         const fetchTimeSlotsForSelected = async () => {
             if (!selectedDate || !price?.id) return;
 
+            setLoadingTimeSlots(true);
             // Fetch slots for this specific date
             await fetchSlotsForDate(selectedDate, true);
             setSelectedTime("");
+            setLoadingTimeSlots(false);
         };
 
         fetchTimeSlotsForSelected();
@@ -1936,8 +1959,10 @@ const CalendarIntegrationMobile = ({ price }) => {
                             <div className="relative">
                                 <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
                                 <select
+                                    ref={dropdownRef}
                                     value={selectedDate}
-                                    onFocus={handleDropdownOpen}
+                                    onScroll={handleScroll}
+                                    onClick={handleDropdownOpen}
                                     onChange={(e) => {
                                         const newDate = e.target.value;
                                         setSelectedDate(newDate);
@@ -1995,7 +2020,6 @@ const CalendarIntegrationMobile = ({ price }) => {
                                                             "#f0fdf4";
                                                         statusIcon = " ✓";
                                                     } else if (
-                                                        !hasAvailableSlots &&
                                                         timeSlots[
                                                             date.value
                                                         ] !== undefined &&
@@ -2040,7 +2064,14 @@ const CalendarIntegrationMobile = ({ price }) => {
                                         Has available slots
                                     </span>
                                 </div>
-
+                                <div className="flex items-center gap-1">
+                                    <span className="text-yellow-500 text-sm">
+                                        ⏳
+                                    </span>
+                                    <span className="text-gray-600">
+                                        Loading availability...
+                                    </span>
+                                </div>
                                 <div className="flex items-center gap-1">
                                     <span className="text-red-500 text-sm">
                                         ❌
@@ -2050,12 +2081,6 @@ const CalendarIntegrationMobile = ({ price }) => {
                                     </span>
                                 </div>
                             </div>
-
-                            {/* Info message */}
-                            <p className="mt-2 text-xs text-gray-500 text-center">
-                                Click on dropdown to load availability for
-                                upcoming dates
-                            </p>
                         </div>
 
                         {/* Time Selection */}
@@ -2070,16 +2095,18 @@ const CalendarIntegrationMobile = ({ price }) => {
                                     onChange={(e) =>
                                         setSelectedTime(e.target.value)
                                     }
-                                    disabled={!selectedDate || loading}
+                                    disabled={!selectedDate || loadingTimeSlots}
                                     className="w-full appearance-none bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 p-3 pl-10 transition disabled:opacity-50 disabled:cursor-not-allowed"
                                     required
                                 >
                                     <option value="">
-                                        {loading
-                                            ? "Loading..."
+                                        {loadingTimeSlots
+                                            ? "Loading time slots..."
                                             : !selectedDate
                                               ? "Select a date first"
-                                              : "Select a time"}
+                                              : nonOverlappingSlots.length === 0
+                                                ? "No available slots"
+                                                : "Select a time"}
                                     </option>
                                     {nonOverlappingSlots.map((time, i) => (
                                         <option key={i} value={time}>
@@ -2091,24 +2118,20 @@ const CalendarIntegrationMobile = ({ price }) => {
                             </div>
                             {selectedDate &&
                                 nonOverlappingSlots.length === 0 &&
-                                !loading &&
+                                !loadingTimeSlots &&
                                 timeSlots[selectedDate] !== undefined && (
                                     <p className="mt-1 text-sm text-red-600">
                                         No available time slots for this date.
-                                        Please select another date.
+                                        Please select another date or check next
+                                        availability.
                                     </p>
                                 )}
-                            {selectedDate && loadingDates[selectedDate] && (
-                                <p className="mt-1 text-sm text-yellow-600">
-                                    Loading time slots...
-                                </p>
-                            )}
                         </div>
 
                         {/* Next Availability Button */}
                         {selectedDate &&
                             nonOverlappingSlots.length === 0 &&
-                            !loading &&
+                            !loadingTimeSlots &&
                             !showNextAvailability && (
                                 <button
                                     type="button"
