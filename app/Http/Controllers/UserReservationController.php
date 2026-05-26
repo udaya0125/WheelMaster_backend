@@ -231,7 +231,7 @@ class UserReservationController extends Controller
             'test_location' => $request->test_location,
         ]);
 
-        $this->sendReservationEmails($reservation);
+        // $this->sendReservationEmails($reservation);
 
         return response()->json([
             'success' => true,
@@ -328,7 +328,7 @@ class UserReservationController extends Controller
         }
 
         // Send bundle email summary
-        $this->sendBundleReservationEmails($createdReservations, $totalSessions);
+        // $this->sendBundleReservationEmails($createdReservations, $totalSessions);
 
         return response()->json([
             'success' => true,
@@ -539,70 +539,70 @@ class UserReservationController extends Controller
     // ---------------------------------------
     // Helper: Send reservation emails
     // ---------------------------------------
-    private function sendReservationEmails($reservation)
-    {
-        try {
-            Mail::to($reservation->email)->send(new ReservationCreated($reservation, false));
-        } catch (\Exception $e) {
-            Log::error('Failed to send customer email: '.$e->getMessage());
-        }
+    // private function sendReservationEmails($reservation)
+    // {
+    //     try {
+    //         Mail::to($reservation->email)->send(new ReservationCreated($reservation, false));
+    //     } catch (\Exception $e) {
+    //         Log::error('Failed to send customer email: '.$e->getMessage());
+    //     }
 
-        try {
-            $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
-            // $adminEmail = env('ADMIN_EMAIL', 'wheelmaster@outlook.com.au');
-            Mail::to($adminEmail)->send(new ReservationCreated($reservation, true));
-        } catch (\Exception $e) {
-            Log::error('Failed to send admin email: '.$e->getMessage());
-        }
-    }
+    //     try {
+    //         $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
+    //         // $adminEmail = env('ADMIN_EMAIL', 'wheelmaster@outlook.com.au');
+    //         Mail::to($adminEmail)->send(new ReservationCreated($reservation, true));
+    //     } catch (\Exception $e) {
+    //         Log::error('Failed to send admin email: '.$e->getMessage());
+    //     }
+    // }
 
     // ---------------------------------------
     // Helper: Send bundle reservation emails
     // ---------------------------------------
-    private function sendBundleReservationEmails($reservations, $sessionCount)
-    {
-        if (empty($reservations)) {
-            return;
-        }
+    // private function sendBundleReservationEmails($reservations, $sessionCount)
+    // {
+    //     if (empty($reservations)) {
+    //         return;
+    //     }
 
-        $firstReservation = $reservations[0];
+    //     $firstReservation = $reservations[0];
 
-        try {
-            Mail::to($firstReservation->email)->send(new ReservationCreated($firstReservation, false, $sessionCount));
-        } catch (\Exception $e) {
-            Log::error('Failed to send customer bundle email: '.$e->getMessage());
-        }
+    //     try {
+    //         Mail::to($firstReservation->email)->send(new ReservationCreated($firstReservation, false, $sessionCount));
+    //     } catch (\Exception $e) {
+    //         Log::error('Failed to send customer bundle email: '.$e->getMessage());
+    //     }
 
-        try {
-            $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
-            // $adminEmail = env('ADMIN_EMAIL', 'wheelmaster@outlook.com.au');
-            Mail::to($adminEmail)->send(new ReservationCreated($firstReservation, true, $sessionCount));
-        } catch (\Exception $e) {
-            Log::error('Failed to send admin bundle email: '.$e->getMessage());
-        }
-    }
+    //     try {
+    //         $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
+    //         // $adminEmail = env('ADMIN_EMAIL', 'wheelmaster@outlook.com.au');
+    //         Mail::to($adminEmail)->send(new ReservationCreated($firstReservation, true, $sessionCount));
+    //     } catch (\Exception $e) {
+    //         Log::error('Failed to send admin bundle email: '.$e->getMessage());
+    //     }
+    // }
 
     // ---------------------------------------
     // Helper: Send status update emails
     // ---------------------------------------
-    private function sendStatusUpdateEmails($reservation, $oldStatus)
-    {
-        if ($oldStatus === $reservation->status) {
-            return;
-        }
+    // private function sendStatusUpdateEmails($reservation, $oldStatus)
+    // {
+    //     if ($oldStatus === $reservation->status) {
+    //         return;
+    //     }
 
-        try {
-            Mail::to($reservation->email)->send(new ReservationStatusUpdated($reservation, false));
-        } catch (\Exception $e) {
-            Log::error('Failed to send customer status update email: '.$e->getMessage());
-        }
+    //     try {
+    //         Mail::to($reservation->email)->send(new ReservationStatusUpdated($reservation, false));
+    //     } catch (\Exception $e) {
+    //         Log::error('Failed to send customer status update email: '.$e->getMessage());
+    //     }
 
-        try {
-            $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
-            // $adminEmail = env('ADMIN_EMAIL', 'wheelmaster@outlook.com.au');
-            Mail::to($adminEmail)->send(new ReservationStatusUpdated($reservation, true));
-        } catch (\Exception $e) {
-            Log::error('Failed to send admin status update email: '.$e->getMessage());
-        }
-    }
+    //     try {
+    //         $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
+    //         // $adminEmail = env('ADMIN_EMAIL', 'wheelmaster@outlook.com.au');
+    //         Mail::to($adminEmail)->send(new ReservationStatusUpdated($reservation, true));
+    //     } catch (\Exception $e) {
+    //         Log::error('Failed to send admin status update email: '.$e->getMessage());
+    //     }
+    // }
 }
