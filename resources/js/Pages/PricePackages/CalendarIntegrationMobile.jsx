@@ -3309,7 +3309,7 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                 className="mb-4"
                             />
 
-                            <h3 className="font-semibold text-gray-900 mb-2">
+                            <h3 className="font-semibold text-gray-900 mb-2 capitalize">
                                 {price.category || "Driving Lessons"}
                             </h3>
                             <p className="text-sm text-gray-600 mb-2">

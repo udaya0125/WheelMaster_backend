@@ -12,14 +12,19 @@ const getPackageHref = (packageOption) => {
     return `/calendar/${packageOption.slug}`;
 };
 
-const getPackageLabel = (packageOption) => {
-    const pieces = [
-        packageOption.duration,
-        packageOption.description,
-        packageOption.price ? `$${packageOption.price}` : null,
-    ].filter(Boolean);
+// const getPackageLabel = (packageOption) => {
+//     const pieces = [
+//         packageOption.duration,
+//     ].filter(Boolean);
 
-    return pieces.join(" - ");
+//     return pieces.join(" - ");
+// };
+
+const getPackageLabel = (packageOption) => {
+    const duration = packageOption.duration;
+    if (!duration) return "Lesson";
+    const isPlural = !duration.startsWith("1 ");
+    return `${duration} ${isPlural ? "Lesson" : "Lesson"}`;
 };
 
 const PackageSelector = ({ price, packageOptions = [], className = "" }) => {
@@ -98,7 +103,7 @@ const PackageSelector = ({ price, packageOptions = [], className = "" }) => {
                         ),
                     )}
                 </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
+                {/* <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" /> */}
             </div>
         </div>
     );

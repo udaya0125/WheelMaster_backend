@@ -1606,7 +1606,7 @@ const CalendarIntegration = ({ price, packageOptions = [] }) => {
                             />
 
                             <div>
-                                <h3 className="font-semibold text-gray-900 mb-1 text-sm sm:text-base">
+                                <h3 className="font-semibold text-gray-900 mb-1 text-sm sm:text-base capitalize">
                                     {price.category || "Driving Lessons"}
                                 </h3>
                                 <p className="text-xs sm:text-sm text-gray-600">
