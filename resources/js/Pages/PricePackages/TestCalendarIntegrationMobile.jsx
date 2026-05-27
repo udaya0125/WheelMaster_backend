@@ -1124,7 +1124,7 @@
 //                                                 Meetpoint Mandurah Dot
 //                                             </option>
 //                                              <option value="singleton">
-//                                                 Singleton 
+//                                                 Singleton
 //                                             </option>
 //                                         </select>
 //                                         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
@@ -1453,8 +1453,6 @@
 
 // export default TestCalendarIntegrationMobile;
 
-
-
 import React, { useState, useEffect } from "react";
 import {
     ChevronDown,
@@ -1488,7 +1486,7 @@ const TestCalendarIntegrationMobile = ({ price }) => {
     const [showOrderSummary, setShowOrderSummary] = useState(false);
     const [saved, setSaved] = useState(false);
     const [allDates, setAllDates] = useState([]);
-    
+
     // Terms and conditions acceptance
     const [acceptTerms, setAcceptTerms] = useState(false);
 
@@ -1919,7 +1917,9 @@ const TestCalendarIntegrationMobile = ({ price }) => {
             setFormErrors({
                 terms: "Please accept the Terms & Conditions and Privacy Policy",
             });
-            toast.error("Please accept the Terms & Conditions and Privacy Policy");
+            toast.error(
+                "Please accept the Terms & Conditions and Privacy Policy",
+            );
             return;
         }
 
@@ -1987,9 +1987,12 @@ const TestCalendarIntegrationMobile = ({ price }) => {
             toast.dismiss(submittingToast);
 
             if (response.data.success || response.data.message) {
-                toast.success("Test package booked successfully! Please check your Spam email for booking details.", {
-                    duration: 5000,
-                });
+                toast.success(
+                    "Test package booked successfully! Please check your Spam email for booking details.",
+                    {
+                        duration: 5000,
+                    },
+                );
 
                 // Reset form
                 setSelectedDate("");
@@ -2579,8 +2582,8 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                             <option value="meetpoint-mandurah-dot">
                                                 Meetpoint Mandurah Dot
                                             </option>
-                                             <option value="singleton">
-                                                Singleton 
+                                            <option value="singleton">
+                                                Singleton
                                             </option>
                                         </select>
                                         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
@@ -2623,6 +2626,13 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                         </p>
                                     )}
                                 </div>
+
+                                <p className="mt-1 text-sm text-gray-500">
+                                    Currently serving only these areas with postcode 6210, 6180, or 6175.
+                                    <span className="block">
+                                        If your address is not available, please select "Meetpoint Mandurah Dot" where you will be meeting instructor.
+                                    </span>
+                                </p>
 
                                 {/* Pickup Location */}
                                 <div>
@@ -2705,7 +2715,9 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                             id="acceptTerms"
                                             checked={acceptTerms}
                                             onChange={(e) => {
-                                                setAcceptTerms(e.target.checked);
+                                                setAcceptTerms(
+                                                    e.target.checked,
+                                                );
                                                 if (formErrors.terms) {
                                                     setFormErrors((prev) => ({
                                                         ...prev,
@@ -2716,7 +2728,10 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                             className="mt-1 h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                                             required
                                         />
-                                        <label htmlFor="acceptTerms" className="text-sm text-gray-700">
+                                        <label
+                                            htmlFor="acceptTerms"
+                                            className="text-sm text-gray-700"
+                                        >
                                             I agree to the{" "}
                                             <a
                                                 href="https://wheelmasterdriving.com.au/terms"
@@ -2725,8 +2740,8 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                                 className="text-indigo-600 hover:text-indigo-800 underline font-medium"
                                             >
                                                 Terms & Conditions
-                                            </a>
-                                            {" "}and{" "}
+                                            </a>{" "}
+                                            and{" "}
                                             <a
                                                 href="https://wheelmasterdriving.com.au/policy"
                                                 target="_blank"
@@ -2734,7 +2749,8 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                                 className="text-indigo-600 hover:text-indigo-800 underline font-medium"
                                             >
                                                 Privacy Policy
-                                            </a> *
+                                            </a>{" "}
+                                            *
                                         </label>
                                     </div>
                                     {formErrors.terms && (

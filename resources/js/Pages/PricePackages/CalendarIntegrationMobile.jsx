@@ -2525,7 +2525,7 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
-    
+
     // Terms and conditions acceptance
     const [acceptTerms, setAcceptTerms] = useState(false);
 
@@ -3160,7 +3160,9 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                 ...prev,
                 terms: "Please accept the Terms & Conditions and Privacy Policy",
             }));
-            toast.error("Please accept the Terms & Conditions and Privacy Policy");
+            toast.error(
+                "Please accept the Terms & Conditions and Privacy Policy",
+            );
             return;
         }
 
@@ -3666,9 +3668,7 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                     <option value="meetpoint-mandurah-dot">
                                         Meetpoint Mandurah Dot
                                     </option>
-                                    <option value="singleton">
-                                        Singleton 
-                                    </option>
+                                    <option value="singleton">Singleton</option>
                                 </select>
                                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
                             </div>
@@ -3678,16 +3678,12 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                 </p>
                             )}
                         </div>
-                         <p className="mt-1 text-sm text-gray-500">
-                        Currently serving only areas with zip codes 6210, 6180,
-                        or 6175.
-                        
+                        <p className="mt-1 text-sm text-gray-500">
+                            Currently serving only these areas with postcode 6210, 6180, or 6175.
                             <span className="block">
-                                If your address is not available, please select
-                                "Meetpoint Mandurah Dot".
+                                If your address is not available, please select "Meetpoint Mandurah Dot" where you will be meeting instructor.
                             </span>
-                    
-                    </p>
+                        </p>
 
                         {/* Pickup Location */}
                         <div>
@@ -3783,7 +3779,10 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                     className="mt-1 h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                                     required
                                 />
-                                <label htmlFor="acceptTerms" className="text-sm text-gray-700">
+                                <label
+                                    htmlFor="acceptTerms"
+                                    className="text-sm text-gray-700"
+                                >
                                     I agree to the{" "}
                                     <a
                                         href="https://wheelmasterdriving.com.au/terms"
@@ -3792,8 +3791,8 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                         className="text-indigo-600 hover:text-indigo-800 underline font-medium"
                                     >
                                         Terms & Conditions
-                                    </a>
-                                    {" "}and{" "}
+                                    </a>{" "}
+                                    and{" "}
                                     <a
                                         href="https://wheelmasterdriving.com.au/policy"
                                         target="_blank"
@@ -3801,7 +3800,8 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                         className="text-indigo-600 hover:text-indigo-800 underline font-medium"
                                     >
                                         Privacy Policy
-                                    </a> *
+                                    </a>{" "}
+                                    *
                                 </label>
                             </div>
                             {errors.terms && (
@@ -3815,7 +3815,10 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                         <button
                             type="submit"
                             disabled={
-                                submitting || !selectedDate || !selectedTime || !acceptTerms
+                                submitting ||
+                                !selectedDate ||
+                                !selectedTime ||
+                                !acceptTerms
                             }
                             className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-4 px-4 rounded-xl transition duration-200 text-base"
                         >
@@ -3830,7 +3833,8 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                         </button>
 
                         <p className="text-xs text-center text-gray-500 mt-4">
-                            By clicking Confirm Booking, you agree to our terms and conditions and privacy policy
+                            By clicking Confirm Booking, you agree to our terms
+                            and conditions and privacy policy
                         </p>
                     </form>
                 </div>
