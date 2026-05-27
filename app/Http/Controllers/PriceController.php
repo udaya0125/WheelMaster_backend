@@ -38,6 +38,7 @@ class PriceController extends Controller
 
             return Inertia::render('PricePackages/CalendarIntegrationWrapper', [
                 'price' => $price,
+                'packageOptions' => $this->bookablePackageOptions(),
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
@@ -127,5 +128,19 @@ class PriceController extends Controller
             'success' => true,
             'message' => 'Price package deleted successfully.',
         ], 200);
+    }
+
+    private function bookablePackageOptions()
+    {
+        return Price::all(['id', 'description', 'price', 'duration', 'category', 'slug'])
+            ->filter(function ($price) {
+                $category = strtolower($price->category ?? '');
+                $description = strtolower($price->description ?? '');
+
+                return ! str_contains($category, 'test')
+                    && ! str_contains($category, 'package bundles')
+                    && ! str_contains($description, 'test only');
+            })
+            ->values();
     }
 }

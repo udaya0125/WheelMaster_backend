@@ -241,7 +241,8 @@ Route::middleware('auth')->group(function () {
     // Calendar routes by slug
     // --------------------------------------------------------------------------
 
-    Route::get('/calendar/{slug}', [PriceController::class, 'indexBySlug']);
+    // Route::get('/calendar/{slug}', [PriceController::class, 'indexBySlug']);
+     Route::get('/calendar/{slug}', [PriceController::class, 'indexBySlug'])->name('calendar.show');
 
 
     // --------------------------------------------------------------------------
@@ -266,6 +267,7 @@ Route::middleware('auth')->group(function () {
     // --------------------------------------------------------------------------
 
     Route::get('/calendar/test/{slug}', [PriceController::class, 'testCalendar'])->name('test.calendar');
+   
 
 
     // --------------------------------------------------------------------------
