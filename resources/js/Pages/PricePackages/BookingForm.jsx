@@ -1081,12 +1081,10 @@ const BookingForm = ({
                     <p className="mt-1 text-sm text-gray-500">
                         Currently serving only areas with zip codes 6210, 6180,
                         or 6175.
-                        {bookingForm.address !== "meetpoint-mandurah-dot" && (
                             <span className="block">
                                 If your address is not available, please select
                                 "Meetpoint Mandurah Dot".
                             </span>
-                        )}
                     </p>
 
                     {/* Test Location - Only shown for test packages */}
