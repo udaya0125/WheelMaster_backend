@@ -2518,7 +2518,6 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
         email: "",
         phone: "",
         address: "",
-        zip_code: "",
         pickup_location: "",
         dropoff_location: "",
     });
@@ -2526,6 +2525,9 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    
+    // Terms and conditions acceptance
+    const [acceptTerms, setAcceptTerms] = useState(false);
 
     // Time slots state
     const [timeSlots, setTimeSlots] = useState({});
@@ -2624,8 +2626,6 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
             return `${mins} minutes`;
         }
     };
-
-
 
     // Function to set dropoff location same as pickup location
     const setDropoffSameAsPickup = () => {
@@ -3120,12 +3120,6 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
         }
     };
 
-    // Validate zip code - only allow 6210
-    const validateZipCode = (zip) => {
-        const cleanZip = zip.replace(/\D/g, "");
-        return cleanZip === "6210";
-    };
-
     // Handle form submission
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -3135,7 +3129,6 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
             "email",
             "phone",
             "address",
-            "zip_code",
             "pickup_location",
             "dropoff_location",
         ];
@@ -3151,11 +3144,6 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
             newErrors.email = "Please enter a valid email address";
         }
 
-        if (formData.zip_code && !validateZipCode(formData.zip_code)) {
-            newErrors.zip_code =
-                "Sorry, we currently only serve areas with zip code 6210";
-        }
-
         if (!selectedDate) {
             toast.error("Please select a date");
             return;
@@ -3163,6 +3151,16 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
 
         if (!selectedTime) {
             toast.error("Please select a time slot");
+            return;
+        }
+
+        // Check terms and conditions acceptance
+        if (!acceptTerms) {
+            setErrors((prev) => ({
+                ...prev,
+                terms: "Please accept the Terms & Conditions and Privacy Policy",
+            }));
+            toast.error("Please accept the Terms & Conditions and Privacy Policy");
             return;
         }
 
@@ -3176,7 +3174,7 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
 
         try {
             const durationMinutes = parseDuration(price.duration);
-            const fullAddress = `${formData.address}, ${formData.zip_code}`;
+            const fullAddress = formData.address;
 
             const extractPackageName = (description) => {
                 if (!description) return "";
@@ -3202,6 +3200,7 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                 package_price: price.price,
                 pickup_location: formData.pickup_location,
                 dropoff_location: formData.dropoff_location,
+                accepted_terms: acceptTerms,
             };
 
             const response = await axios.post(
@@ -3219,12 +3218,12 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                     email: "",
                     phone: "",
                     address: "",
-                    zip_code: "",
                     pickup_location: "",
                     dropoff_location: "",
                 });
                 setSelectedDate("");
                 setSelectedTime("");
+                setAcceptTerms(false);
 
                 setTimeout(() => {
                     window.location.reload();
@@ -3680,52 +3679,6 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                             )}
                         </div>
 
-                        {/* Zip Code */}
-                        <div>
-                            <label
-                                htmlFor="zip_code"
-                                className="block text-sm font-medium text-gray-700 mb-2"
-                            >
-                                Zip Code *
-                            </label>
-                            <div className="relative">
-                                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                                <input
-                                    type="text"
-                                    id="zip_code"
-                                    name="zip_code"
-                                    value={formData.zip_code}
-                                    onChange={handleChange}
-                                    className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${
-                                        errors.zip_code
-                                            ? "border-red-500"
-                                            : "border-gray-300"
-                                    }`}
-                                    placeholder="6210"
-                                    maxLength="5"
-                                    required
-                                />
-                            </div>
-                            {errors.zip_code ? (
-                                <p className="mt-1 text-sm text-red-600">
-                                    {errors.zip_code}
-                                </p>
-                            ) : (
-                                <p className="mt-1 text-sm text-gray-500">
-                                    Currently serving only areas with zip code
-                                    6210.
-                                    {formData.address !==
-                                        "meetpoint-mandurah-dot" && (
-                                        <span className="block">
-                                            If your address is not available,
-                                            please select "Meetpoint Mandurah
-                                            Dot".
-                                        </span>
-                                    )}
-                                </p>
-                            )}
-                        </div>
-
                         {/* Pickup Location */}
                         <div>
                             <div className="flex justify-between items-center mb-2">
@@ -3801,11 +3754,58 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                             )}
                         </div>
 
+                        {/* Terms and Conditions Checkbox */}
+                        <div className="border-t border-gray-200 pt-4">
+                            <div className="flex items-start gap-3">
+                                <input
+                                    type="checkbox"
+                                    id="acceptTerms"
+                                    checked={acceptTerms}
+                                    onChange={(e) => {
+                                        setAcceptTerms(e.target.checked);
+                                        if (errors.terms) {
+                                            setErrors((prev) => ({
+                                                ...prev,
+                                                terms: "",
+                                            }));
+                                        }
+                                    }}
+                                    className="mt-1 h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                                    required
+                                />
+                                <label htmlFor="acceptTerms" className="text-sm text-gray-700">
+                                    I agree to the{" "}
+                                    <a
+                                        href="https://wheelmasterdriving.com.au/terms"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-indigo-600 hover:text-indigo-800 underline font-medium"
+                                    >
+                                        Terms & Conditions
+                                    </a>
+                                    {" "}and{" "}
+                                    <a
+                                        href="https://wheelmasterdriving.com.au/policy"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-indigo-600 hover:text-indigo-800 underline font-medium"
+                                    >
+                                        Privacy Policy
+                                    </a> *
+                                </label>
+                            </div>
+                            {errors.terms && (
+                                <p className="mt-1 text-sm text-red-600">
+                                    {errors.terms}
+                                </p>
+                            )}
+                        </div>
+
                         {/* Submit Button */}
                         <button
                             type="submit"
                             disabled={
-                                submitting || !selectedDate || !selectedTime
+                                submitting || !selectedDate || !selectedTime || !acceptTerms
                             }
                             className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-4 px-4 rounded-xl transition duration-200 text-base"
                         >
@@ -3820,8 +3820,7 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                         </button>
 
                         <p className="text-xs text-center text-gray-500 mt-4">
-                            By clicking Confirm Booking, you agree to our terms
-                            and conditions
+                            By clicking Confirm Booking, you agree to our terms and conditions and privacy policy
                         </p>
                     </form>
                 </div>
