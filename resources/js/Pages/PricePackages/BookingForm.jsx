@@ -1109,7 +1109,7 @@ const BookingForm = ({
                                         ? "border-red-500"
                                         : "border-gray-300"
                                 }`}
-                                placeholder="Enter test location (street address)"
+                                placeholder="Enter test location"
                             />
                             {errors.test_location && (
                                 <p className="mt-1 text-sm text-red-600">
@@ -1139,7 +1139,7 @@ const BookingForm = ({
                                     ? "border-red-500"
                                     : "border-gray-300"
                             }`}
-                            placeholder="Enter pickup location (street address)"
+                            placeholder="Enter pickup location"
                         />
                         {errors.pickup_location && (
                             <p className="mt-1 text-sm text-red-600">
@@ -1177,7 +1177,7 @@ const BookingForm = ({
                                     ? "border-red-500"
                                     : "border-gray-300"
                             }`}
-                            placeholder="Enter dropoff location (street address)"
+                            placeholder="Enter dropoff location"
                         />
                         {errors.dropoff_location && (
                             <p className="mt-1 text-sm text-red-600">
