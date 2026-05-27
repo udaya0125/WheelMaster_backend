@@ -3678,6 +3678,16 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                 </p>
                             )}
                         </div>
+                         <p className="mt-1 text-sm text-gray-500">
+                        Currently serving only areas with zip codes 6210, 6180,
+                        or 6175.
+                        
+                            <span className="block">
+                                If your address is not available, please select
+                                "Meetpoint Mandurah Dot".
+                            </span>
+                    
+                    </p>
 
                         {/* Pickup Location */}
                         <div>
