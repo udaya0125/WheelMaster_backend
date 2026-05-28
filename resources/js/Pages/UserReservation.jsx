@@ -226,12 +226,8 @@ const UserReservation = () => {
                 accessor: "user_name",
             },
             {
-                Header: "Email",
-                accessor: "email",
-            },
-            {
-                Header: "Address",
-                accessor: "address",
+                Header: "Pickup Location",
+                accessor: "pickup_location",
                 Cell: ({ value }) => value || "-",
             },
             {
@@ -250,10 +246,21 @@ const UserReservation = () => {
                     ),
             },
             {
-                Header: "Package Type",
-                accessor: "package_type",
-                Cell: ({ value }) => value || "-",
-            },
+    Header: "Duration",
+    accessor: (row) => row,
+    id: "duration",
+    Cell: ({ value: row }) => {
+        if (!row.start_time || !row.end_time) return <span>-</span>;
+        const [startH, startM] = row.start_time.split(":").map(Number);
+        const [endH, endM] = row.end_time.split(":").map(Number);
+        const totalMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        if (hours === 0) return <span>{minutes} min{minutes !== 1 ? "s" : ""}</span>;
+        if (minutes === 0) return <span>{hours} hr{hours !== 1 ? "s" : ""}</span>;
+        return <span>{hours} hr{hours !== 1 ? "s" : ""} {minutes} min{minutes !== 1 ? "s" : ""}</span>;
+    },
+},
             {
                 Header: "Status",
                 accessor: "status",
