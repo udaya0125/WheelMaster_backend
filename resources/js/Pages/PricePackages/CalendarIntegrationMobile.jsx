@@ -18,8 +18,247 @@ import { Link } from "@inertiajs/react";
 import PackageSelector from "./PackageSelector";
 
 const MEETPOINT_AREA = "meetpoint-mandurah-dot";
-const MEETPOINT_LOCATION =
-    "Ranceby Avenue, Mandurah, Western Australia 6210";
+const MEETPOINT_LOCATION = {
+    label: "Ranceby Avenue, Mandurah, Western Australia 6210",
+    name: "Ranceby Avenue",
+    street: "Ranceby Avenue",
+    housenumber: null,
+    postcode: "6210",
+    city: "Mandurah",
+    district: null,
+    state: "Western Australia",
+    source: "fixed",
+};
+    
+const normaliseAddressText = (text = "") => {
+    const ordinals = {
+        "1st": "first",
+        "2nd": "second",
+        "3rd": "third",
+        "4th": "fourth",
+        "5th": "fifth",
+        "6th": "sixth",
+        "7th": "seventh",
+        "8th": "eighth",
+        "9th": "ninth",
+        "10th": "tenth",
+        "11th": "eleventh",
+        "12th": "twelfth",
+        "13th": "thirteenth",
+        "14th": "fourteenth",
+        "15th": "fifteenth",
+        "16th": "sixteenth",
+        "17th": "seventeenth",
+        "18th": "eighteenth",
+        "19th": "nineteenth",
+        "20th": "twentieth",
+    };
+
+    return text
+        .toLowerCase()
+        .replace(/\b([0-9]{1,2}(?:st|nd|rd|th))\b/g, (match) => {
+            return ordinals[match] || match;
+        })
+        .replace(/\bav\b|\bave\b/g, "avenue")
+        .replace(/\brd\b/g, "road")
+        .replace(/\bst\b/g, "street")
+        .replace(/\bdr\b/g, "drive")
+        .replace(/\bct\b/g, "court")
+        .replace(/\bpde\b/g, "parade")
+        .replace(/[^a-z0-9]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+};
+
+const locationMatchesTypedAddress = (location, typedAddress) => {
+    if (!location || !typedAddress?.trim()) return false;
+
+    const typed = normaliseAddressText(typedAddress);
+    const streetAnchor = normaliseAddressText(
+        location.street || location.name || "",
+    );
+    const suburbAnchors = [
+        location.city,
+        location.district,
+        location.postcode,
+    ]
+        .filter(Boolean)
+        .map(normaliseAddressText);
+
+    if (streetAnchor && typed.includes(streetAnchor)) {
+        return true;
+    }
+
+    return suburbAnchors.some((anchor) => anchor && typed.includes(anchor));
+};
+
+const LocationAutocomplete = ({
+    id,
+    name,
+    label,
+    value,
+    error,
+    selectedLocation,
+    placeholder,
+    onInputChange,
+    onLocationSelect,
+    action,
+}) => {
+    const [suggestions, setSuggestions] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [searchError, setSearchError] = useState("");
+    const [isOpen, setIsOpen] = useState(false);
+    const blurTimeout = useRef(null);
+
+    useEffect(() => {
+        const query = value.trim();
+
+        if (
+            query.length < 3 ||
+            locationMatchesTypedAddress(selectedLocation, query)
+        ) {
+            setSuggestions([]);
+            setSearchError("");
+            setLoading(false);
+            return undefined;
+        }
+
+        const controller = new AbortController();
+        const timeout = setTimeout(async () => {
+            try {
+                setLoading(true);
+                setSearchError("");
+
+                const response = await axios.get(route("locations.search"), {
+                    params: { q: query },
+                    signal: controller.signal,
+                });
+
+                setSuggestions(response.data.suggestions || []);
+                setIsOpen(true);
+            } catch (error) {
+                if (error.code !== "ERR_CANCELED") {
+                    setSuggestions([]);
+                    setSearchError(
+                        "Address search is unavailable. Please try again.",
+                    );
+                }
+            } finally {
+                setLoading(false);
+            }
+        }, 350);
+
+        return () => {
+            clearTimeout(timeout);
+            controller.abort();
+        };
+    }, [value, selectedLocation]);
+
+    useEffect(() => {
+        return () => {
+            if (blurTimeout.current) {
+                clearTimeout(blurTimeout.current);
+            }
+        };
+    }, []);
+
+    const handleBlur = () => {
+        blurTimeout.current = setTimeout(() => setIsOpen(false), 150);
+    };
+
+    const shouldShowSuggestions =
+        isOpen &&
+        value.trim().length >= 3 &&
+        !locationMatchesTypedAddress(selectedLocation, value);
+
+    return (
+        <div>
+            <div className="flex justify-between items-center mb-2 gap-3">
+                <label
+                    htmlFor={id}
+                    className="block text-sm font-medium text-gray-700"
+                >
+                    {label}
+                </label>
+                {action}
+            </div>
+            <div className="relative">
+                <MapPinIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                    type="text"
+                    id={id}
+                    name={name}
+                    value={value}
+                    onChange={(event) =>
+                        onInputChange(name, event.target.value)
+                    }
+                    onFocus={() => setIsOpen(true)}
+                    onBlur={handleBlur}
+                    required
+                    autoComplete="off"
+                    className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${
+                        error ? "border-red-500" : "border-gray-300"
+                    }`}
+                    placeholder={placeholder}
+                />
+
+                {shouldShowSuggestions && (
+                    <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+                        {loading && (
+                            <div className="px-4 py-3 text-sm text-gray-500">
+                                Searching service area...
+                            </div>
+                        )}
+
+                        {!loading &&
+                            suggestions.map((suggestion) => (
+                                <button
+                                    key={`${suggestion.source}-${suggestion.label}`}
+                                    type="button"
+                                    onMouseDown={(event) => {
+                                        event.preventDefault();
+                                        onLocationSelect(name, suggestion);
+                                        setIsOpen(false);
+                                    }}
+                                    className="block w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-indigo-50 focus:bg-indigo-50 focus:outline-none"
+                                >
+                                    <span className="block font-medium">
+                                        {suggestion.label}
+                                    </span>
+                                    {suggestion.postcode && (
+                                        <span className="block text-xs text-gray-500">
+                                            Postcode {suggestion.postcode}
+                                        </span>
+                                    )}
+                                </button>
+                            ))}
+
+                        {!loading &&
+                            suggestions.length === 0 &&
+                            !searchError && (
+                                <div className="px-4 py-3 text-sm text-gray-500">
+                                    No service-area address found.
+                                </div>
+                            )}
+
+                        {!loading && searchError && (
+                            <div className="px-4 py-3 text-sm text-red-600">
+                                {searchError}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+            {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+            {!error && (
+                <p className="mt-1 text-xs text-gray-500">
+                    Choose a service-area suggestion, then add house number,
+                    unit, or pickup notes if needed.
+                </p>
+            )}
+        </div>
+    );
+};
 
 const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
     const [selectedDate, setSelectedDate] = useState("");
@@ -38,6 +277,10 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [selectedLocations, setSelectedLocations] = useState({
+        pickup_location: null,
+        dropoff_location: null,
+    });
 
     // Terms and conditions acceptance
     const [acceptTerms, setAcceptTerms] = useState(false);
@@ -143,8 +386,18 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
 
     // Function to set dropoff location same as pickup location
     const setDropoffSameAsPickup = () => {
-        if (formData.pickup_location) {
+        if (
+            formData.pickup_location &&
+            locationMatchesTypedAddress(
+                selectedLocations.pickup_location,
+                formData.pickup_location,
+            )
+        ) {
             setFormData((prev) => ({
+                ...prev,
+                dropoff_location: prev.pickup_location,
+            }));
+            setSelectedLocations((prev) => ({
                 ...prev,
                 dropoff_location: prev.pickup_location,
             }));
@@ -156,7 +409,7 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
             }
             toast.success("Dropoff location set to pickup location");
         } else {
-            toast.error("Please enter a pickup location first");
+            toast.error("Please select a pickup location from the suggestions first");
         }
     };
 
@@ -668,11 +921,17 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
             [name]: value,
             ...(name === "address" && value === MEETPOINT_AREA
                 ? {
-                      pickup_location: MEETPOINT_LOCATION,
-                      dropoff_location: MEETPOINT_LOCATION,
+                      pickup_location: MEETPOINT_LOCATION.label,
+                      dropoff_location: MEETPOINT_LOCATION.label,
                   }
                 : {}),
         }));
+        if (name === "address" && value === MEETPOINT_AREA) {
+            setSelectedLocations({
+                pickup_location: MEETPOINT_LOCATION,
+                dropoff_location: MEETPOINT_LOCATION,
+            });
+        }
         if (
             errors[name] ||
             (name === "address" &&
@@ -690,6 +949,69 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                     : {}),
             }));
         }
+    };
+
+    const handleLocationInputChange = (name, value) => {
+        setFormData((prev) => ({
+            ...prev,
+            [name]: value,
+        }));
+        setSelectedLocations((prev) => ({
+            ...prev,
+            [name]: locationMatchesTypedAddress(prev[name], value)
+                ? prev[name]
+                : null,
+        }));
+        if (errors[name]) {
+            setErrors((prev) => ({
+                ...prev,
+                [name]: "",
+            }));
+        }
+    };
+
+    const handleLocationSelect = (name, location) => {
+        setFormData((prev) => ({
+            ...prev,
+            [name]: location.label,
+        }));
+        setSelectedLocations((prev) => ({
+            ...prev,
+            [name]: location,
+        }));
+        if (errors[name]) {
+            setErrors((prev) => ({
+                ...prev,
+                [name]: "",
+            }));
+        }
+    };
+
+    const validateSelectedLocations = () => {
+        const locationErrors = {};
+
+        [
+            ["pickup_location", "pickup location"],
+            ["dropoff_location", "dropoff location"],
+        ].forEach(([field, label]) => {
+            if (!formData[field]?.trim()) {
+                locationErrors[field] = `Please enter a ${label}.`;
+                return;
+            }
+
+            if (
+                !selectedLocations[field] ||
+                !locationMatchesTypedAddress(
+                    selectedLocations[field],
+                    formData[field],
+                )
+            ) {
+                locationErrors[field] =
+                    `Please choose a service-area suggestion for the ${label}, then add house/unit details if needed.`;
+            }
+        });
+
+        return locationErrors;
     };
 
     // Handle form submission
@@ -737,6 +1059,9 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
             );
             return;
         }
+
+        const locationErrors = validateSelectedLocations();
+        Object.assign(newErrors, locationErrors);
 
         if (Object.keys(newErrors).length > 0) {
             setErrors(newErrors);
@@ -794,6 +1119,10 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                     address: "",
                     pickup_location: "",
                     dropoff_location: "",
+                });
+                setSelectedLocations({
+                    pickup_location: null,
+                    dropoff_location: null,
                 });
                 setSelectedDate("");
                 setSelectedTime("");
@@ -1265,48 +1594,30 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                         </p>
 
                         {/* Pickup Location */}
-                        <div>
-                            <div className="flex justify-between items-center mb-2">
-                                <label
-                                    htmlFor="pickup_location"
-                                    className="block text-sm font-medium text-gray-700"
-                                >
-                                    Pickup Location *
-                                </label>
-                            </div>
-                            <div className="relative">
-                                <MapPinIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                                <input
-                                    type="text"
-                                    id="pickup_location"
-                                    name="pickup_location"
-                                    value={formData.pickup_location}
-                                    onChange={handleChange}
-                                    className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${
-                                        errors.pickup_location
-                                            ? "border-red-500"
-                                            : "border-gray-300"
-                                    }`}
-                                    placeholder="Enter pickup address"
-                                    required
-                                />
-                            </div>
-                            {errors.pickup_location && (
-                                <p className="mt-1 text-sm text-red-600">
-                                    {errors.pickup_location}
-                                </p>
-                            )}
-                        </div>
+                        <LocationAutocomplete
+                            id="pickup_location"
+                            name="pickup_location"
+                            label="Pickup Location *"
+                            value={formData.pickup_location}
+                            selectedLocation={selectedLocations.pickup_location}
+                            error={errors.pickup_location}
+                            placeholder="Start typing pickup address"
+                            onInputChange={handleLocationInputChange}
+                            onLocationSelect={handleLocationSelect}
+                        />
 
                         {/* Dropoff Location */}
-                        <div>
-                            <div className="flex justify-between items-center mb-2">
-                                <label
-                                    htmlFor="dropoff_location"
-                                    className="block text-sm font-medium text-gray-700"
-                                >
-                                    Dropoff Location *
-                                </label>
+                        <LocationAutocomplete
+                            id="dropoff_location"
+                            name="dropoff_location"
+                            label="Dropoff Location *"
+                            value={formData.dropoff_location}
+                            selectedLocation={selectedLocations.dropoff_location}
+                            error={errors.dropoff_location}
+                            placeholder="Start typing dropoff address"
+                            onInputChange={handleLocationInputChange}
+                            onLocationSelect={handleLocationSelect}
+                            action={
                                 <button
                                     type="button"
                                     onClick={setDropoffSameAsPickup}
@@ -1314,30 +1625,8 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                 >
                                     Same as pickup location
                                 </button>
-                            </div>
-                            <div className="relative">
-                                <MapPinIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                                <input
-                                    type="text"
-                                    id="dropoff_location"
-                                    name="dropoff_location"
-                                    value={formData.dropoff_location}
-                                    onChange={handleChange}
-                                    className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${
-                                        errors.dropoff_location
-                                            ? "border-red-500"
-                                            : "border-gray-300"
-                                    }`}
-                                    placeholder="Enter dropoff address"
-                                    required
-                                />
-                            </div>
-                            {errors.dropoff_location && (
-                                <p className="mt-1 text-sm text-red-600">
-                                    {errors.dropoff_location}
-                                </p>
-                            )}
-                        </div>
+                            }
+                        />
 
                         {/* Terms and Conditions Checkbox */}
                         <div className="border-t border-gray-200 pt-4">

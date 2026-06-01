@@ -301,7 +301,7 @@ const BlockReservation = () => {
     const columns = useMemo(
         () => [
             {
-                Header: "ID",
+                Header: "S.N.",
                 accessor: (row, i) => i + 1,
                 id: "rowIndex",
             },
@@ -455,6 +455,7 @@ const BlockReservation = () => {
                                         : "Date Range"}
                                 </button>
                             ))}
+                            
                         </div>
 
                         {/* Date Fields */}
