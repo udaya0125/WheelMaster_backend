@@ -887,6 +887,7 @@ const CalendarIntegration = ({ price, packageOptions = [] }) => {
     const [showBookingForm, setShowBookingForm] = useState(false);
     const [nextAvailableDates, setNextAvailableDates] = useState([]);
     const [allSlotsData, setAllSlotsData] = useState({});
+    const [scheduleEnds, setScheduleEnds] = useState({});
 
     // dayAvailability: { "YYYY-MM-DD": "available" | "unavailable" }
     const [dayAvailability, setDayAvailability] = useState({});
@@ -940,6 +941,10 @@ const CalendarIntegration = ({ price, packageOptions = [] }) => {
                                 const hasAvailable = slots.some(
                                     (s) => s.status === "available"
                                 );
+                                setScheduleEnds((prev) => ({
+                                    ...prev,
+                                    [dateKey]: response.data.current_end,
+                                }));
 
                                 setDayAvailability((prev) => ({
                                     ...prev,
@@ -1010,6 +1015,10 @@ const CalendarIntegration = ({ price, packageOptions = [] }) => {
                     setAllSlotsData((prev) => ({
                         ...prev,
                         [dateKey]: response.data.slots,
+                    }));
+                    setScheduleEnds((prev) => ({
+                        ...prev,
+                        [dateKey]: response.data.current_end,
                     }));
 
                     const allSlots = response.data.slots || [];
@@ -1146,12 +1155,10 @@ const CalendarIntegration = ({ price, packageOptions = [] }) => {
         return `${mins} minutes`;
     };
 
-    const getNonOverlappingSlots = (slots) => {
+    const getNonOverlappingSlots = (slots, date) => {
         if (!slots || slots.length === 0) return [];
         const durationMinutes = parseDuration(price.duration);
-        const slotStepMinutes = 20;
-        const bookingStepMinutes = durationMinutes + slotStepMinutes;
-        const workingHoursEnd = 18 * 60;
+        const bookingStepMinutes = durationMinutes + 20;
 
         const timeToMinutes = (timeStr) => {
             const [h, m] = timeStr.split(":").map(Number);
@@ -1173,20 +1180,52 @@ const CalendarIntegration = ({ price, packageOptions = [] }) => {
                 }
                 return timeToMinutes(startTime);
             })
+            .filter(Number.isFinite)
             .sort((a, b) => a - b);
 
-        const displaySlots = [];
-        let nextAvailableStart = sortedSlotMinutes[0];
+        if (sortedSlotMinutes.length === 0) return [];
 
-        sortedSlotMinutes.forEach((slotMinutes) => {
-            if (
-                slotMinutes >= nextAvailableStart &&
-                slotMinutes + bookingStepMinutes <= workingHoursEnd
-            ) {
-                displaySlots.push(minutesToTime(slotMinutes));
-                nextAvailableStart = slotMinutes + bookingStepMinutes;
+        const dateKey = formatDateKey(date);
+        const allSlotEndMinutes = (allSlotsData[dateKey] || [])
+            .map((slot) => slot.end_time)
+            .map((time) => {
+                if (typeof time === "string" && time.includes(":")) {
+                    const parts = time.split(":");
+                    return timeToMinutes(`${parts[0]}:${parts[1]}`);
+                }
+                return Number.NaN;
+            })
+            .filter(Number.isFinite);
+        const scheduleEndMinutes = scheduleEnds[dateKey]
+            ? timeToMinutes(scheduleEnds[dateKey])
+            : allSlotEndMinutes.length > 0
+              ? Math.max(...allSlotEndMinutes)
+              : sortedSlotMinutes[sortedSlotMinutes.length - 1] +
+                bookingStepMinutes;
+        const latestStartMinutes = scheduleEndMinutes - bookingStepMinutes;
+        const displaySlots = [];
+        let candidateMinutes = sortedSlotMinutes[0];
+
+        while (candidateMinutes <= latestStartMinutes) {
+            displaySlots.push(minutesToTime(candidateMinutes));
+            candidateMinutes += bookingStepMinutes;
+
+            const hasNearbyAvailableSlot = sortedSlotMinutes.some(
+                (slotMinutes) =>
+                    slotMinutes >= candidateMinutes &&
+                    slotMinutes < candidateMinutes + 20,
+            );
+
+            if (!hasNearbyAvailableSlot) {
+                const nextAvailableSlot = sortedSlotMinutes.find(
+                    (slotMinutes) => slotMinutes >= candidateMinutes,
+                );
+
+                if (nextAvailableSlot === undefined) break;
+
+                candidateMinutes = nextAvailableSlot;
             }
-        });
+        }
 
         return displaySlots;
     };
@@ -1233,6 +1272,10 @@ const CalendarIntegration = ({ price, packageOptions = [] }) => {
                         setTimeSlots((prev) => ({
                             ...prev,
                             [dateKey]: availableSlots,
+                        }));
+                        setScheduleEnds((prev) => ({
+                            ...prev,
+                            [dateKey]: response.data.current_end,
                         }));
                         if (availableSlots.length > 0)
                             availableDates.push(new Date(nextDate));
@@ -1314,6 +1357,10 @@ const CalendarIntegration = ({ price, packageOptions = [] }) => {
                     ...prev,
                     [dateKey]: allSlots,
                 }));
+                setScheduleEnds((prev) => ({
+                    ...prev,
+                    [dateKey]: response.data.current_end,
+                }));
                 setDayAvailability((prev) => ({
                     ...prev,
                     [dateKey]:
@@ -1364,7 +1411,10 @@ const CalendarIntegration = ({ price, packageOptions = [] }) => {
     // ─── Render ───────────────────────────────────────────────────────────────
 
     const currentTimeSlots = getTimeSlotsForDate(selectedDate);
-    const displayTimeSlots = getNonOverlappingSlots(currentTimeSlots);
+    const displayTimeSlots = getNonOverlappingSlots(
+        currentTimeSlots,
+        selectedDate,
+    );
 
     return (
         <div className="min-h-screen bg-gray-50">

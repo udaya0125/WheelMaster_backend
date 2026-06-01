@@ -1,7 +1,7 @@
 
 import Wrapper from "@/AdminWrapper/Wrapper";
 import { Calendar } from "@/components/ui/calendar";
-import { Clock } from "lucide-react";
+import { CalendarRange, Clock, X } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
@@ -11,9 +11,19 @@ const TimeManagement = () => {
     const [timeSlots, setTimeSlots] = useState([]);
     const [loading, setLoading] = useState(false);
     const [customStartTime, setCustomStartTime] = useState("07:00");
+    const [customEndTime, setCustomEndTime] = useState("18:00");
     const [defaultStartTime] = useState("07:00");
+    const [defaultEndTime] = useState("18:00");
     const [customStartInfo, setCustomStartInfo] = useState(null);
     const [editingIndex, setEditingIndex] = useState(null);
+    const [showRangeModal, setShowRangeModal] = useState(false);
+    const [rangeSubmitting, setRangeSubmitting] = useState(false);
+    const [rangeForm, setRangeForm] = useState({
+        startDate: "",
+        endDate: "",
+        startTime: "07:00",
+        endTime: "18:00",
+    });
     const [stats, setStats] = useState({
         total: 0,
         available: 0,
@@ -28,6 +38,24 @@ const TimeManagement = () => {
     useEffect(() => {
         fetchTimeSlots();
     }, [selectedDate]);
+
+    useEffect(() => {
+        if (!showRangeModal) return;
+
+        const handleKeyDown = (event) => {
+            if (event.key === "Escape" && !rangeSubmitting) {
+                setShowRangeModal(false);
+            }
+        };
+
+        document.body.style.overflow = "hidden";
+        document.addEventListener("keydown", handleKeyDown);
+
+        return () => {
+            document.body.style.overflow = "";
+            document.removeEventListener("keydown", handleKeyDown);
+        };
+    }, [showRangeModal, rangeSubmitting]);
 
     // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -47,6 +75,11 @@ const TimeManagement = () => {
         return `${hour12}:${minutes} ${ampm}`;
     };
 
+    const timeToMinutes = (timeString) => {
+        const [hours, minutes] = timeString.split(":").map(Number);
+        return hours * 60 + minutes;
+    };
+
     const formatDisplayDate = (date) =>
         date.toLocaleDateString("en-US", {
             weekday: "long",
@@ -59,6 +92,23 @@ const TimeManagement = () => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         return date < today;
+    };
+
+    const getRangeDayCount = () => {
+        if (!rangeForm.startDate || !rangeForm.endDate) return 0;
+
+        const toUtcTimestamp = (dateString) => {
+            const [year, month, day] = dateString.split("-").map(Number);
+            return Date.UTC(year, month - 1, day);
+        };
+        const dayCount =
+            Math.floor(
+                (toUtcTimestamp(rangeForm.endDate) -
+                    toUtcTimestamp(rangeForm.startDate)) /
+                    86400000,
+            ) + 1;
+
+        return dayCount > 0 ? dayCount : 0;
     };
 
     const calculateStats = (slots) => {
@@ -95,6 +145,11 @@ const TimeManagement = () => {
                 }));
                 setTimeSlots(slotsWithEdit);
                 setCustomStartTime(response.data.current_start);
+                setCustomEndTime(
+                    response.data.current_end ||
+                        slotsWithEdit[slotsWithEdit.length - 1]?.end_time ||
+                        defaultEndTime,
+                );
                 setCustomStartInfo(response.data.custom_start_info);
                 calculateStats(slotsWithEdit);
             }
@@ -127,6 +182,82 @@ const TimeManagement = () => {
 
     // ── Reset ──────────────────────────────────────────────────────────────────
 
+    const handleOpenRangeModal = () => {
+        const selectedDateKey = formatDateKey(selectedDate);
+        setRangeForm({
+            startDate: selectedDateKey,
+            endDate: selectedDateKey,
+            startTime: customStartTime || defaultStartTime,
+            endTime: customEndTime || defaultEndTime,
+        });
+        setShowRangeModal(true);
+    };
+
+    const handleRangeFormChange = (event) => {
+        const { name, value } = event.target;
+        setRangeForm((current) => ({ ...current, [name]: value }));
+    };
+
+    const handleApplyRangeSchedule = async (event) => {
+        event.preventDefault();
+
+        if (!rangeForm.startDate || !rangeForm.endDate) {
+            toast.error("Please choose both dates");
+            return;
+        }
+
+        if (rangeForm.endDate < rangeForm.startDate) {
+            toast.error("End date must be on or after start date");
+            return;
+        }
+
+        const minutesFromStart =
+            timeToMinutes(rangeForm.endTime) -
+            timeToMinutes(rangeForm.startTime);
+
+        if (timeToMinutes(rangeForm.startTime) < timeToMinutes(defaultStartTime)) {
+            toast.error("Start time cannot be earlier than 7:00 AM");
+            return;
+        }
+
+        if (minutesFromStart < 20) {
+            toast.error("End time must be at least 20 minutes after start time");
+            return;
+        }
+
+        if (minutesFromStart % 20 !== 0) {
+            toast.error("Schedule must align with 20-minute slots");
+            return;
+        }
+
+        try {
+            setRangeSubmitting(true);
+            const response = await axios.post(
+                route("ourtimeslots.update-range"),
+                {
+                    start_date: rangeForm.startDate,
+                    end_date: rangeForm.endDate,
+                    start_time: rangeForm.startTime,
+                    end_time: rangeForm.endTime,
+                },
+            );
+
+            if (response.data.success) {
+                setShowRangeModal(false);
+                toast.success(response.data.message || "Date range updated");
+                await fetchTimeSlots();
+            }
+        } catch (error) {
+            console.error("Error updating date range:", error);
+            toast.error(
+                error.response?.data?.message ||
+                    "Failed to update the date range",
+            );
+        } finally {
+            setRangeSubmitting(false);
+        }
+    };
+
     const handleResetToDefault = async () => {
         if (
             !confirm(
@@ -143,12 +274,73 @@ const TimeManagement = () => {
 
             if (response.data.success) {
                 setCustomStartTime(defaultStartTime);
+                setCustomEndTime(defaultEndTime);
                 toast.success("Reset to default schedule");
                 await fetchTimeSlots();
             }
         } catch (error) {
             console.error("Error resetting:", error);
             toast.error("Failed to reset time slots");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleUpdateEndTime = async () => {
+        if (!customEndTime) {
+            toast.error("Please choose an end time");
+            return;
+        }
+
+        const firstStart = timeSlots[0]?.start_time || defaultStartTime;
+        const minutesFromStart =
+            timeToMinutes(customEndTime) - timeToMinutes(firstStart);
+
+        if (minutesFromStart < 20) {
+            toast.error("End time must be at least 20 minutes after start time");
+            return;
+        }
+
+        if (minutesFromStart % 20 !== 0) {
+            toast.error("End time must align with 20-minute slots");
+            return;
+        }
+
+        if (
+            !window.confirm(
+                `Update this date's schedule to end at ${formatTime(customEndTime)}?`,
+            )
+        ) {
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const response = await axios.post(route("ourtimeslots.update-end"), {
+                date: formatDateKey(selectedDate),
+                end_time: customEndTime,
+            });
+
+            if (response.data.success) {
+                const updatedSlots = response.data.slots.map((s) => ({
+                    ...s,
+                    isEditing: false,
+                    formatted_start:
+                        s.formatted_start || formatTime(s.start_time),
+                }));
+
+                setTimeSlots(updatedSlots);
+                setCustomStartTime(response.data.current_start);
+                setCustomEndTime(response.data.current_end);
+                calculateStats(updatedSlots);
+                toast.success(response.data.message || "End time updated");
+            }
+        } catch (error) {
+            console.error("Error updating end time:", error);
+            toast.error(
+                error.response?.data?.message ||
+                    "Failed to update schedule end time",
+            );
         } finally {
             setLoading(false);
         }
@@ -206,9 +398,16 @@ const TimeManagement = () => {
         }
 
         // Range validation
-        const timeValue = parseInt(newTime.replace(":", ""));
-        if (timeValue < 700 || timeValue > 1800) {
-            toast.error("Time must be between 7:00 AM and 6:00 PM");
+        const timeValue = timeToMinutes(newTime);
+        const maxSlotStart = timeToMinutes(customEndTime) - 20;
+        if (timeValue < timeToMinutes(defaultStartTime) || timeValue > maxSlotStart) {
+            toast.error(
+                `Time must be between 7:00 AM and ${formatTime(
+                    `${String(Math.floor(maxSlotStart / 60)).padStart(2, "0")}:${String(
+                        maxSlotStart % 60,
+                    ).padStart(2, "0")}`,
+                )}`,
+            );
             cancelEditing(index);
             return;
         }
@@ -257,6 +456,8 @@ const TimeManagement = () => {
                     setCustomStartInfo(response.data.custom_start_info);
                 if (response.data.current_start)
                     setCustomStartTime(response.data.current_start);
+                if (response.data.current_end)
+                    setCustomEndTime(response.data.current_end);
             } else {
                 throw new Error(
                     response.data.message || "Failed to update slots",
@@ -333,10 +534,24 @@ const TimeManagement = () => {
 
                 <div className="px-2 sm:px-6 lg:px-8">
                     {/* Header */}
-                    <div className="p-6 sm:p-8 mb-6">
-                        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-                            Time Management
-                        </h1>
+                    <div className="flex flex-col gap-4 p-6 sm:p-8 mb-6 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+                                Time Management
+                            </h1>
+                            <p className="text-sm text-gray-500">
+                                Fine-tune one day or apply a schedule across a
+                                date range.
+                            </p>
+                        </div>
+                        <button
+                            onClick={handleOpenRangeModal}
+                            disabled={loading}
+                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
+                        >
+                            <CalendarRange size={18} />
+                            Set Date Range
+                        </button>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -377,18 +592,42 @@ const TimeManagement = () => {
                         {/* ── Slots grid ── */}
                         <div className="lg:col-span-2 space-y-6">
                             <div className="bg-white rounded-lg shadow-sm p-6">
-                                <div className="flex items-center justify-between mb-4">
+                                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-4">
                                     <h2 className="text-lg font-semibold text-gray-800">
                                         Time Slots for{" "}
                                         {formatDisplayDate(selectedDate)}
                                     </h2>
-                                    <button
-                                        onClick={handleResetToDefault}
-                                        disabled={loading}
-                                        className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
-                                    >
-                                        Reset to 7:00 AM
-                                    </button>
+                                    <div className="flex flex-wrap items-end gap-3">
+                                        <label className="text-sm font-medium text-gray-700">
+                                            End time
+                                            <input
+                                                type="time"
+                                                value={customEndTime}
+                                                step="1200"
+                                                onChange={(e) =>
+                                                    setCustomEndTime(
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                className="mt-1 block w-32 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                            />
+                                        </label>
+                                        <button
+                                            onClick={handleUpdateEndTime}
+                                            disabled={loading}
+                                            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                                        >
+                                            <Clock size={16} />
+                                            Update End
+                                        </button>
+                                        <button
+                                            onClick={handleResetToDefault}
+                                            disabled={loading}
+                                            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                        >
+                                            Reset to Default
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {loading ? (
@@ -535,6 +774,162 @@ const TimeManagement = () => {
                         </div>
                     </div>
                 </div>
+
+                {showRangeModal && (
+                    <div
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="date-range-schedule-title"
+                        onMouseDown={(event) => {
+                            if (
+                                event.target === event.currentTarget &&
+                                !rangeSubmitting
+                            ) {
+                                setShowRangeModal(false);
+                            }
+                        }}
+                    >
+                        <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
+                            <div className="flex items-start justify-between border-b border-gray-100 px-5 py-5 sm:px-6">
+                                <div>
+                                    <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                                        <CalendarRange size={20} />
+                                    </div>
+                                    <h2
+                                        id="date-range-schedule-title"
+                                        className="text-xl font-semibold text-gray-900"
+                                    >
+                                        Set a date-range schedule
+                                    </h2>
+                                    <p className="mt-1 text-sm text-gray-500">
+                                        Apply the same opening hours to several
+                                        days at once.
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowRangeModal(false)}
+                                    disabled={rangeSubmitting}
+                                    aria-label="Close date-range schedule"
+                                    className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <form
+                                onSubmit={handleApplyRangeSchedule}
+                                className="space-y-5 px-5 py-5 sm:px-6"
+                            >
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <label className="text-sm font-medium text-gray-700">
+                                        Start date
+                                        <input
+                                            type="date"
+                                            name="startDate"
+                                            min={formatDateKey(new Date())}
+                                            value={rangeForm.startDate}
+                                            onChange={handleRangeFormChange}
+                                            required
+                                            className="mt-1 block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                        />
+                                    </label>
+                                    <label className="text-sm font-medium text-gray-700">
+                                        End date
+                                        <input
+                                            type="date"
+                                            name="endDate"
+                                            min={
+                                                rangeForm.startDate ||
+                                                formatDateKey(new Date())
+                                            }
+                                            value={rangeForm.endDate}
+                                            onChange={handleRangeFormChange}
+                                            required
+                                            className="mt-1 block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                        />
+                                    </label>
+                                </div>
+
+                                <div className="rounded-xl bg-emerald-50 p-4">
+                                    <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-emerald-900">
+                                        <Clock size={16} />
+                                        Daily opening hours
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                        <label className="text-sm font-medium text-emerald-900">
+                                            Start time
+                                            <input
+                                                type="time"
+                                                name="startTime"
+                                                min={defaultStartTime}
+                                                step="1200"
+                                                value={rangeForm.startTime}
+                                                onChange={
+                                                    handleRangeFormChange
+                                                }
+                                                required
+                                                className="mt-1 block w-full rounded-lg border-emerald-200 bg-white text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                            />
+                                        </label>
+                                        <label className="text-sm font-medium text-emerald-900">
+                                            End time
+                                            <input
+                                                type="time"
+                                                name="endTime"
+                                                step="1200"
+                                                value={rangeForm.endTime}
+                                                onChange={
+                                                    handleRangeFormChange
+                                                }
+                                                required
+                                                className="mt-1 block w-full rounded-lg border-emerald-200 bg-white text-sm shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                            />
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                                    This replaces day-specific custom schedules
+                                    for{" "}
+                                    <span className="font-semibold">
+                                        {getRangeDayCount()} selected day(s)
+                                    </span>
+                                    . Existing reservations are protected and
+                                    will stop the update if they fall outside
+                                    the new hours.
+                                </div>
+
+                                <div className="flex flex-col-reverse gap-3 border-t border-gray-100 pt-5 sm:flex-row sm:justify-end">
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setShowRangeModal(false)
+                                        }
+                                        disabled={rangeSubmitting}
+                                        className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={
+                                            rangeSubmitting ||
+                                            getRangeDayCount() === 0
+                                        }
+                                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+                                    >
+                                        <CalendarRange size={17} />
+                                        {rangeSubmitting
+                                            ? "Applying schedule..."
+                                            : `Apply to ${getRangeDayCount()} day(s)`}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
             </Wrapper>
         </>
     );

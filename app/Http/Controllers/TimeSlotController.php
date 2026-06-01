@@ -7,10 +7,17 @@ use App\Models\TimeSlot;
 use App\Models\UserReservation;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class TimeSlotController extends Controller
 {
+    private const SLOT_MINUTES = 20;
+
+    private const DEFAULT_START_TIME = '07:00:00';
+
+    private const DEFAULT_END_TIME = '18:00:00';
+
     /**
      * Display time slot management page
      */
@@ -137,6 +144,12 @@ class TimeSlotController extends Controller
             'success' => true,
             'date' => $date,
             'slots' => $formattedSlots,
+            'current_start' => optional($slots->first())->start_time
+                ? substr($slots->first()->start_time, 0, 5)
+                : substr(self::DEFAULT_START_TIME, 0, 5),
+            'current_end' => optional($slots->last())->end_time
+                ? substr($slots->last()->end_time, 0, 5)
+                : substr(self::DEFAULT_END_TIME, 0, 5),
         ]);
     }
 
@@ -180,9 +193,9 @@ class TimeSlotController extends Controller
     {
         $bufferEnd = $startTime->copy()
             ->addMinutes($durationMinutes)
-            ->addMinutes(20);
+            ->addMinutes(self::SLOT_MINUTES);
 
-        if ($bufferEnd > Carbon::createFromTime(18, 0, 0)) {
+        if ($bufferEnd > $this->getScheduleEndForDate($date)) {
             return false;
         }
 
@@ -205,6 +218,15 @@ class TimeSlotController extends Controller
 
                 return $existingStart < $bufferEnd && $existingBufferEnd > $startTime;
             });
+    }
+
+    private function getScheduleEndForDate($date)
+    {
+        $lastEndTime = TimeSlot::where('date', $date)
+            ->orderByDesc('end_time')
+            ->value('end_time');
+
+        return Carbon::parse($lastEndTime ?: self::DEFAULT_END_TIME);
     }
 
     /**
@@ -336,12 +358,12 @@ class TimeSlotController extends Controller
 
             $newTimeCarbon = Carbon::parse($newTime);
             $minTime = Carbon::createFromTime(7, 0, 0);
-            $maxTime = Carbon::createFromTime(18, 0, 0);
+            $maxTime = $this->getScheduleEndForDate($date)->subMinutes(self::SLOT_MINUTES);
 
             if ($newTimeCarbon < $minTime || $newTimeCarbon > $maxTime) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Time must be between 7:00 AM and 6:00 PM',
+                    'message' => 'Time must be between 7:00 AM and '.$maxTime->format('g:i A'),
                 ], 422);
             }
 
@@ -428,6 +450,8 @@ class TimeSlotController extends Controller
                 'success' => true,
                 'message' => 'Time slot updated successfully',
                 'slots' => $formattedSlots,
+                'current_start' => substr($updatedSlots->first()->start_time, 0, 5),
+                'current_end' => substr($updatedSlots->last()->end_time, 0, 5),
             ]);
 
         } catch (\Exception $e) {
@@ -505,6 +529,242 @@ class TimeSlotController extends Controller
     }
 
     /**
+     * Update the schedule end time for a date by trimming or appending slots.
+     */
+    public function updateEndTime(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'date' => 'required|date',
+            'end_time' => 'required|date_format:H:i',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        try {
+            $date = $request->date;
+            $newEnd = Carbon::parse($request->end_time);
+
+            TimeSlot::initializeForDateRange($date, $date);
+
+            $slots = TimeSlot::where('date', $date)
+                ->orderBy('start_time')
+                ->get();
+
+            $firstStart = Carbon::parse($slots->first()?->start_time ?: self::DEFAULT_START_TIME);
+            $minutesFromStart = (int) $firstStart->diffInMinutes($newEnd, false);
+
+            if ($minutesFromStart < self::SLOT_MINUTES) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'End time must be at least 20 minutes after the first slot.',
+                ], 422);
+            }
+
+            if ($minutesFromStart % self::SLOT_MINUTES !== 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'End time must align with the 20-minute slot interval.',
+                ], 422);
+            }
+
+            $newEndTime = $newEnd->format('H:i:s');
+            $currentEnd = $this->getScheduleEndForDate($date);
+
+            if ($newEnd < $currentEnd) {
+                $hasReservationAfterEnd = UserReservation::where('reservation_date', $date)
+                    ->where(function ($query) {
+                        $query->whereNull('status')
+                            ->orWhere('status', '!=', 'Rejected');
+                    })
+                    ->where('end_time', '>', $newEndTime)
+                    ->exists();
+
+                if ($hasReservationAfterEnd) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Cannot shorten the day because a reservation extends past the new end time.',
+                    ], 422);
+                }
+
+                TimeSlot::where('date', $date)
+                    ->where('end_time', '>', $newEndTime)
+                    ->delete();
+            }
+
+            $lastEndTime = TimeSlot::where('date', $date)
+                ->orderByDesc('end_time')
+                ->value('end_time');
+
+            $currentTime = Carbon::parse($lastEndTime ?: $firstStart->format('H:i:s'));
+
+            while ($currentTime < $newEnd) {
+                TimeSlot::create([
+                    'date' => $date,
+                    'start_time' => $currentTime->format('H:i:s'),
+                    'end_time' => $currentTime->copy()->addMinutes(self::SLOT_MINUTES)->format('H:i:s'),
+                    'status' => 'available',
+                ]);
+
+                $currentTime->addMinutes(self::SLOT_MINUTES);
+            }
+
+            $updatedSlots = TimeSlot::where('date', $date)->orderBy('start_time')->get();
+            $formattedSlots = $this->buildFormattedSlots($date, $updatedSlots);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Schedule end time updated to '.$newEnd->format('g:i A'),
+                'slots' => $formattedSlots,
+                'current_start' => substr($updatedSlots->first()->start_time, 0, 5),
+                'current_end' => substr($updatedSlots->last()->end_time, 0, 5),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error updating end time: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Replace the schedule for every date in a range.
+     */
+    public function updateDateRange(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'start_date' => 'required|date|after_or_equal:today',
+            'end_date' => 'required|date|after_or_equal:start_date',
+            'start_time' => 'required|date_format:H:i',
+            'end_time' => 'required|date_format:H:i',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $startDate = Carbon::parse($request->start_date)->startOfDay();
+        $endDate = Carbon::parse($request->end_date)->startOfDay();
+
+        if ($startDate->diffInDays($endDate) > 365) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Date range cannot exceed 365 days.',
+            ], 422);
+        }
+
+        $scheduleStart = Carbon::parse($request->start_time);
+        $scheduleEnd = Carbon::parse($request->end_time);
+        $scheduleMinutes = (int) $scheduleStart->diffInMinutes($scheduleEnd, false);
+
+        if ($scheduleStart < Carbon::parse(self::DEFAULT_START_TIME)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Start time cannot be earlier than 7:00 AM.',
+            ], 422);
+        }
+
+        if ($scheduleMinutes < self::SLOT_MINUTES) {
+            return response()->json([
+                'success' => false,
+                'message' => 'End time must be at least 20 minutes after start time.',
+            ], 422);
+        }
+
+        if ($scheduleMinutes % self::SLOT_MINUTES !== 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'The schedule must align with the 20-minute slot interval.',
+            ], 422);
+        }
+
+        $scheduleStartTime = $scheduleStart->format('H:i:s');
+        $scheduleEndTime = $scheduleEnd->format('H:i:s');
+        $conflictingReservation = UserReservation::whereBetween('reservation_date', [
+            $startDate->toDateString(),
+            $endDate->toDateString(),
+        ])
+            ->where(function ($query) {
+                $query->whereNull('status')
+                    ->orWhere('status', '!=', 'Rejected');
+            })
+            ->where(function ($query) use ($scheduleStartTime, $scheduleEndTime) {
+                $query->where('start_time', '<', $scheduleStartTime)
+                    ->orWhere('end_time', '>', $scheduleEndTime);
+            })
+            ->orderBy('reservation_date')
+            ->orderBy('start_time')
+            ->first();
+
+        if ($conflictingReservation) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot apply this schedule because a reservation on '.
+                    Carbon::parse($conflictingReservation->reservation_date)->format('M j, Y').
+                    ' falls outside the selected hours.',
+            ], 422);
+        }
+
+        try {
+            $updatedDays = DB::transaction(function () use ($startDate, $endDate, $scheduleStart, $scheduleEnd) {
+                $updatedDays = 0;
+                $date = $startDate->copy();
+
+                while ($date->lte($endDate)) {
+                    $dateString = $date->toDateString();
+                    TimeSlot::where('date', $dateString)->delete();
+                    TimeSlot::insert($this->generateSlotsForSchedule($dateString, $scheduleStart, $scheduleEnd));
+                    $updatedDays++;
+                    $date->addDay();
+                }
+
+                return $updatedDays;
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => $updatedDays.' day(s) updated to '.
+                    $scheduleStart->format('g:i A').' - '.$scheduleEnd->format('g:i A'),
+                'updated_days' => $updatedDays,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error updating date range: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    private function generateSlotsForSchedule($date, Carbon $scheduleStart, Carbon $scheduleEnd)
+    {
+        $slots = [];
+        $currentTime = $scheduleStart->copy();
+
+        while ($currentTime < $scheduleEnd) {
+            $slots[] = [
+                'date' => $date,
+                'start_time' => $currentTime->format('H:i:s'),
+                'end_time' => $currentTime->copy()->addMinutes(self::SLOT_MINUTES)->format('H:i:s'),
+                'status' => 'available',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+
+            $currentTime->addMinutes(self::SLOT_MINUTES);
+        }
+
+        return $slots;
+    }
+
+    /**
      * Reset to default slots (7:00 AM start)
      */
     public function resetToDefault(Request $request)
@@ -567,12 +827,12 @@ class TimeSlotController extends Controller
 
             $newTimeCarbon = Carbon::parse($newStartTime);
             $minTime = Carbon::createFromTime(7, 0, 0);
-            $maxTime = Carbon::createFromTime(18, 0, 0);
+            $maxTime = $this->getScheduleEndForDate($date)->subMinutes(self::SLOT_MINUTES);
 
             if ($newTimeCarbon < $minTime || $newTimeCarbon > $maxTime) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Time must be between 7:00 AM and 6:00 PM',
+                    'message' => 'Time must be between 7:00 AM and '.$maxTime->format('g:i A'),
                 ], 422);
             }
 
@@ -690,6 +950,8 @@ class TimeSlotController extends Controller
                 'success' => true,
                 'message' => 'Time slots updated from '.Carbon::parse($newStartTime)->format('g:i A').' (both directions)',
                 'slots' => $formattedSlots,
+                'current_start' => substr($updatedSlots->first()->start_time, 0, 5),
+                'current_end' => substr($updatedSlots->last()->end_time, 0, 5),
             ]);
 
         } catch (\Exception $e) {

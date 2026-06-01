@@ -3,6 +3,7 @@
 use App\Http\Controllers\BlockReservationController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\GalleryController;
+use App\Http\Controllers\LocationSearchController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PriceController;
 use App\Http\Controllers\ReservationController;
@@ -252,6 +253,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/ourreservations/timeslots', [ReservationController::class, 'getTimeSlotsForCalendar'])->name('ourreservations.timeslots');
     Route::get('/ourreservations/availability', [ReservationController::class, 'checkAvailability'])->name('ourreservations.availability');
     Route::post('/ourreservations', [ReservationController::class, 'store'])->name('ourreservations.store');
+    Route::get('/location-search', [LocationSearchController::class, 'search'])->name('locations.search');
 
 
     // --------------------------------------------------------------------------
@@ -279,6 +281,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/ourtimeslots', [TimeSlotController::class, 'index'])->name('ourtimeslots.index');
     Route::get('/ourtimeslots/get', [TimeSlotController::class, 'getSlotsForDate'])->name('ourtimeslots.get');
     Route::post('/ourtimeslots/update', [TimeSlotController::class, 'updateAvailability'])->name('ourtimeslots.update');
+    Route::post('/ourtimeslots/update-end', [TimeSlotController::class, 'updateEndTime'])->name('ourtimeslots.update-end');
+    Route::post('/ourtimeslots/update-range', [TimeSlotController::class, 'updateDateRange'])->name('ourtimeslots.update-range');
     Route::post('/ourtimeslots/reset', [TimeSlotController::class, 'resetToDefault'])->name('ourtimeslots.reset');
     Route::post('/ourtimeslots/update-single', [TimeSlotController::class, 'updateSingleSlot'])->name('ourtimeslots.update-single');
     Route::post('/ourtimeslots/update-single-with-subsequent', [TimeSlotController::class, 'updateSingleSlotWithSubsequent'])->name('ourtimeslots.update-single-with-subsequent');
