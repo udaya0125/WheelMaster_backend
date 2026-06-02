@@ -1675,9 +1675,10 @@ const BlockReservation = () => {
                     onClose={closeLunchForm}
                 >
                     <form onSubmit={handleLunchSubmit} className="space-y-4">
-                        <div className="rounded-md border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                            Customers cannot book during the lunch break. Reason will be set to <strong>Lunch Break</strong> automatically.
-                        </div>
+                        {/* <div className="rounded-md border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                            Customers cannot book during the lunch break. 
+                            Reason will be set to <strong>Lunch Break</strong> automatically.
+                        </div> */}
 
                         {/* Date Range Fields */}
                         <div className="grid grid-cols-2 gap-4">
@@ -1758,9 +1759,9 @@ const BlockReservation = () => {
                     onClose={closeEditLunchForm}
                 >
                     <form onSubmit={handleEditLunchSubmit} className="space-y-4">
-                        <div className="rounded-md border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                        {/* <div className="rounded-md border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-800">
                             Editing this lunch break will update all dates in the range. The reason stays as <strong>Lunch Break</strong>.
-                        </div>
+                        </div> */}
 
                         {/* Date Range Fields */}
                         <div className="grid grid-cols-2 gap-4">
