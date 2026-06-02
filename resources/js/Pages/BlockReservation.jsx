@@ -1,7 +1,779 @@
+// import Wrapper from "@/AdminWrapper/Wrapper";
+// import MyTable from "@/MyTable/MyTable";
+// import axios from "axios";
+// import { X, Clock, Calendar, Trash2, Pencil, Edit } from "lucide-react";
+// import React, { useState, useMemo, useEffect, useRef } from "react";
+
+// // ─── Outside component so it's never recreated on re-render ───────
+// const ModalShell = ({ title, onClose, children }) => (
+//     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+//         <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+//             <div className="flex items-center justify-between p-4 sm:p-6 border-b">
+//                 <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
+//                     {title}
+//                 </h2>
+//                 <button
+//                     onClick={onClose}
+//                     className="text-gray-400 hover:text-gray-600 transition-colors"
+//                 >
+//                     <X size={24} />
+//                 </button>
+//             </div>
+//             <div className="p-4 sm:p-6">{children}</div>
+//         </div>
+//     </div>
+// );
+
+// const BlockReservation = () => {
+//     const [blockedSlots, setBlockedSlots] = useState([]);
+//     const [loading, setLoading] = useState(true);
+//     const [showBlockSlotForm, setShowBlockSlotForm] = useState(false);
+//     const [showEditForm, setShowEditForm] = useState(false);
+//     const [editingSlot, setEditingSlot] = useState(null);
+//     const [blockMode, setBlockMode] = useState("single");
+//     const [blockAction, setBlockAction] = useState("block_time");
+//     const [editBlockAction, setEditBlockAction] = useState("block_time");
+//     const [formData, setFormData] = useState({
+//         date: "",
+//         endDate: "",
+//         startTime: "07:00",
+//         endTime: "08:00",
+//         reason: "",
+//     });
+//     const [editFormData, setEditFormData] = useState({
+//         date: "",
+//         startTime: "07:00",
+//         endTime: "08:00",
+//         reason: "",
+//     });
+//     const [formError, setFormError] = useState("");
+//     const [editFormError, setEditFormError] = useState("");
+//     const [submitting, setSubmitting] = useState(false);
+//     const [editSubmitting, setEditSubmitting] = useState(false);
+//     const [reloadTrigger, setReloadTrigger] = useState(false);
+
+//     // ─── Fetch ─────────────────────────────────────────────────────
+//     useEffect(() => {
+//         const fetchBlockReservations = async () => {
+//             try {
+//                 setLoading(true);
+//                 const response = await axios.get(
+//                     route("ourblockreservations.index"),
+//                 );
+//                 const sorted = [...response.data.data].sort(
+//                     (a, b) => new Date(b.created_at) - new Date(a.created_at),
+//                 );
+//                 setBlockedSlots(sorted);
+//             } catch (err) {
+//                 console.error("Error fetching reservations:", err);
+//             } finally {
+//                 setLoading(false);
+//             }
+//         };
+//         fetchBlockReservations();
+//     }, [reloadTrigger]);
+
+//     // ─── Lock body scroll when any modal is open ──────────────────
+//     useEffect(() => {
+//         if (showBlockSlotForm || showEditForm) {
+//             document.body.style.overflow = "hidden";
+//         } else {
+//             document.body.style.overflow = "";
+//         }
+//         return () => {
+//             document.body.style.overflow = "";
+//         };
+//     }, [showBlockSlotForm, showEditForm]);
+
+//     // ─── Helpers ───────────────────────────────────────────────────
+//     const calculateDuration = (startTime, endTime) => {
+//         const [startHours, startMinutes] = startTime.split(":").map(Number);
+//         const [endHours, endMinutes] = endTime.split(":").map(Number);
+//         const durationMinutes =
+//             endHours * 60 + endMinutes - (startHours * 60 + startMinutes);
+//         return (durationMinutes / 60).toFixed(2);
+//     };
+
+//     const handleDelete = async (id) => {
+//         try {
+//             await axios.delete(route("ourblockreservations.destroy", { id }));
+//             setReloadTrigger((prev) => !prev);
+//         } catch (error) {
+//             console.error("Error deleting block reservation:", error);
+//         }
+//     };
+
+//     // ─── Stable refs for table callbacks ──────────────────────────
+//     const handleDeleteRef = useRef(handleDelete);
+//     handleDeleteRef.current = handleDelete;
+//     const openEditFormRef = useRef(null);
+
+//     // ─── Create Form ───────────────────────────────────────────────
+//     const openBlockSlotForm = () => {
+//         setShowBlockSlotForm(true);
+//         setBlockMode("single");
+//         setBlockAction("block_time");
+//         setFormData({
+//             date: "",
+//             endDate: "",
+//             startTime: "07:00",
+//             endTime: "08:00",
+//             reason: "",
+//         });
+//         setFormError("");
+//     };
+
+//     const closeBlockSlotForm = () => {
+//         setShowBlockSlotForm(false);
+//         setBlockAction("block_time");
+//         setFormData({
+//             date: "",
+//             endDate: "",
+//             startTime: "07:00",
+//             endTime: "08:00",
+//             reason: "",
+//         });
+//         setFormError("");
+//     };
+
+//     const handleInputChange = (e) => {
+//         const { name, value } = e.target;
+//         setFormData((prev) => ({ ...prev, [name]: value }));
+//         if (name !== "reason") setFormError("");
+//     };
+
+//     const validateCreateForm = () => {
+//         if (!formData.date) return "Please select a start date.";
+//         if (blockMode === "range" && !formData.endDate)
+//             return "Please select an end date.";
+//         if (blockMode === "range" && formData.endDate < formData.date)
+//             return "End date must be on or after start date.";
+//         if (!formData.startTime || !formData.endTime)
+//             return "Please select both start and end time.";
+//         if (formData.startTime >= formData.endTime)
+//             return "End time must be after start time.";
+//         if (
+//             blockAction === "open_window" &&
+//             (formData.startTime < "07:00" || formData.endTime > "18:00")
+//         )
+//             return "Open windows must be between 7:00 AM and 6:00 PM.";
+//         return "";
+//     };
+
+//     const handleBlockSlotSubmit = async (e) => {
+//         e.preventDefault();
+//         const validationError = validateCreateForm();
+//         if (validationError) {
+//             setFormError(validationError);
+//             return;
+//         }
+//         try {
+//             setSubmitting(true);
+//             const duration = calculateDuration(
+//                 formData.startTime,
+//                 formData.endTime,
+//             );
+//             await axios.post(route("ourblockreservations.store"), {
+//                 start_date: formData.date,
+//                 end_date:
+//                     blockMode === "range" ? formData.endDate : formData.date,
+//                 start_time: formData.startTime,
+//                 end_time: formData.endTime,
+//                 duration,
+//                 reason: formData.reason || "No reason provided",
+//                 block_action: blockAction,
+//             });
+//             setReloadTrigger((prev) => !prev);
+//             closeBlockSlotForm();
+//         } catch (err) {
+//             console.error("Error blocking time slot:", err);
+//             setFormError(
+//                 err.response?.data?.message ||
+//                     "Failed to block time slot. Please try again.",
+//             );
+//         } finally {
+//             setSubmitting(false);
+//         }
+//     };
+
+//     // ─── Edit Form ─────────────────────────────────────────────────
+//     const openEditForm = (slot) => {
+//         setEditingSlot(slot);
+//         setEditFormData({
+//             date: slot.date,
+//             startTime: slot.start_time,
+//             endTime: slot.end_time,
+//             reason:
+//                 slot.reason === "No reason provided" ? "" : slot.reason || "",
+//         });
+//         setEditBlockAction("block_time");
+//         setEditFormError("");
+//         setShowEditForm(true);
+//     };
+//     openEditFormRef.current = openEditForm;
+
+//     const closeEditForm = () => {
+//         setShowEditForm(false);
+//         setEditingSlot(null);
+//         setEditBlockAction("block_time");
+//         setEditFormData({
+//             date: "",
+//             startTime: "07:00",
+//             endTime: "08:00",
+//             reason: "",
+//         });
+//         setEditFormError("");
+//     };
+
+//     const handleEditInputChange = (e) => {
+//         const { name, value } = e.target;
+//         setEditFormData((prev) => ({ ...prev, [name]: value }));
+//         if (name !== "reason") setEditFormError("");
+//     };
+
+//     const validateEditForm = () => {
+//         if (!editFormData.date) return "Please select a date.";
+//         if (!editFormData.startTime || !editFormData.endTime)
+//             return "Please select both start and end time.";
+//         if (editFormData.startTime >= editFormData.endTime)
+//             return "End time must be after start time.";
+//         if (
+//             editBlockAction === "open_window" &&
+//             (editFormData.startTime < "07:00" || editFormData.endTime > "18:00")
+//         )
+//             return "Open windows must be between 7:00 AM and 6:00 PM.";
+//         const hasOverlap =
+//             editBlockAction === "block_time" &&
+//             blockedSlots.some(
+//                 (slot) =>
+//                     slot.id !== editingSlot.id &&
+//                     slot.date === editFormData.date &&
+//                     ((editFormData.startTime >= slot.start_time &&
+//                         editFormData.startTime < slot.end_time) ||
+//                         (editFormData.endTime > slot.start_time &&
+//                             editFormData.endTime <= slot.end_time) ||
+//                         (editFormData.startTime <= slot.start_time &&
+//                             editFormData.endTime >= slot.end_time)),
+//             );
+//         if (hasOverlap)
+//             return "This time slot overlaps with an existing blocked slot.";
+//         return "";
+//     };
+
+//     const handleEditSubmit = async (e) => {
+//         e.preventDefault();
+//         const validationError = validateEditForm();
+//         if (validationError) {
+//             setEditFormError(validationError);
+//             return;
+//         }
+//         try {
+//             setEditSubmitting(true);
+//             const duration = calculateDuration(
+//                 editFormData.startTime,
+//                 editFormData.endTime,
+//             );
+//             await axios.put(
+//                 route("ourblockreservations.update", { id: editingSlot.id }),
+//                 {
+//                     date: editFormData.date,
+//                     start_time: editFormData.startTime,
+//                     end_time: editFormData.endTime,
+//                     duration,
+//                     reason: editFormData.reason || "No reason provided",
+//                     block_action: editBlockAction,
+//                 },
+//             );
+//             setReloadTrigger((prev) => !prev);
+//             closeEditForm();
+//         } catch (err) {
+//             console.error("Error updating block reservation:", err);
+//             setEditFormError(
+//                 err.response?.data?.message ||
+//                     "Failed to update. Please try again.",
+//             );
+//         } finally {
+//             setEditSubmitting(false);
+//         }
+//     };
+
+//     // ─── Table Columns ─────────────────────────────────────────────
+//     const columns = useMemo(
+//         () => [
+//             {
+//                 Header: "S.N.",
+//                 accessor: (row, i) => i + 1,
+//                 id: "rowIndex",
+//             },
+//             {
+//                 Header: "Date",
+//                 accessor: "date",
+//                 Cell: ({ value }) => {
+//                     const formatted = value
+//                         ? value.split("-").reverse().join("/")
+//                         : value;
+//                     return (
+//                         <div className="flex items-center gap-2">
+//                             <Calendar
+//                                 size={16}
+//                                 className="text-gray-400 flex-shrink-0"
+//                             />
+//                             <span className="truncate">{formatted}</span>
+//                         </div>
+//                     );
+//                 },
+//             },
+//             {
+//                 Header: "Time Slot",
+//                 accessor: (row) => `${row.start_time} - ${row.end_time}`,
+//                 id: "timeSlot",
+//                 Cell: ({ row }) => (
+//                     <div className="flex items-center gap-2">
+//                         <Clock
+//                             size={16}
+//                             className="text-gray-400 flex-shrink-0"
+//                         />
+//                         <span className="font-medium truncate">
+//                             {row.original.start_time} - {row.original.end_time}
+//                         </span>
+//                     </div>
+//                 ),
+//             },
+//             {
+//                 Header: "Duration",
+//                 accessor: (row) => {
+//                     const duration = calculateDuration(
+//                         row.start_time,
+//                         row.end_time,
+//                     );
+//                     const hours = Math.floor(duration);
+//                     const minutes = Math.round((duration - hours) * 60);
+//                     if (hours === 0)
+//                         return `${minutes} min${minutes !== 1 ? "s" : ""}`;
+//                     if (minutes === 0)
+//                         return `${hours} hr${hours !== 1 ? "s" : ""}`;
+//                     return `${hours} hr${hours !== 1 ? "s" : ""} ${minutes} min${minutes !== 1 ? "s" : ""}`;
+//                 },
+//                 id: "duration",
+//             },
+//             {
+//                 Header: "Reason",
+//                 accessor: "reason",
+//                 Cell: ({ value }) => (
+//                     <span className="truncate" title={value}>
+//                         {value || "—"}
+//                     </span>
+//                 ),
+//             },
+//             {
+//                 Header: "Actions",
+//                 disableSortBy: true,
+//                 Cell: ({ row }) => (
+//                     <div className="flex gap-2">
+//                         <button
+//                             onClick={() =>
+//                                 openEditFormRef.current(row.original)
+//                             }
+//                             className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors"
+//                             title="Edit"
+//                         >
+//                             <Edit size={18} />
+//                         </button>
+//                         <button
+//                             onClick={() =>
+//                                 handleDeleteRef.current(row.original.id)
+//                             }
+//                             className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
+//                             title="Delete"
+//                         >
+//                             <Trash2 size={18} />
+//                         </button>
+//                     </div>
+//                 ),
+//             },
+//         ],
+//         [],
+//     );
+
+//     return (
+//         <Wrapper>
+//             {/* ── Create Modal ── */}
+//             {showBlockSlotForm && (
+//                 <ModalShell
+//                     title="Manage Availability"
+//                     onClose={closeBlockSlotForm}
+//                 >
+//                     <form
+//                         onSubmit={handleBlockSlotSubmit}
+//                         className="space-y-4"
+//                     >
+//                         {/* Action Toggle */}
+//                         <div className="grid grid-cols-2 rounded-lg border border-gray-200 overflow-hidden">
+//                             {[
+//                                 { value: "block_time", label: "Block time" },
+//                                 { value: "open_window", label: "Open only" },
+//                             ].map((action) => (
+//                                 <button
+//                                     key={action.value}
+//                                     type="button"
+//                                     onClick={() => {
+//                                         setBlockAction(action.value);
+//                                         setFormError("");
+//                                     }}
+//                                     className={`py-2 px-3 text-sm font-medium transition-colors ${
+//                                         blockAction === action.value
+//                                             ? "bg-indigo-600 text-white"
+//                                             : "bg-white text-gray-600 hover:bg-gray-50"
+//                                     }`}
+//                                 >
+//                                     {action.label}
+//                                 </button>
+//                             ))}
+//                         </div>
+
+//                         <div className="rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+//                             {blockAction === "open_window"
+//                                 ? "Customers can book only inside the selected time window. The rest of the day is blocked automatically."
+//                                 : "Customers cannot book inside the selected time window."}
+//                         </div>
+
+//                         {/* Mode Toggle */}
+//                         <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+//                             {["single", "range"].map((mode) => (
+//                                 <button
+//                                     key={mode}
+//                                     type="button"
+//                                     onClick={() => setBlockMode(mode)}
+//                                     className={`flex-1 py-2 text-sm font-medium transition-colors ${
+//                                         blockMode === mode
+//                                             ? "bg-indigo-600 text-white"
+//                                             : "bg-white text-gray-600 hover:bg-gray-50"
+//                                     }`}
+//                                 >
+//                                     {mode === "single"
+//                                         ? "Single Date"
+//                                         : "Date Range"}
+//                                 </button>
+//                             ))}
+                            
+//                         </div>
+
+//                         {/* Date Fields */}
+//                         <div
+//                             className={`grid gap-4 ${blockMode === "range" ? "grid-cols-2" : "grid-cols-1"}`}
+//                         >
+//                             <div>
+//                                 <label className="block text-sm font-medium text-gray-700 mb-1">
+//                                     {blockMode === "range"
+//                                         ? "Start Date *"
+//                                         : "Date *"}
+//                                 </label>
+//                                 <input
+//                                     type="date"
+//                                     name="date"
+//                                     value={formData.date}
+//                                     onChange={handleInputChange}
+//                                     min={new Date().toISOString().split("T")[0]}
+//                                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+//                                     required
+//                                 />
+//                             </div>
+//                             {blockMode === "range" && (
+//                                 <div>
+//                                     <label className="block text-sm font-medium text-gray-700 mb-1">
+//                                         End Date *
+//                                     </label>
+//                                     <input
+//                                         type="date"
+//                                         name="endDate"
+//                                         value={formData.endDate}
+//                                         onChange={handleInputChange}
+//                                         min={
+//                                             formData.date ||
+//                                             new Date()
+//                                                 .toISOString()
+//                                                 .split("T")[0]
+//                                         }
+//                                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+//                                         required
+//                                     />
+//                                 </div>
+//                             )}
+//                         </div>
+
+//                         {/* Time Fields */}
+//                         <div className="grid grid-cols-2 gap-4">
+//                             {[
+//                                 {
+//                                     label: "Start Time *",
+//                                     name: "startTime",
+//                                     value: formData.startTime,
+//                                 },
+//                                 {
+//                                     label: "End Time *",
+//                                     name: "endTime",
+//                                     value: formData.endTime,
+//                                 },
+//                             ].map(({ label, name, value }) => (
+//                                 <div key={name}>
+//                                     <label className="block text-sm font-medium text-gray-700 mb-1">
+//                                         {blockAction === "open_window"
+//                                             ? label.replace("Time", "Open")
+//                                             : label}
+//                                     </label>
+//                                     <input
+//                                         type="time"
+//                                         name={name}
+//                                         value={value}
+//                                         onChange={handleInputChange}
+//                                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+//                                         required
+//                                     />
+//                                 </div>
+//                             ))}
+//                         </div>
+
+//                         {/* Reason */}
+//                         <div>
+//                             <label className="block text-sm font-medium text-gray-700 mb-1">
+//                                 Reason (Optional)
+//                             </label>
+//                             <input
+//                                 type="text"
+//                                 name="reason"
+//                                 value={formData.reason}
+//                                 onChange={handleInputChange}
+//                                 placeholder="e.g., Staff meeting, Holiday"
+//                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+//                             />
+//                         </div>
+
+//                         {formError && (
+//                             <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+//                                 <p className="text-sm text-red-600">
+//                                     {formError}
+//                                 </p>
+//                             </div>
+//                         )}
+
+//                         <div className="flex justify-end gap-2 pt-2">
+//                             <button
+//                                 type="button"
+//                                 onClick={closeBlockSlotForm}
+//                                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+//                             >
+//                                 Cancel
+//                             </button>
+//                             <button
+//                                 type="submit"
+//                                 disabled={submitting}
+//                                 className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
+//                             >
+//                                 {submitting
+//                                     ? "Saving..."
+//                                     : blockAction === "open_window"
+//                                       ? "Open This Window"
+//                                       : "Block Time Slot"}
+//                             </button>
+//                         </div>
+//                     </form>
+//                 </ModalShell>
+//             )}
+
+//             {/* ── Edit Modal ── */}
+//             {showEditForm && editingSlot && (
+//                 <ModalShell
+//                     title="Edit Blocked Time Slot"
+//                     onClose={closeEditForm}
+//                 >
+//                     <form onSubmit={handleEditSubmit} className="space-y-4">
+//                         {/* Action Toggle */}
+//                         <div className="grid grid-cols-2 rounded-lg border border-gray-200 overflow-hidden">
+//                             {[
+//                                 { value: "block_time", label: "Block time" },
+//                                 { value: "open_window", label: "Open only" },
+//                             ].map((action) => (
+//                                 <button
+//                                     key={action.value}
+//                                     type="button"
+//                                     onClick={() => {
+//                                         setEditBlockAction(action.value);
+//                                         setEditFormError("");
+//                                     }}
+//                                     className={`py-2 px-3 text-sm font-medium transition-colors ${
+//                                         editBlockAction === action.value
+//                                             ? "bg-indigo-600 text-white"
+//                                             : "bg-white text-gray-600 hover:bg-gray-50"
+//                                     }`}
+//                                 >
+//                                     {action.label}
+//                                 </button>
+//                             ))}
+//                         </div>
+
+//                         <div className="rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+//                             {editBlockAction === "open_window"
+//                                 ? "This will replace the selected block with automatic blocks before and after the open window."
+//                                 : "Customers cannot book inside the selected time window."}
+//                         </div>
+
+//                         {/* Info badge */}
+//                         {/* <div className="flex items-center gap-2 px-3 py-2 bg-indigo-50 border border-indigo-100 rounded-md text-sm text-indigo-700">
+//                             <Edit size={14} />
+//                             <span>Editing slot for <strong>{editingSlot.date}</strong></span>
+//                         </div> */}
+
+//                         {/* Date */}
+//                         <div>
+//                             <label className="block text-sm font-medium text-gray-700 mb-1">
+//                                 Date *
+//                             </label>
+//                             <input
+//                                 type="date"
+//                                 name="date"
+//                                 value={editFormData.date}
+//                                 onChange={handleEditInputChange}
+//                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+//                                 required
+//                             />
+//                         </div>
+
+//                         {/* Time Fields */}
+//                         <div className="grid grid-cols-2 gap-4">
+//                             {[
+//                                 {
+//                                     label: "Start Time *",
+//                                     name: "startTime",
+//                                     value: editFormData.startTime,
+//                                 },
+//                                 {
+//                                     label: "End Time *",
+//                                     name: "endTime",
+//                                     value: editFormData.endTime,
+//                                 },
+//                             ].map(({ label, name, value }) => (
+//                                 <div key={name}>
+//                                     <label className="block text-sm font-medium text-gray-700 mb-1">
+//                                         {editBlockAction === "open_window"
+//                                             ? label.replace("Time", "Open")
+//                                             : label}
+//                                     </label>
+//                                     <input
+//                                         type="time"
+//                                         name={name}
+//                                         value={value}
+//                                         onChange={handleEditInputChange}
+//                                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+//                                         required
+//                                     />
+//                                 </div>
+//                             ))}
+//                         </div>
+
+//                         {/* Reason */}
+//                         <div>
+//                             <label className="block text-sm font-medium text-gray-700 mb-1">
+//                                 Reason (Optional)
+//                             </label>
+//                             <input
+//                                 type="text"
+//                                 name="reason"
+//                                 value={editFormData.reason}
+//                                 onChange={handleEditInputChange}
+//                                 placeholder="e.g., Staff meeting, Holiday"
+//                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+//                             />
+//                         </div>
+
+//                         {editFormError && (
+//                             <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+//                                 <p className="text-sm text-red-600">
+//                                     {editFormError}
+//                                 </p>
+//                             </div>
+//                         )}
+
+//                         <div className="flex justify-end gap-2 pt-2">
+//                             <button
+//                                 type="button"
+//                                 onClick={closeEditForm}
+//                                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+//                             >
+//                                 Cancel
+//                             </button>
+//                             <button
+//                                 type="submit"
+//                                 disabled={editSubmitting}
+//                                 className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
+//                             >
+//                                 {editSubmitting
+//                                     ? "Saving..."
+//                                     : editBlockAction === "open_window"
+//                                       ? "Open This Window"
+//                                       : "Save Changes"}
+//                             </button>
+//                         </div>
+//                     </form>
+//                 </ModalShell>
+//             )}
+
+//             {/* ── Page Content ── */}
+//             <div className="px-2 sm:px-6 lg:px-8 py-6 lg:py-8">
+//                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+//                     <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">
+//                         Time Slot Management
+//                     </h1>
+//                     <button
+//                         onClick={openBlockSlotForm}
+//                         className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 rounded-full text-white hover:bg-indigo-800 transition-colors w-full sm:w-auto"
+//                     >
+//                         <Clock size={18} />
+//                         <span>Block Time Slot</span>
+//                     </button>
+//                 </div>
+
+//                 {loading ? (
+//                     <div className="bg-white rounded-xl border border-blue-100 shadow-sm p-8 text-center">
+//                         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+//                         <p className="mt-2 text-gray-600">
+//                             Loading blocked time slots...
+//                         </p>
+//                     </div>
+//                 ) : blockedSlots.length === 0 ? (
+//                     <div className="bg-white rounded-xl border border-blue-100 shadow-sm p-12 text-center">
+//                         <div className="flex flex-col items-center">
+//                             <Calendar
+//                                 size={48}
+//                                 className="text-gray-300 mb-3"
+//                             />
+//                             <p className="text-lg font-medium text-gray-700 mb-2">
+//                                 No blocked time slots
+//                             </p>
+//                             <p className="text-sm text-gray-500 mb-4">
+//                                 Block time slots to manage reservations
+//                             </p>
+//                             <button
+//                                 onClick={openBlockSlotForm}
+//                                 className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm"
+//                             >
+//                                 Block Your First Time Slot
+//                             </button>
+//                         </div>
+//                     </div>
+//                 ) : (
+//                     <MyTable columns={columns} data={blockedSlots} />
+//                 )}
+//             </div>
+//         </Wrapper>
+//     );
+// };
+
+// export default BlockReservation;
+
 import Wrapper from "@/AdminWrapper/Wrapper";
 import MyTable from "@/MyTable/MyTable";
 import axios from "axios";
-import { X, Clock, Calendar, Trash2, Pencil, Edit } from "lucide-react";
+import { X, Clock, Calendar, Trash2, Edit, Coffee } from "lucide-react";
 import React, { useState, useMemo, useEffect, useRef } from "react";
 
 // ─── Outside component so it's never recreated on re-render ───────
@@ -24,12 +796,71 @@ const ModalShell = ({ title, onClose, children }) => (
     </div>
 );
 
+// ─── Helper: group consecutive lunch-break slots by date ──────────
+const groupLunchBreakSlots = (slots) => {
+    // Separate lunch break slots from others
+    const lunchSlots = slots.filter(
+        (s) => s.reason === "Lunch Break",
+    );
+    const otherSlots = slots.filter(
+        (s) => s.reason !== "Lunch Break",
+    );
+
+    if (lunchSlots.length === 0) return slots;
+
+    // Sort lunch slots by date
+    const sorted = [...lunchSlots].sort(
+        (a, b) => new Date(a.date) - new Date(b.date),
+    );
+
+    // Group consecutive dates with same start/end time into ranges
+    const groups = [];
+    let current = { ...sorted[0], endDate: sorted[0].date, ids: [sorted[0].id] };
+
+    for (let i = 1; i < sorted.length; i++) {
+        const prev = new Date(current.endDate);
+        const curr = new Date(sorted[i].date);
+        const diffDays = (curr - prev) / (1000 * 60 * 60 * 24);
+
+        if (
+            diffDays === 1 &&
+            sorted[i].start_time === current.start_time &&
+            sorted[i].end_time === current.end_time
+        ) {
+            current.endDate = sorted[i].date;
+            current.ids.push(sorted[i].id);
+        } else {
+            groups.push({ ...current });
+            current = { ...sorted[i], endDate: sorted[i].date, ids: [sorted[i].id] };
+        }
+    }
+    groups.push({ ...current });
+
+    // Build display rows for lunch break groups
+    const lunchRows = groups.map((g) => ({
+        ...g,
+        _isLunchGroup: true,
+        _rangeStart: g.date,
+        _rangeEnd: g.endDate,
+        _ids: g.ids,
+        date: g.date,          // keep for sort/accessor
+    }));
+
+    // Merge back with non-lunch slots preserving original sort (created_at desc)
+    return [...lunchRows, ...otherSlots].sort(
+        (a, b) => new Date(b.created_at) - new Date(a.created_at),
+    );
+};
+
 const BlockReservation = () => {
     const [blockedSlots, setBlockedSlots] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showBlockSlotForm, setShowBlockSlotForm] = useState(false);
     const [showEditForm, setShowEditForm] = useState(false);
+    const [showLunchForm, setShowLunchForm] = useState(false);
+    const [showEditLunchForm, setShowEditLunchForm] = useState(false);
     const [editingSlot, setEditingSlot] = useState(null);
+    const [editingLunchGroup, setEditingLunchGroup] = useState(null);
     const [blockMode, setBlockMode] = useState("single");
     const [blockAction, setBlockAction] = useState("block_time");
     const [editBlockAction, setEditBlockAction] = useState("block_time");
@@ -46,10 +877,27 @@ const BlockReservation = () => {
         endTime: "08:00",
         reason: "",
     });
+    // Lunch break form state
+    const [lunchFormData, setLunchFormData] = useState({
+        date: "",
+        endDate: "",
+        startTime: "12:00",
+        endTime: "13:00",
+    });
+    const [editLunchFormData, setEditLunchFormData] = useState({
+        date: "",
+        endDate: "",
+        startTime: "12:00",
+        endTime: "13:00",
+    });
     const [formError, setFormError] = useState("");
     const [editFormError, setEditFormError] = useState("");
+    const [lunchFormError, setLunchFormError] = useState("");
+    const [editLunchFormError, setEditLunchFormError] = useState("");
     const [submitting, setSubmitting] = useState(false);
     const [editSubmitting, setEditSubmitting] = useState(false);
+    const [lunchSubmitting, setLunchSubmitting] = useState(false);
+    const [editLunchSubmitting, setEditLunchSubmitting] = useState(false);
     const [reloadTrigger, setReloadTrigger] = useState(false);
 
     // ─── Fetch ─────────────────────────────────────────────────────
@@ -75,7 +923,7 @@ const BlockReservation = () => {
 
     // ─── Lock body scroll when any modal is open ──────────────────
     useEffect(() => {
-        if (showBlockSlotForm || showEditForm) {
+        if (showBlockSlotForm || showEditForm || showLunchForm || showEditLunchForm) {
             document.body.style.overflow = "hidden";
         } else {
             document.body.style.overflow = "";
@@ -83,7 +931,7 @@ const BlockReservation = () => {
         return () => {
             document.body.style.overflow = "";
         };
-    }, [showBlockSlotForm, showEditForm]);
+    }, [showBlockSlotForm, showEditForm, showLunchForm, showEditLunchForm]);
 
     // ─── Helpers ───────────────────────────────────────────────────
     const calculateDuration = (startTime, endTime) => {
@@ -103,36 +951,41 @@ const BlockReservation = () => {
         }
     };
 
+    // Delete all IDs in a lunch group
+    const handleDeleteLunchGroup = async (ids) => {
+        try {
+            await Promise.all(
+                ids.map((id) =>
+                    axios.delete(route("ourblockreservations.destroy", { id })),
+                ),
+            );
+            setReloadTrigger((prev) => !prev);
+        } catch (error) {
+            console.error("Error deleting lunch break group:", error);
+        }
+    };
+
     // ─── Stable refs for table callbacks ──────────────────────────
     const handleDeleteRef = useRef(handleDelete);
     handleDeleteRef.current = handleDelete;
+    const handleDeleteLunchGroupRef = useRef(handleDeleteLunchGroup);
+    handleDeleteLunchGroupRef.current = handleDeleteLunchGroup;
     const openEditFormRef = useRef(null);
+    const openEditLunchFormRef = useRef(null);
 
-    // ─── Create Form ───────────────────────────────────────────────
+    // ─── Create Form (Block Time Slot) — unchanged ─────────────────
     const openBlockSlotForm = () => {
         setShowBlockSlotForm(true);
         setBlockMode("single");
         setBlockAction("block_time");
-        setFormData({
-            date: "",
-            endDate: "",
-            startTime: "07:00",
-            endTime: "08:00",
-            reason: "",
-        });
+        setFormData({ date: "", endDate: "", startTime: "07:00", endTime: "08:00", reason: "" });
         setFormError("");
     };
 
     const closeBlockSlotForm = () => {
         setShowBlockSlotForm(false);
         setBlockAction("block_time");
-        setFormData({
-            date: "",
-            endDate: "",
-            startTime: "07:00",
-            endTime: "08:00",
-            reason: "",
-        });
+        setFormData({ date: "", endDate: "", startTime: "07:00", endTime: "08:00", reason: "" });
         setFormError("");
     };
 
@@ -144,8 +997,7 @@ const BlockReservation = () => {
 
     const validateCreateForm = () => {
         if (!formData.date) return "Please select a start date.";
-        if (blockMode === "range" && !formData.endDate)
-            return "Please select an end date.";
+        if (blockMode === "range" && !formData.endDate) return "Please select an end date.";
         if (blockMode === "range" && formData.endDate < formData.date)
             return "End date must be on or after start date.";
         if (!formData.startTime || !formData.endTime)
@@ -163,20 +1015,13 @@ const BlockReservation = () => {
     const handleBlockSlotSubmit = async (e) => {
         e.preventDefault();
         const validationError = validateCreateForm();
-        if (validationError) {
-            setFormError(validationError);
-            return;
-        }
+        if (validationError) { setFormError(validationError); return; }
         try {
             setSubmitting(true);
-            const duration = calculateDuration(
-                formData.startTime,
-                formData.endTime,
-            );
+            const duration = calculateDuration(formData.startTime, formData.endTime);
             await axios.post(route("ourblockreservations.store"), {
                 start_date: formData.date,
-                end_date:
-                    blockMode === "range" ? formData.endDate : formData.date,
+                end_date: blockMode === "range" ? formData.endDate : formData.date,
                 start_time: formData.startTime,
                 end_time: formData.endTime,
                 duration,
@@ -187,24 +1032,20 @@ const BlockReservation = () => {
             closeBlockSlotForm();
         } catch (err) {
             console.error("Error blocking time slot:", err);
-            setFormError(
-                err.response?.data?.message ||
-                    "Failed to block time slot. Please try again.",
-            );
+            setFormError(err.response?.data?.message || "Failed to block time slot. Please try again.");
         } finally {
             setSubmitting(false);
         }
     };
 
-    // ─── Edit Form ─────────────────────────────────────────────────
+    // ─── Edit Form (Block Time Slot) — unchanged ───────────────────
     const openEditForm = (slot) => {
         setEditingSlot(slot);
         setEditFormData({
             date: slot.date,
             startTime: slot.start_time,
             endTime: slot.end_time,
-            reason:
-                slot.reason === "No reason provided" ? "" : slot.reason || "",
+            reason: slot.reason === "No reason provided" ? "" : slot.reason || "",
         });
         setEditBlockAction("block_time");
         setEditFormError("");
@@ -216,12 +1057,7 @@ const BlockReservation = () => {
         setShowEditForm(false);
         setEditingSlot(null);
         setEditBlockAction("block_time");
-        setEditFormData({
-            date: "",
-            startTime: "07:00",
-            endTime: "08:00",
-            reason: "",
-        });
+        setEditFormData({ date: "", startTime: "07:00", endTime: "08:00", reason: "" });
         setEditFormError("");
     };
 
@@ -248,31 +1084,21 @@ const BlockReservation = () => {
                 (slot) =>
                     slot.id !== editingSlot.id &&
                     slot.date === editFormData.date &&
-                    ((editFormData.startTime >= slot.start_time &&
-                        editFormData.startTime < slot.end_time) ||
-                        (editFormData.endTime > slot.start_time &&
-                            editFormData.endTime <= slot.end_time) ||
-                        (editFormData.startTime <= slot.start_time &&
-                            editFormData.endTime >= slot.end_time)),
+                    ((editFormData.startTime >= slot.start_time && editFormData.startTime < slot.end_time) ||
+                        (editFormData.endTime > slot.start_time && editFormData.endTime <= slot.end_time) ||
+                        (editFormData.startTime <= slot.start_time && editFormData.endTime >= slot.end_time)),
             );
-        if (hasOverlap)
-            return "This time slot overlaps with an existing blocked slot.";
+        if (hasOverlap) return "This time slot overlaps with an existing blocked slot.";
         return "";
     };
 
     const handleEditSubmit = async (e) => {
         e.preventDefault();
         const validationError = validateEditForm();
-        if (validationError) {
-            setEditFormError(validationError);
-            return;
-        }
+        if (validationError) { setEditFormError(validationError); return; }
         try {
             setEditSubmitting(true);
-            const duration = calculateDuration(
-                editFormData.startTime,
-                editFormData.endTime,
-            );
+            const duration = calculateDuration(editFormData.startTime, editFormData.endTime);
             await axios.put(
                 route("ourblockreservations.update", { id: editingSlot.id }),
                 {
@@ -288,14 +1114,145 @@ const BlockReservation = () => {
             closeEditForm();
         } catch (err) {
             console.error("Error updating block reservation:", err);
-            setEditFormError(
-                err.response?.data?.message ||
-                    "Failed to update. Please try again.",
-            );
+            setEditFormError(err.response?.data?.message || "Failed to update. Please try again.");
         } finally {
             setEditSubmitting(false);
         }
     };
+
+    // ─── Lunch Break Create Form ────────────────────────────────────
+    const openLunchForm = () => {
+        setShowLunchForm(true);
+        setLunchFormData({ date: "", endDate: "", startTime: "12:00", endTime: "13:00" });
+        setLunchFormError("");
+    };
+
+    const closeLunchForm = () => {
+        setShowLunchForm(false);
+        setLunchFormData({ date: "", endDate: "", startTime: "12:00", endTime: "13:00" });
+        setLunchFormError("");
+    };
+
+    const handleLunchInputChange = (e) => {
+        const { name, value } = e.target;
+        setLunchFormData((prev) => ({ ...prev, [name]: value }));
+        setLunchFormError("");
+    };
+
+    const validateLunchForm = () => {
+        if (!lunchFormData.date) return "Please select a start date.";
+        if (!lunchFormData.endDate) return "Please select an end date.";
+        if (lunchFormData.endDate < lunchFormData.date)
+            return "End date must be on or after start date.";
+        if (!lunchFormData.startTime || !lunchFormData.endTime)
+            return "Please select both start and end time.";
+        if (lunchFormData.startTime >= lunchFormData.endTime)
+            return "End time must be after start time.";
+        return "";
+    };
+
+    const handleLunchSubmit = async (e) => {
+        e.preventDefault();
+        const validationError = validateLunchForm();
+        if (validationError) { setLunchFormError(validationError); return; }
+        try {
+            setLunchSubmitting(true);
+            const duration = calculateDuration(lunchFormData.startTime, lunchFormData.endTime);
+            await axios.post(route("ourblockreservations.store"), {
+                start_date: lunchFormData.date,
+                end_date: lunchFormData.endDate,
+                start_time: lunchFormData.startTime,
+                end_time: lunchFormData.endTime,
+                duration,
+                reason: "Lunch Break",
+                block_action: "block_time",
+            });
+            setReloadTrigger((prev) => !prev);
+            closeLunchForm();
+        } catch (err) {
+            console.error("Error adding lunch break:", err);
+            setLunchFormError(err.response?.data?.message || "Failed to add lunch break. Please try again.");
+        } finally {
+            setLunchSubmitting(false);
+        }
+    };
+
+    // ─── Lunch Break Edit Form ──────────────────────────────────────
+    // Editing a lunch group means editing all records for that date range
+    // We delete all existing records in the group and recreate with new values
+    const openEditLunchForm = (group) => {
+        setEditingLunchGroup(group);
+        setEditLunchFormData({
+            date: group._rangeStart,
+            endDate: group._rangeEnd,
+            startTime: group.start_time,
+            endTime: group.end_time,
+        });
+        setEditLunchFormError("");
+        setShowEditLunchForm(true);
+    };
+    openEditLunchFormRef.current = openEditLunchForm;
+
+    const closeEditLunchForm = () => {
+        setShowEditLunchForm(false);
+        setEditingLunchGroup(null);
+        setEditLunchFormData({ date: "", endDate: "", startTime: "12:00", endTime: "13:00" });
+        setEditLunchFormError("");
+    };
+
+    const handleEditLunchInputChange = (e) => {
+        const { name, value } = e.target;
+        setEditLunchFormData((prev) => ({ ...prev, [name]: value }));
+        setEditLunchFormError("");
+    };
+
+    const validateEditLunchForm = () => {
+        if (!editLunchFormData.date) return "Please select a start date.";
+        if (!editLunchFormData.endDate) return "Please select an end date.";
+        if (editLunchFormData.endDate < editLunchFormData.date)
+            return "End date must be on or after start date.";
+        if (!editLunchFormData.startTime || !editLunchFormData.endTime)
+            return "Please select both start and end time.";
+        if (editLunchFormData.startTime >= editLunchFormData.endTime)
+            return "End time must be after start time.";
+        return "";
+    };
+
+    const handleEditLunchSubmit = async (e) => {
+        e.preventDefault();
+        const validationError = validateEditLunchForm();
+        if (validationError) { setEditLunchFormError(validationError); return; }
+        try {
+            setEditLunchSubmitting(true);
+            // Delete all records in the existing group
+            await Promise.all(
+                editingLunchGroup._ids.map((id) =>
+                    axios.delete(route("ourblockreservations.destroy", { id })),
+                ),
+            );
+            // Recreate with new date range + times
+            const duration = calculateDuration(editLunchFormData.startTime, editLunchFormData.endTime);
+            await axios.post(route("ourblockreservations.store"), {
+                start_date: editLunchFormData.date,
+                end_date: editLunchFormData.endDate,
+                start_time: editLunchFormData.startTime,
+                end_time: editLunchFormData.endTime,
+                duration,
+                reason: "Lunch Break",
+                block_action: "block_time",
+            });
+            setReloadTrigger((prev) => !prev);
+            closeEditLunchForm();
+        } catch (err) {
+            console.error("Error updating lunch break group:", err);
+            setEditLunchFormError(err.response?.data?.message || "Failed to update lunch break. Please try again.");
+        } finally {
+            setEditLunchSubmitting(false);
+        }
+    };
+
+    // ─── Table display data (group lunch breaks) ──────────────────
+    const tableData = useMemo(() => groupLunchBreakSlots(blockedSlots), [blockedSlots]);
 
     // ─── Table Columns ─────────────────────────────────────────────
     const columns = useMemo(
@@ -308,16 +1265,23 @@ const BlockReservation = () => {
             {
                 Header: "Date",
                 accessor: "date",
-                Cell: ({ value }) => {
-                    const formatted = value
-                        ? value.split("-").reverse().join("/")
-                        : value;
+                Cell: ({ row }) => {
+                    const r = row.original;
+                    if (r._isLunchGroup && r._rangeStart !== r._rangeEnd) {
+                        const fmt = (d) => d.split("-").reverse().join("/");
+                        return (
+                            <div className="flex items-center gap-2">
+                                <Calendar size={16} className="text-gray-400 flex-shrink-0" />
+                                <span className="truncate">
+                                    {fmt(r._rangeStart)} to {fmt(r._rangeEnd)}
+                                </span>
+                            </div>
+                        );
+                    }
+                    const formatted = r.date ? r.date.split("-").reverse().join("/") : r.date;
                     return (
                         <div className="flex items-center gap-2">
-                            <Calendar
-                                size={16}
-                                className="text-gray-400 flex-shrink-0"
-                            />
+                            <Calendar size={16} className="text-gray-400 flex-shrink-0" />
                             <span className="truncate">{formatted}</span>
                         </div>
                     );
@@ -329,10 +1293,7 @@ const BlockReservation = () => {
                 id: "timeSlot",
                 Cell: ({ row }) => (
                     <div className="flex items-center gap-2">
-                        <Clock
-                            size={16}
-                            className="text-gray-400 flex-shrink-0"
-                        />
+                        <Clock size={16} className="text-gray-400 flex-shrink-0" />
                         <span className="font-medium truncate">
                             {row.original.start_time} - {row.original.end_time}
                         </span>
@@ -342,16 +1303,11 @@ const BlockReservation = () => {
             {
                 Header: "Duration",
                 accessor: (row) => {
-                    const duration = calculateDuration(
-                        row.start_time,
-                        row.end_time,
-                    );
+                    const duration = calculateDuration(row.start_time, row.end_time);
                     const hours = Math.floor(duration);
                     const minutes = Math.round((duration - hours) * 60);
-                    if (hours === 0)
-                        return `${minutes} min${minutes !== 1 ? "s" : ""}`;
-                    if (minutes === 0)
-                        return `${hours} hr${hours !== 1 ? "s" : ""}`;
+                    if (hours === 0) return `${minutes} min${minutes !== 1 ? "s" : ""}`;
+                    if (minutes === 0) return `${hours} hr${hours !== 1 ? "s" : ""}`;
                     return `${hours} hr${hours !== 1 ? "s" : ""} ${minutes} min${minutes !== 1 ? "s" : ""}`;
                 },
                 id: "duration",
@@ -361,52 +1317,93 @@ const BlockReservation = () => {
                 accessor: "reason",
                 Cell: ({ value }) => (
                     <span className="truncate" title={value}>
-                        {value || "—"}
+                        {value === "Lunch Break" ? (
+                            <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full text-xs font-medium">
+                                <Coffee size={12} />
+                                Lunch Break
+                            </span>
+                        ) : (
+                            value || "—"
+                        )}
                     </span>
                 ),
             },
             {
                 Header: "Actions",
                 disableSortBy: true,
-                Cell: ({ row }) => (
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() =>
-                                openEditFormRef.current(row.original)
-                            }
-                            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors"
-                            title="Edit"
-                        >
-                            <Edit size={18} />
-                        </button>
-                        <button
-                            onClick={() =>
-                                handleDeleteRef.current(row.original.id)
-                            }
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
-                            title="Delete"
-                        >
-                            <Trash2 size={18} />
-                        </button>
-                    </div>
-                ),
+                Cell: ({ row }) => {
+                    const r = row.original;
+                    if (r._isLunchGroup) {
+                        return (
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => openEditLunchFormRef.current(r)}
+                                    className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors"
+                                    title="Edit lunch break"
+                                >
+                                    <Edit size={18} />
+                                </button>
+                                <button
+                                    onClick={() => handleDeleteLunchGroupRef.current(r._ids)}
+                                    className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                    title="Delete lunch break"
+                                >
+                                    <Trash2 size={18} />
+                                </button>
+                            </div>
+                        );
+                    }
+                    return (
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => openEditFormRef.current(r)}
+                                className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors"
+                                title="Edit"
+                            >
+                                <Edit size={18} />
+                            </button>
+                            <button
+                                onClick={() => handleDeleteRef.current(r.id)}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                title="Delete"
+                            >
+                                <Trash2 size={18} />
+                            </button>
+                        </div>
+                    );
+                },
             },
         ],
         [],
     );
 
+    // ─── Shared time field renderer ────────────────────────────────
+    const TimeFields = ({ fields, onChange }) => (
+        <div className="grid grid-cols-2 gap-4">
+            {fields.map(({ label, name, value }) => (
+                <div key={name}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {label}
+                    </label>
+                    <input
+                        type="time"
+                        name={name}
+                        value={value}
+                        onChange={onChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400"
+                        required
+                    />
+                </div>
+            ))}
+        </div>
+    );
+
     return (
         <Wrapper>
-            {/* ── Create Modal ── */}
+            {/* ── Block Time Slot Create Modal — unchanged ── */}
             {showBlockSlotForm && (
-                <ModalShell
-                    title="Manage Availability"
-                    onClose={closeBlockSlotForm}
-                >
-                    <form
-                        onSubmit={handleBlockSlotSubmit}
-                        className="space-y-4"
-                    >
+                <ModalShell title="Manage Availability" onClose={closeBlockSlotForm}>
+                    <form onSubmit={handleBlockSlotSubmit} className="space-y-4">
                         {/* Action Toggle */}
                         <div className="grid grid-cols-2 rounded-lg border border-gray-200 overflow-hidden">
                             {[
@@ -416,10 +1413,7 @@ const BlockReservation = () => {
                                 <button
                                     key={action.value}
                                     type="button"
-                                    onClick={() => {
-                                        setBlockAction(action.value);
-                                        setFormError("");
-                                    }}
+                                    onClick={() => { setBlockAction(action.value); setFormError(""); }}
                                     className={`py-2 px-3 text-sm font-medium transition-colors ${
                                         blockAction === action.value
                                             ? "bg-indigo-600 text-white"
@@ -450,23 +1444,16 @@ const BlockReservation = () => {
                                             : "bg-white text-gray-600 hover:bg-gray-50"
                                     }`}
                                 >
-                                    {mode === "single"
-                                        ? "Single Date"
-                                        : "Date Range"}
+                                    {mode === "single" ? "Single Date" : "Date Range"}
                                 </button>
                             ))}
-                            
                         </div>
 
                         {/* Date Fields */}
-                        <div
-                            className={`grid gap-4 ${blockMode === "range" ? "grid-cols-2" : "grid-cols-1"}`}
-                        >
+                        <div className={`grid gap-4 ${blockMode === "range" ? "grid-cols-2" : "grid-cols-1"}`}>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    {blockMode === "range"
-                                        ? "Start Date *"
-                                        : "Date *"}
+                                    {blockMode === "range" ? "Start Date *" : "Date *"}
                                 </label>
                                 <input
                                     type="date"
@@ -488,12 +1475,7 @@ const BlockReservation = () => {
                                         name="endDate"
                                         value={formData.endDate}
                                         onChange={handleInputChange}
-                                        min={
-                                            formData.date ||
-                                            new Date()
-                                                .toISOString()
-                                                .split("T")[0]
-                                        }
+                                        min={formData.date || new Date().toISOString().split("T")[0]}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                         required
                                     />
@@ -504,22 +1486,12 @@ const BlockReservation = () => {
                         {/* Time Fields */}
                         <div className="grid grid-cols-2 gap-4">
                             {[
-                                {
-                                    label: "Start Time *",
-                                    name: "startTime",
-                                    value: formData.startTime,
-                                },
-                                {
-                                    label: "End Time *",
-                                    name: "endTime",
-                                    value: formData.endTime,
-                                },
+                                { label: "Start Time *", name: "startTime", value: formData.startTime },
+                                { label: "End Time *", name: "endTime", value: formData.endTime },
                             ].map(({ label, name, value }) => (
                                 <div key={name}>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        {blockAction === "open_window"
-                                            ? label.replace("Time", "Open")
-                                            : label}
+                                        {blockAction === "open_window" ? label.replace("Time", "Open") : label}
                                     </label>
                                     <input
                                         type="time"
@@ -550,9 +1522,7 @@ const BlockReservation = () => {
 
                         {formError && (
                             <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                                <p className="text-sm text-red-600">
-                                    {formError}
-                                </p>
+                                <p className="text-sm text-red-600">{formError}</p>
                             </div>
                         )}
 
@@ -580,12 +1550,9 @@ const BlockReservation = () => {
                 </ModalShell>
             )}
 
-            {/* ── Edit Modal ── */}
+            {/* ── Block Time Slot Edit Modal — unchanged ── */}
             {showEditForm && editingSlot && (
-                <ModalShell
-                    title="Edit Blocked Time Slot"
-                    onClose={closeEditForm}
-                >
+                <ModalShell title="Edit Blocked Time Slot" onClose={closeEditForm}>
                     <form onSubmit={handleEditSubmit} className="space-y-4">
                         {/* Action Toggle */}
                         <div className="grid grid-cols-2 rounded-lg border border-gray-200 overflow-hidden">
@@ -596,10 +1563,7 @@ const BlockReservation = () => {
                                 <button
                                     key={action.value}
                                     type="button"
-                                    onClick={() => {
-                                        setEditBlockAction(action.value);
-                                        setEditFormError("");
-                                    }}
+                                    onClick={() => { setEditBlockAction(action.value); setEditFormError(""); }}
                                     className={`py-2 px-3 text-sm font-medium transition-colors ${
                                         editBlockAction === action.value
                                             ? "bg-indigo-600 text-white"
@@ -616,12 +1580,6 @@ const BlockReservation = () => {
                                 ? "This will replace the selected block with automatic blocks before and after the open window."
                                 : "Customers cannot book inside the selected time window."}
                         </div>
-
-                        {/* Info badge */}
-                        {/* <div className="flex items-center gap-2 px-3 py-2 bg-indigo-50 border border-indigo-100 rounded-md text-sm text-indigo-700">
-                            <Edit size={14} />
-                            <span>Editing slot for <strong>{editingSlot.date}</strong></span>
-                        </div> */}
 
                         {/* Date */}
                         <div>
@@ -641,22 +1599,12 @@ const BlockReservation = () => {
                         {/* Time Fields */}
                         <div className="grid grid-cols-2 gap-4">
                             {[
-                                {
-                                    label: "Start Time *",
-                                    name: "startTime",
-                                    value: editFormData.startTime,
-                                },
-                                {
-                                    label: "End Time *",
-                                    name: "endTime",
-                                    value: editFormData.endTime,
-                                },
+                                { label: "Start Time *", name: "startTime", value: editFormData.startTime },
+                                { label: "End Time *", name: "endTime", value: editFormData.endTime },
                             ].map(({ label, name, value }) => (
                                 <div key={name}>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        {editBlockAction === "open_window"
-                                            ? label.replace("Time", "Open")
-                                            : label}
+                                        {editBlockAction === "open_window" ? label.replace("Time", "Open") : label}
                                     </label>
                                     <input
                                         type="time"
@@ -687,9 +1635,7 @@ const BlockReservation = () => {
 
                         {editFormError && (
                             <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                                <p className="text-sm text-red-600">
-                                    {editFormError}
-                                </p>
+                                <p className="text-sm text-red-600">{editFormError}</p>
                             </div>
                         )}
 
@@ -717,35 +1663,204 @@ const BlockReservation = () => {
                 </ModalShell>
             )}
 
+            {/* ── Lunch Break Create Modal ── */}
+            {showLunchForm && (
+                <ModalShell
+                    title={
+                        <span className="flex items-center gap-2">
+                            <Coffee size={20} className="text-amber-500" />
+                            Add Lunch Break
+                        </span>
+                    }
+                    onClose={closeLunchForm}
+                >
+                    <form onSubmit={handleLunchSubmit} className="space-y-4">
+                        <div className="rounded-md border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                            Customers cannot book during the lunch break. Reason will be set to <strong>Lunch Break</strong> automatically.
+                        </div>
+
+                        {/* Date Range Fields */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Start Date *
+                                </label>
+                                <input
+                                    type="date"
+                                    name="date"
+                                    value={lunchFormData.date}
+                                    onChange={handleLunchInputChange}
+                                    min={new Date().toISOString().split("T")[0]}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    End Date *
+                                </label>
+                                <input
+                                    type="date"
+                                    name="endDate"
+                                    value={lunchFormData.endDate}
+                                    onChange={handleLunchInputChange}
+                                    min={lunchFormData.date || new Date().toISOString().split("T")[0]}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        {/* Time Fields */}
+                        <TimeFields
+                            fields={[
+                                { label: "Start Time *", name: "startTime", value: lunchFormData.startTime },
+                                { label: "End Time *", name: "endTime", value: lunchFormData.endTime },
+                            ]}
+                            onChange={handleLunchInputChange}
+                        />
+
+                        {lunchFormError && (
+                            <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                                <p className="text-sm text-red-600">{lunchFormError}</p>
+                            </div>
+                        )}
+
+                        <div className="flex justify-end gap-2 pt-2">
+                            <button
+                                type="button"
+                                onClick={closeLunchForm}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={lunchSubmitting}
+                                className="px-4 py-2 text-sm font-medium text-white bg-amber-500 rounded-md hover:bg-amber-600 disabled:opacity-50"
+                            >
+                                {lunchSubmitting ? "Saving..." : "Add Lunch Break"}
+                            </button>
+                        </div>
+                    </form>
+                </ModalShell>
+            )}
+
+            {/* ── Lunch Break Edit Modal ── */}
+            {showEditLunchForm && editingLunchGroup && (
+                <ModalShell
+                    title={
+                        <span className="flex items-center gap-2">
+                            <Coffee size={20} className="text-amber-500" />
+                            Edit Lunch Break
+                        </span>
+                    }
+                    onClose={closeEditLunchForm}
+                >
+                    <form onSubmit={handleEditLunchSubmit} className="space-y-4">
+                        <div className="rounded-md border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                            Editing this lunch break will update all dates in the range. The reason stays as <strong>Lunch Break</strong>.
+                        </div>
+
+                        {/* Date Range Fields */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Start Date *
+                                </label>
+                                <input
+                                    type="date"
+                                    name="date"
+                                    value={editLunchFormData.date}
+                                    onChange={handleEditLunchInputChange}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    End Date *
+                                </label>
+                                <input
+                                    type="date"
+                                    name="endDate"
+                                    value={editLunchFormData.endDate}
+                                    onChange={handleEditLunchInputChange}
+                                    min={editLunchFormData.date}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        {/* Time Fields */}
+                        <TimeFields
+                            fields={[
+                                { label: "Start Time *", name: "startTime", value: editLunchFormData.startTime },
+                                { label: "End Time *", name: "endTime", value: editLunchFormData.endTime },
+                            ]}
+                            onChange={handleEditLunchInputChange}
+                        />
+
+                        {editLunchFormError && (
+                            <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                                <p className="text-sm text-red-600">{editLunchFormError}</p>
+                            </div>
+                        )}
+
+                        <div className="flex justify-end gap-2 pt-2">
+                            <button
+                                type="button"
+                                onClick={closeEditLunchForm}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={editLunchSubmitting}
+                                className="px-4 py-2 text-sm font-medium text-white bg-amber-500 rounded-md hover:bg-amber-600 disabled:opacity-50"
+                            >
+                                {editLunchSubmitting ? "Saving..." : "Save Changes"}
+                            </button>
+                        </div>
+                    </form>
+                </ModalShell>
+            )}
+
             {/* ── Page Content ── */}
             <div className="px-2 sm:px-6 lg:px-8 py-6 lg:py-8">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                     <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">
                         Time Slot Management
                     </h1>
-                    <button
-                        onClick={openBlockSlotForm}
-                        className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 rounded-full text-white hover:bg-indigo-800 transition-colors w-full sm:w-auto"
-                    >
-                        <Clock size={18} />
-                        <span>Block Time Slot</span>
-                    </button>
+                    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                        <button
+                            onClick={openLunchForm}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-amber-500 rounded-full text-white hover:bg-amber-600 transition-colors w-full sm:w-auto"
+                        >
+                            <Coffee size={18} />
+                            <span>Lunch Break</span>
+                        </button>
+                        <button
+                            onClick={openBlockSlotForm}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 rounded-full text-white hover:bg-indigo-800 transition-colors w-full sm:w-auto"
+                        >
+                            <Clock size={18} />
+                            <span>Block Time Slot</span>
+                        </button>
+                    </div>
                 </div>
 
                 {loading ? (
                     <div className="bg-white rounded-xl border border-blue-100 shadow-sm p-8 text-center">
                         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
-                        <p className="mt-2 text-gray-600">
-                            Loading blocked time slots...
-                        </p>
+                        <p className="mt-2 text-gray-600">Loading blocked time slots...</p>
                     </div>
                 ) : blockedSlots.length === 0 ? (
                     <div className="bg-white rounded-xl border border-blue-100 shadow-sm p-12 text-center">
                         <div className="flex flex-col items-center">
-                            <Calendar
-                                size={48}
-                                className="text-gray-300 mb-3"
-                            />
+                            <Calendar size={48} className="text-gray-300 mb-3" />
                             <p className="text-lg font-medium text-gray-700 mb-2">
                                 No blocked time slots
                             </p>
@@ -761,7 +1876,7 @@ const BlockReservation = () => {
                         </div>
                     </div>
                 ) : (
-                    <MyTable columns={columns} data={blockedSlots} />
+                    <MyTable columns={columns} data={tableData} />
                 )}
             </div>
         </Wrapper>
