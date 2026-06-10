@@ -634,9 +634,17 @@ import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 
 const MEETPOINT_AREA = "meetpoint-mandurah-dot";
+
+// Home address shown in the left "Home Address" field
+const MEETPOINT_HOME_ADDRESS = "Ranceby Avenue";
+
+// Suburb/area shown in the right "Location" autocomplete field
+const MEETPOINT_LOCATION_LABEL = "Mandurah, Western Australia 6210";
+
+// Full location object used for selectedLocations (source:"fixed" marks it as meetpoint)
 const MEETPOINT_LOCATION = {
-    label: "Ranceby Avenue, Mandurah, Western Australia 6210",
-    name: "Ranceby Avenue",
+    label: MEETPOINT_LOCATION_LABEL,
+    name: "Mandurah",
     street: "Ranceby Avenue",
     housenumber: null,
     postcode: "6210",
@@ -683,13 +691,6 @@ const locationMatchesTypedAddress = (location, typedAddress) => {
     return suburbAnchors.some((anchor) => anchor && typed.includes(anchor));
 };
 
-// ─── LocationAutocomplete ────────────────────────────────────────────────────
-// Layout (when showHomeAddress=true):
-//
-//   [ Home Address label ]        [ Location label          ] [action btn]
-//   [ Home Address input ]        [ Autocomplete input      ]
-//   [ hint / error       ]        [ dropdown / hint / error ]
-//
 const LocationAutocomplete = ({
     id,
     name,
@@ -705,6 +706,7 @@ const LocationAutocomplete = ({
     homeAddress,
     homeAddressError,
     onHomeAddressChange,
+    locked,
 }) => {
     const [suggestions, setSuggestions] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -713,6 +715,14 @@ const LocationAutocomplete = ({
     const blurTimeout = useRef(null);
 
     useEffect(() => {
+        // Don't search when locked (meetpoint selected)
+        if (locked) {
+            setSuggestions([]);
+            setSearchError("");
+            setLoading(false);
+            return undefined;
+        }
+
         const query = value.trim();
         if (query.length < 3 || locationMatchesTypedAddress(selectedLocation, query)) {
             setSuggestions([]);
@@ -743,7 +753,7 @@ const LocationAutocomplete = ({
         }, 350);
 
         return () => { clearTimeout(timeout); controller.abort(); };
-    }, [value, selectedLocation]);
+    }, [value, selectedLocation, locked]);
 
     useEffect(() => () => { if (blurTimeout.current) clearTimeout(blurTimeout.current); }, []);
 
@@ -752,9 +762,13 @@ const LocationAutocomplete = ({
     };
 
     const shouldShowSuggestions =
+        !locked &&
         isOpen &&
         value.trim().length >= 3 &&
         !locationMatchesTypedAddress(selectedLocation, value);
+
+    const lockedInputClass =
+        "w-full px-4 py-2 border rounded-lg outline-none transition bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed select-none";
 
     return (
         <div>
@@ -774,18 +788,25 @@ const LocationAutocomplete = ({
                             type="text"
                             id={`${id}_home_address`}
                             value={homeAddress}
-                            onChange={(e) => onHomeAddressChange(name, e.target.value)}
+                            onChange={(e) => !locked && onHomeAddressChange(name, e.target.value)}
                             required
+                            readOnly={locked}
                             autoComplete="street-address"
-                            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
-                                homeAddressError ? "border-red-500" : "border-gray-300"
-                            }`}
+                            className={
+                                locked
+                                    ? lockedInputClass
+                                    : `w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
+                                          homeAddressError ? "border-red-500" : "border-gray-300"
+                                      }`
+                            }
                             placeholder="e.g. 12 Oak Street, Unit 3"
                         />
-                        {homeAddressError ? (
+                        {!locked && homeAddressError ? (
                             <p className="mt-1 text-sm text-red-600">{homeAddressError}</p>
-                        ) : (
+                        ) : !locked ? (
                             <p className="mt-1 text-xs text-gray-500">House/unit number and street name.</p>
+                        ) : (
+                            <p className="mt-1 text-xs text-gray-400">Set by meetpoint selection.</p>
                         )}
                     </div>
 
@@ -795,71 +816,78 @@ const LocationAutocomplete = ({
                             <label htmlFor={id} className="block text-sm font-medium text-gray-700">
                                 {label}
                             </label>
-                            {action}
+                            {!locked && action}
                         </div>
                         <div className="relative">
-                        <input
-                            type="text"
-                            id={id}
-                            name={name}
-                            value={value}
-                            onChange={(e) => onInputChange(name, e.target.value)}
-                            onFocus={() => setIsOpen(true)}
-                            onBlur={handleBlur}
-                            required
-                            autoComplete="off"
-                            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
-                                error ? "border-red-500" : "border-gray-300"
-                            }`}
-                            placeholder={placeholder}
-                        />
+                            <input
+                                type="text"
+                                id={id}
+                                name={name}
+                                value={value}
+                                onChange={(e) => !locked && onInputChange(name, e.target.value)}
+                                onFocus={() => !locked && setIsOpen(true)}
+                                onBlur={handleBlur}
+                                required
+                                readOnly={locked}
+                                autoComplete="off"
+                                className={
+                                    locked
+                                        ? lockedInputClass
+                                        : `w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
+                                              error ? "border-red-500" : "border-gray-300"
+                                          }`
+                                }
+                                placeholder={placeholder}
+                            />
 
-                        {shouldShowSuggestions && (
-                            <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
-                                {loading && (
-                                    <div className="px-4 py-3 text-sm text-gray-500">
-                                        Searching service area...
-                                    </div>
-                                )}
-                                {!loading && suggestions.map((suggestion) => (
-                                    <button
-                                        key={`${suggestion.source}-${suggestion.label}`}
-                                        type="button"
-                                        onMouseDown={(e) => {
-                                            e.preventDefault();
-                                            onLocationSelect(name, suggestion);
-                                            setIsOpen(false);
-                                        }}
-                                        className="block w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-indigo-50 focus:bg-indigo-50 focus:outline-none"
-                                    >
-                                        <span className="block font-medium">{suggestion.label}</span>
-                                        {suggestion.postcode && (
-                                            <span className="block text-xs text-gray-500">
-                                                Postcode {suggestion.postcode}
-                                            </span>
-                                        )}
-                                    </button>
-                                ))}
-                                {!loading && suggestions.length === 0 && !searchError && (
-                                    <div className="px-4 py-3 text-sm text-gray-500">
-                                        No service-area address found.
-                                    </div>
-                                )}
-                                {!loading && searchError && (
-                                    <div className="px-4 py-3 text-sm text-red-600">{searchError}</div>
-                                )}
-                            </div>
+                            {shouldShowSuggestions && (
+                                <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+                                    {loading && (
+                                        <div className="px-4 py-3 text-sm text-gray-500">
+                                            Searching service area...
+                                        </div>
+                                    )}
+                                    {!loading && suggestions.map((suggestion) => (
+                                        <button
+                                            key={`${suggestion.source}-${suggestion.label}`}
+                                            type="button"
+                                            onMouseDown={(e) => {
+                                                e.preventDefault();
+                                                onLocationSelect(name, suggestion);
+                                                setIsOpen(false);
+                                            }}
+                                            className="block w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-indigo-50 focus:bg-indigo-50 focus:outline-none"
+                                        >
+                                            <span className="block font-medium">{suggestion.label}</span>
+                                            {suggestion.postcode && (
+                                                <span className="block text-xs text-gray-500">
+                                                    Postcode {suggestion.postcode}
+                                                </span>
+                                            )}
+                                        </button>
+                                    ))}
+                                    {!loading && suggestions.length === 0 && !searchError && (
+                                        <div className="px-4 py-3 text-sm text-gray-500">
+                                            No service-area address found.
+                                        </div>
+                                    )}
+                                    {!loading && searchError && (
+                                        <div className="px-4 py-3 text-sm text-red-600">{searchError}</div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        {!locked && error ? (
+                            <p className="mt-1 text-sm text-red-600">{error}</p>
+                        ) : !locked ? (
+                            <p className="mt-1 text-xs text-gray-500">
+                                Choose a service-area suggestion, then add house number, unit, or pickup notes if needed.
+                            </p>
+                        ) : (
+                            <p className="mt-1 text-xs text-gray-400">Set by meetpoint selection.</p>
                         )}
                     </div>
-                    {error ? (
-                        <p className="mt-1 text-sm text-red-600">{error}</p>
-                    ) : (
-                        <p className="mt-1 text-xs text-gray-500">
-                            Choose a service-area suggestion, then add house number, unit, or pickup notes if needed.
-                        </p>
-                    )}
-                </div>
-                {/* end right column */}
+                    {/* end right column */}
                 </div>
             ) : (
                 /* single-column layout — no home address yet */
@@ -868,7 +896,7 @@ const LocationAutocomplete = ({
                         <label htmlFor={id} className="block text-sm font-medium text-gray-700">
                             {label}
                         </label>
-                        {action}
+                        {!locked && action}
                     </div>
                     <div className="relative">
                         <input
@@ -876,14 +904,19 @@ const LocationAutocomplete = ({
                             id={id}
                             name={name}
                             value={value}
-                            onChange={(e) => onInputChange(name, e.target.value)}
-                            onFocus={() => setIsOpen(true)}
+                            onChange={(e) => !locked && onInputChange(name, e.target.value)}
+                            onFocus={() => !locked && setIsOpen(true)}
                             onBlur={handleBlur}
                             required
+                            readOnly={locked}
                             autoComplete="off"
-                            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
-                                error ? "border-red-500" : "border-gray-300"
-                            }`}
+                            className={
+                                locked
+                                    ? lockedInputClass
+                                    : `w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
+                                          error ? "border-red-500" : "border-gray-300"
+                                      }`
+                            }
                             placeholder={placeholder}
                         />
                         {shouldShowSuggestions && (
@@ -917,12 +950,14 @@ const LocationAutocomplete = ({
                             </div>
                         )}
                     </div>
-                    {error ? (
+                    {!locked && error ? (
                         <p className="mt-1 text-sm text-red-600">{error}</p>
-                    ) : (
+                    ) : !locked ? (
                         <p className="mt-1 text-xs text-gray-500">
                             Choose a service-area suggestion, then add house number, unit, or pickup notes if needed.
                         </p>
+                    ) : (
+                        <p className="mt-1 text-xs text-gray-400">Set by meetpoint selection.</p>
                     )}
                 </div>
             )}
@@ -964,6 +999,9 @@ const BookingForm = ({
         dropoff_location: null,
     });
 
+    // Whether the meetpoint area is currently selected
+    const isMeetpoint = bookingForm.address === MEETPOINT_AREA;
+
     // True only when a valid autocomplete suggestion is confirmed for each field
     const pickupConfirmed =
         !!selectedLocations.pickup_location &&
@@ -972,6 +1010,10 @@ const BookingForm = ({
     const dropoffConfirmed =
         !!selectedLocations.dropoff_location &&
         locationMatchesTypedAddress(selectedLocations.dropoff_location, bookingForm.dropoff_location);
+
+    // For meetpoint, always show the two-column layout (home address + location)
+    const showPickupHomeAddress = isMeetpoint || pickupConfirmed;
+    const showDropoffHomeAddress = isMeetpoint || dropoffConfirmed;
 
     useEffect(() => {
         if (bookingDetails) {
@@ -1022,12 +1064,14 @@ const BookingForm = ({
 
         if (name === "address") {
             if (value === MEETPOINT_AREA) {
-                // Auto-fill pickup & dropoff with meetpoint location
+                // Auto-fill with split meetpoint values
                 setBookingForm((prev) => ({
                     ...prev,
                     address: value,
-                    pickup_location: MEETPOINT_LOCATION.label,
-                    dropoff_location: MEETPOINT_LOCATION.label,
+                    pickup_location: MEETPOINT_LOCATION_LABEL,
+                    dropoff_location: MEETPOINT_LOCATION_LABEL,
+                    pickup_home_address: MEETPOINT_HOME_ADDRESS,
+                    dropoff_home_address: MEETPOINT_HOME_ADDRESS,
                 }));
                 setSelectedLocations({
                     pickup_location: MEETPOINT_LOCATION,
@@ -1037,8 +1081,8 @@ const BookingForm = ({
                 // Switching away from meetpoint: clear the auto-filled location fields
                 setBookingForm((prev) => {
                     const wasMeetpoint =
-                        prev.pickup_location === MEETPOINT_LOCATION.label ||
-                        prev.dropoff_location === MEETPOINT_LOCATION.label;
+                        prev.pickup_location === MEETPOINT_LOCATION_LABEL ||
+                        prev.dropoff_location === MEETPOINT_LOCATION_LABEL;
                     return {
                         ...prev,
                         address: value,
@@ -1063,6 +1107,8 @@ const BookingForm = ({
                 address: "",
                 pickup_location: "",
                 dropoff_location: "",
+                pickup_home_address: "",
+                dropoff_home_address: "",
             }));
             return;
         }
@@ -1105,11 +1151,14 @@ const BookingForm = ({
             }
         });
 
-        if (pickupConfirmed && !bookingForm.pickup_home_address?.trim()) {
-            errs.pickup_home_address = "Please enter your home address for pickup.";
-        }
-        if (dropoffConfirmed && !bookingForm.dropoff_home_address?.trim()) {
-            errs.dropoff_home_address = "Please enter your home address for dropoff.";
+        // For meetpoint, home address fields are pre-filled — skip validation
+        if (!isMeetpoint) {
+            if (pickupConfirmed && !bookingForm.pickup_home_address?.trim()) {
+                errs.pickup_home_address = "Please enter your home address for pickup.";
+            }
+            if (dropoffConfirmed && !bookingForm.dropoff_home_address?.trim()) {
+                errs.dropoff_home_address = "Please enter your home address for dropoff.";
+            }
         }
 
         return errs;
@@ -1369,10 +1418,11 @@ const BookingForm = ({
                         placeholder="Start typing pickup address"
                         onInputChange={handleLocationInputChange}
                         onLocationSelect={handleLocationSelect}
-                        showHomeAddress={pickupConfirmed}
+                        showHomeAddress={showPickupHomeAddress}
                         homeAddress={bookingForm.pickup_home_address}
                         homeAddressError={errors.pickup_home_address}
                         onHomeAddressChange={handleHomeAddressChange}
+                        locked={isMeetpoint}
                     />
 
                     {/* Dropoff: Home Address (left) + Autocomplete (right) */}
@@ -1386,10 +1436,11 @@ const BookingForm = ({
                         placeholder="Start typing dropoff address"
                         onInputChange={handleLocationInputChange}
                         onLocationSelect={handleLocationSelect}
-                        showHomeAddress={dropoffConfirmed}
+                        showHomeAddress={showDropoffHomeAddress}
                         homeAddress={bookingForm.dropoff_home_address}
                         homeAddressError={errors.dropoff_home_address}
                         onHomeAddressChange={handleHomeAddressChange}
+                        locked={isMeetpoint}
                         action={
                             <button
                                 type="button"
