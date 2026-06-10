@@ -1209,7 +1209,8 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                         {/* ── Date Selection ───────────────────────────────── */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Available Date *
+                                Available Date{" "}
+                                <span className="text-red-500">*</span>
                             </label>
                             <div className="relative">
                                 <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
@@ -1271,7 +1272,10 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                         {/* Legend */}
                         <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
                             <div className="flex items-center gap-1">
-                                <span className="text-green-500 text-sm"> ✓</span>
+                                <span className="text-green-500 text-sm">
+                                    {" "}
+                                    ✓
+                                </span>
                                 <span className="text-gray-600">
                                     Has available slots
                                 </span>
@@ -1287,7 +1291,8 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                         {/* ── Time Selection ───────────────────────────────── */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Available Time *
+                                Available Time{" "}
+                                <span className="text-red-500">*</span>
                             </label>
                             <div className="relative">
                                 <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
@@ -1363,7 +1368,8 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                                         {date.toLocaleDateString(
                                                             "en-US",
                                                             {
-                                                                weekday: "short",
+                                                                weekday:
+                                                                    "short",
                                                                 month: "short",
                                                                 day: "numeric",
                                                             },
@@ -1392,7 +1398,8 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                 htmlFor="user_name"
                                 className="block text-sm font-medium text-gray-700 mb-2"
                             >
-                                Full Name *
+                                Full Name{" "}
+                                <span className="text-red-500">*</span>
                             </label>
                             <div className="relative">
                                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -1419,7 +1426,8 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                 htmlFor="email"
                                 className="block text-sm font-medium text-gray-700 mb-2"
                             >
-                                Email Address *
+                                Email Address{" "}
+                                <span className="text-red-500">*</span>
                             </label>
                             <div className="relative">
                                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -1446,7 +1454,8 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                 htmlFor="phone"
                                 className="block text-sm font-medium text-gray-700 mb-2"
                             >
-                                Phone Number *
+                                Phone Number{" "}
+                                <span className="text-red-500">*</span>
                             </label>
                             <div className="relative">
                                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -1474,7 +1483,7 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                 htmlFor="address"
                                 className="block text-sm font-medium text-gray-700 mb-2"
                             >
-                                Area *
+                                Area <span className="text-red-500">*</span>
                             </label>
                             <div className="relative">
                                 <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
@@ -1564,7 +1573,12 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                             <LocationAutocomplete
                                 id="pickup_location"
                                 name="pickup_location"
-                                label="Pickup Location *"
+                                label={
+                                    <>
+                                        Pickup Location{" "}
+                                        <span className="text-red-500">*</span>
+                                    </>
+                                }
                                 value={formData.pickup_location}
                                 selectedLocation={
                                     selectedLocations.pickup_location
@@ -1605,7 +1619,12 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                             <LocationAutocomplete
                                 id="dropoff_location"
                                 name="dropoff_location"
-                                label="Dropoff Location *"
+                                label={
+                                    <>
+                                        Dropoff Location{" "}
+                                        <span className="text-red-500">*</span>
+                                    </>
+                                }
                                 value={formData.dropoff_location}
                                 selectedLocation={
                                     selectedLocations.dropoff_location
@@ -1731,8 +1750,6 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
 };
 
 export default CalendarIntegrationMobile;
-
-
 
 // import React, { useState, useEffect, useCallback, useRef } from "react";
 // import {
@@ -3474,5 +3491,3 @@ export default CalendarIntegrationMobile;
 // };
 
 // export default CalendarIntegrationMobile;
-
-
