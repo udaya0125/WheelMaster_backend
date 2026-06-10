@@ -231,6 +231,7 @@ class TestPackageController extends Controller
             'test_type' => 'nullable|string', // Added validation for test_type
             'pickup_location' => 'nullable|string', // Added missing field
             'dropoff_location' => 'nullable|string', // Added missing field
+            'comment' => 'nullable|string', // Added comment field
         ]);
 
         // Get test type from price table or use default
@@ -289,6 +290,7 @@ class TestPackageController extends Controller
                 'calculated_end_time' => $endTime->format('H:i:s'),
                 'price_id' => $request->price_id,
             ]),
+            'comment' => $request->comment,
         ]);
 
         // Create notification for new reservation - FIXED: Removed duplicate field

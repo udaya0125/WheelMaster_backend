@@ -268,6 +268,7 @@ class ReservationController extends Controller
             'package_type' => 'required|string',
             'package_price' => 'required|numeric',
             'duration_minutes' => 'required|integer',
+            'comment' => 'nullable|string',
         ]);
 
         // Convert times to Carbon for easier comparison
@@ -324,6 +325,7 @@ class ReservationController extends Controller
             'package_price' => $request->package_price,
             'duration_minutes' => $request->duration_minutes,
             'status' => 'Pending',
+            'comment' => $request->comment,
         ]);
 
         // Create notification for new reservation

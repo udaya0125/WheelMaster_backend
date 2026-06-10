@@ -75,10 +75,14 @@ const NavBar = ({ onMenuToggle }) => {
         setIsNotificationMenuOpen(false);
     };
 
+    // const toggleNotificationMenu = () => {
+    //     setIsNotificationMenuOpen((prev) => !prev);
+    //     setIsUserMenuOpen(false);
+    //     if (!isNotificationMenuOpen) markAllAsRead();
+    // };
     const toggleNotificationMenu = () => {
         setIsNotificationMenuOpen((prev) => !prev);
         setIsUserMenuOpen(false);
-        if (!isNotificationMenuOpen) markAllAsRead();
     };
 
     const handleLogout = async () => {

@@ -186,6 +186,7 @@ class UserReservationController extends Controller
             'package_type' => 'required|string',
             'test_time' => 'nullable',
             'test_location' => 'nullable|string',
+            'comment' => 'nullable|string',
         ]);
 
         $requestStart = Carbon::parse($request->start_time);
@@ -229,6 +230,7 @@ class UserReservationController extends Controller
             'package_type' => $request->package_type ?? 'Standard',
             'test_time' => $request->test_time,
             'test_location' => $request->test_location,
+            'comment' => $request->comment,
         ]);
 
         // $this->sendReservationEmails($reservation);
@@ -322,6 +324,7 @@ class UserReservationController extends Controller
                 'package_type' => $request->package_type,
                 'test_time' => $session['test_time'] ?? null,
                 'test_location' => $session['test_location'] ?? $request->test_location,
+                'comment' => $request->comment,
             ]);
 
             $createdReservations[] = $reservation;
@@ -380,6 +383,7 @@ class UserReservationController extends Controller
             'package_type' => 'required|string',
             'test_time' => 'nullable',
             'test_location' => 'nullable|string',
+                'comment' => 'nullable|string',
         ]);
 
         $requestStart = Carbon::parse($request->start_time);
@@ -430,6 +434,7 @@ class UserReservationController extends Controller
             'package_type' => $request->package_type,
             'test_time' => $request->test_time,
             'test_location' => $request->test_location,
+                'comment' => $request->comment,
         ]);
 
         if ($oldStatus !== $reservation->status) {
@@ -585,24 +590,24 @@ class UserReservationController extends Controller
     // ---------------------------------------
     // Helper: Send status update emails
     // ---------------------------------------
-    // private function sendStatusUpdateEmails($reservation, $oldStatus)
-    // {
-    //     if ($oldStatus === $reservation->status) {
-    //         return;
-    //     }
+    private function sendStatusUpdateEmails($reservation, $oldStatus)
+    {
+        if ($oldStatus === $reservation->status) {
+            return;
+        }
 
-    //     try {
-    //         Mail::to($reservation->email)->send(new ReservationStatusUpdated($reservation, false));
-    //     } catch (\Exception $e) {
-    //         Log::error('Failed to send customer status update email: '.$e->getMessage());
-    //     }
+        try {
+            Mail::to($reservation->email)->send(new ReservationStatusUpdated($reservation, false));
+        } catch (\Exception $e) {
+            Log::error('Failed to send customer status update email: '.$e->getMessage());
+        }
 
-    //     try {
-    //         $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
-    //         // $adminEmail = env('ADMIN_EMAIL', 'wheelmaster@outlook.com.au');
-    //         Mail::to($adminEmail)->send(new ReservationStatusUpdated($reservation, true));
-    //     } catch (\Exception $e) {
-    //         Log::error('Failed to send admin status update email: '.$e->getMessage());
-    //     }
-    // }
+        try {
+            $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
+            // $adminEmail = env('ADMIN_EMAIL', 'wheelmaster@outlook.com.au');
+            Mail::to($adminEmail)->send(new ReservationStatusUpdated($reservation, true));
+        } catch (\Exception $e) {
+            Log::error('Failed to send admin status update email: '.$e->getMessage());
+        }
+    }
 }
