@@ -1759,9 +1759,9 @@ import PackageSelector from "./PackageSelector";
 
 const MEETPOINT_AREA = "meetpoint-mandurah-dot";
 const MEETPOINT_LOCATION = {
-    label: "Ranceby Avenue, Mandurah, Western Australia 6210",
-    name: "Ranceby Avenue",
-    street: "Ranceby Avenue",
+    label: "Mandurah, Western Australia 6210",
+    name: "Mandurah",
+    street: "Mandurah",
     housenumber: null,
     postcode: "6210",
     city: "Mandurah",
@@ -1769,6 +1769,7 @@ const MEETPOINT_LOCATION = {
     state: "Western Australia",
     source: "fixed",
 };
+const MEETPOINT_HOME_ADDRESS = "Ranceby Avenue";
 
 const normaliseAddressText = (text = "") => {
     const ordinals = {
@@ -1834,6 +1835,7 @@ const LocationAutocomplete = ({
     onInputChange,
     onLocationSelect,
     action,
+    disabled,
 }) => {
     const [suggestions, setSuggestions] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -1842,6 +1844,11 @@ const LocationAutocomplete = ({
     const blurTimeout = useRef(null);
 
     useEffect(() => {
+        if (disabled) {
+            setSuggestions([]);
+            setIsOpen(false);
+            return undefined;
+        }
         const query = value.trim();
         if (
             query.length < 3 ||
@@ -1878,7 +1885,7 @@ const LocationAutocomplete = ({
             clearTimeout(timeout);
             controller.abort();
         };
-    }, [value, selectedLocation]);
+    }, [value, selectedLocation, disabled]);
 
     useEffect(() => {
         return () => {
@@ -1891,6 +1898,7 @@ const LocationAutocomplete = ({
     };
 
     const shouldShowSuggestions =
+        !disabled &&
         isOpen &&
         value.trim().length >= 3 &&
         !locationMatchesTypedAddress(selectedLocation, value);
@@ -1914,15 +1922,16 @@ const LocationAutocomplete = ({
                     name={name}
                     value={value}
                     onChange={(event) =>
-                        onInputChange(name, event.target.value)
+                        !disabled && onInputChange(name, event.target.value)
                     }
-                    onFocus={() => setIsOpen(true)}
+                    onFocus={() => !disabled && setIsOpen(true)}
                     onBlur={handleBlur}
                     required
                     autoComplete="off"
+                    readOnly={disabled}
                     className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${
                         error ? "border-red-500" : "border-gray-300"
-                    }`}
+                    } ${disabled ? "bg-gray-100 cursor-not-allowed text-gray-500" : ""}`}
                     placeholder={placeholder}
                 />
                 {shouldShowSuggestions && (
@@ -1970,10 +1979,15 @@ const LocationAutocomplete = ({
                 )}
             </div>
             {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
-            {!error && (
+            {!error && !disabled && (
                 <p className="mt-1 text-xs text-gray-500">
                     Choose a service-area suggestion, then add house number,
                     unit, or pickup notes if needed.
+                </p>
+            )}
+            {!error && disabled && (
+                <p className="mt-1 text-xs text-gray-500">
+                    Auto-filled for Meetpoint Mandurah Dot.
                 </p>
             )}
         </div>
@@ -1981,9 +1995,7 @@ const LocationAutocomplete = ({
 };
 
 // ─── HomeAddressField ────────────────────────────────────────────────────────
-// Inline home address input shown alongside a location field once that field
-// has a confirmed selection.
-const HomeAddressField = ({ value, onChange, error, id, label }) => (
+const HomeAddressField = ({ value, onChange, error, id, label, disabled }) => (
     <div className="flex-1 min-w-0">
         <label
             htmlFor={id}
@@ -1997,19 +2009,25 @@ const HomeAddressField = ({ value, onChange, error, id, label }) => (
                 type="text"
                 id={id}
                 value={value}
-                onChange={(e) => onChange(e.target.value)}
-                required
-                autoComplete="street-address"
+                onChange={(e) => !disabled && onChange(e.target.value)}
+                required={!disabled}
+                readOnly={disabled}
+                autoComplete={disabled ? "off" : "street-address"}
                 className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${
                     error ? "border-red-500" : "border-gray-300"
-                }`}
+                } ${disabled ? "bg-gray-100 cursor-not-allowed text-gray-500" : ""}`}
                 placeholder="e.g. 12 Ocean Drive, Mandurah"
             />
         </div>
         {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
-        {!error && (
+        {!error && !disabled && (
             <p className="mt-1 text-xs text-gray-500">
                 Enter the full street address including house/unit number.
+            </p>
+        )}
+        {!error && disabled && (
+            <p className="mt-1 text-xs text-gray-500">
+                Auto-filled for Meetpoint Mandurah Dot.
             </p>
         )}
     </div>
@@ -2026,8 +2044,6 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
         address: "",
         pickup_location: "",
         dropoff_location: "",
-        // Home address is split into two sub-fields so each location pairing
-        // can carry its own value.  They're combined before submission.
         pickup_home_address: "",
         dropoff_home_address: "",
         comment: "",
@@ -2055,6 +2071,9 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
     useEffect(() => {
         timeSlotsRef.current = timeSlots;
     }, [timeSlots]);
+
+    // ── derived: is meetpoint selected ──────────────────────────────────────
+    const isMeetpoint = formData.address === MEETPOINT_AREA;
 
     // ── helpers ──────────────────────────────────────────────────────────────
 
@@ -2563,7 +2582,6 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
 
         const isSelectingMeetpoint =
             name === "address" && value === MEETPOINT_AREA;
-        // Switching away from meetpoint (or to a blank) — clear the auto-filled locations
         const isLeavingMeetpoint =
             name === "address" &&
             value !== MEETPOINT_AREA &&
@@ -2576,8 +2594,8 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                 ? {
                       pickup_location: MEETPOINT_LOCATION.label,
                       dropoff_location: MEETPOINT_LOCATION.label,
-                      pickup_home_address: "",
-                      dropoff_home_address: "",
+                      pickup_home_address: MEETPOINT_HOME_ADDRESS,
+                      dropoff_home_address: MEETPOINT_HOME_ADDRESS,
                   }
                 : {}),
             ...(isLeavingMeetpoint
@@ -2612,7 +2630,12 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                 ...prev,
                 [name]: "",
                 ...(isSelectingMeetpoint || isLeavingMeetpoint
-                    ? { pickup_location: "", dropoff_location: "" }
+                    ? {
+                          pickup_location: "",
+                          dropoff_location: "",
+                          pickup_home_address: "",
+                          dropoff_home_address: "",
+                      }
                     : {}),
             }));
         }
@@ -2668,7 +2691,6 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
 
         const newErrors = {};
 
-        // Standard required fields
         [
             "user_name",
             "email",
@@ -2685,8 +2707,9 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
             newErrors.email = "Please enter a valid email address";
         }
 
-        // Home address fields – required when the relevant location is confirmed
+        // Home address validation – skip when meetpoint (auto-filled)
         if (
+            !isMeetpoint &&
             selectedLocations.pickup_location &&
             locationMatchesTypedAddress(
                 selectedLocations.pickup_location,
@@ -2699,6 +2722,7 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
         }
 
         if (
+            !isMeetpoint &&
             selectedLocations.dropoff_location &&
             locationMatchesTypedAddress(
                 selectedLocations.dropoff_location,
@@ -2751,8 +2775,6 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                 return description.trim();
             };
 
-            // Combine home address + location into one string for storage
-            // Format: "12 Oak Street, Ranceby Avenue, Mandurah, Western Australia 6210"
             const buildLocationWithHome = (location, homeAddress) =>
                 homeAddress?.trim()
                     ? `${homeAddress.trim()}, ${location}`
@@ -2838,7 +2860,6 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
         selectedDate,
     );
 
-    // Whether a location field has a confirmed selection (so home address shows)
     const pickupConfirmed =
         !!formData.pickup_location &&
         locationMatchesTypedAddress(
@@ -2991,10 +3012,7 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                         {/* Legend */}
                         <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
                             <div className="flex items-center gap-1">
-                                <span className="text-green-500 text-sm">
-                                    {" "}
-                                    ✓
-                                </span>
+                                <span className="text-green-500 text-sm"> ✓</span>
                                 <span className="text-gray-600">
                                     Has available slots
                                 </span>
@@ -3086,8 +3104,7 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                                         {date.toLocaleDateString(
                                                             "en-US",
                                                             {
-                                                                weekday:
-                                                                    "short",
+                                                                weekday: "short",
                                                                 month: "short",
                                                                 day: "numeric",
                                                             },
@@ -3261,22 +3278,15 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                         </p>
 
                         {/* ── Pickup Location + Home Address ───────────────── */}
-                        {/*
-                            Layout:
-                            - pickup_location always shows full-width
-                            - once confirmed → row below shows pickup_location
-                              (shrunk to flex-1) and pickup_home_address side-by-side
-                        */}
                         <div className="space-y-4">
-                            {/* Home address appears inline once pickup is confirmed */}
                             {pickupConfirmed && (
                                 <div className="flex flex-col sm:flex-row gap-4 items-start rounded-xl">
-                                    {/* Home address input */}
                                     <HomeAddressField
                                         id="pickup_home_address"
                                         label="Home Address"
                                         value={formData.pickup_home_address}
                                         error={errors.pickup_home_address}
+                                        disabled={isMeetpoint}
                                         onChange={(val) => {
                                             setFormData((prev) => ({
                                                 ...prev,
@@ -3304,20 +3314,20 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                 placeholder="Start typing pickup address"
                                 onInputChange={handleLocationInputChange}
                                 onLocationSelect={handleLocationSelect}
+                                disabled={isMeetpoint}
                             />
                         </div>
 
                         {/* ── Dropoff Location + Home Address ─────────────── */}
                         <div className="space-y-4">
-                            {/* Home address appears inline once dropoff is confirmed */}
                             {dropoffConfirmed && (
                                 <div className="flex flex-col sm:flex-row gap-4 items-start rounded-xl">
-                                    {/* Home address input */}
                                     <HomeAddressField
                                         id="dropoff_home_address"
                                         label="Home Address"
                                         value={formData.dropoff_home_address}
                                         error={errors.dropoff_home_address}
+                                        disabled={isMeetpoint}
                                         onChange={(val) => {
                                             setFormData((prev) => ({
                                                 ...prev,
@@ -3345,14 +3355,17 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                 placeholder="Start typing dropoff address"
                                 onInputChange={handleLocationInputChange}
                                 onLocationSelect={handleLocationSelect}
+                                disabled={isMeetpoint}
                                 action={
-                                    <button
-                                        type="button"
-                                        onClick={setDropoffSameAsPickup}
-                                        className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
-                                    >
-                                        Same as pickup location
-                                    </button>
+                                    !isMeetpoint ? (
+                                        <button
+                                            type="button"
+                                            onClick={setDropoffSameAsPickup}
+                                            className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
+                                        >
+                                            Same as pickup location
+                                        </button>
+                                    ) : null
                                 }
                             />
                         </div>
