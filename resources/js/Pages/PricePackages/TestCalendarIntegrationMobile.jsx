@@ -1535,7 +1535,7 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                                     required
                                                     readOnly={isMeetpoint}
                                                     className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${formErrors.dropoff_home_address ? "border-red-500" : "border-gray-300"} ${isMeetpoint ? "bg-gray-100 cursor-not-allowed text-gray-500" : ""}`}
-                                                    placeholder="e.g. 12 Oak Street, Unit 4"
+                                                    placeholder="e.g. 12 Ocean Drive, Mandurah"
                                                 />
                                             </div>
                                             {formErrors.dropoff_home_address && (

@@ -799,7 +799,7 @@ const LocationAutocomplete = ({
                                           homeAddressError ? "border-red-500" : "border-gray-300"
                                       }`
                             }
-                            placeholder="e.g. 12 Oak Street, Unit 3"
+                            placeholder="e.g. 12 Ocean Drive, Mandurah"
                         />
                         {!locked && homeAddressError ? (
                             <p className="mt-1 text-sm text-red-600">{homeAddressError}</p>
