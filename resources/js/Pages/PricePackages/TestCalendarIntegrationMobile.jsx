@@ -1244,7 +1244,7 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                         htmlFor="user_name"
                                         className="block text-sm font-medium text-gray-700 mb-2"
                                     >
-                                        Full Name *
+                                        Full Name <span className="text-red-500">*</span>
                                     </label>
                                     <div className="relative">
                                         <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -1272,7 +1272,7 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                         htmlFor="email"
                                         className="block text-sm font-medium text-gray-700 mb-2"
                                     >
-                                        Email Address *
+                                        Email Address <span className="text-red-500">*</span>
                                     </label>
                                     <div className="relative">
                                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -1300,7 +1300,7 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                         htmlFor="phone"
                                         className="block text-sm font-medium text-gray-700 mb-2"
                                     >
-                                        Phone Number *
+                                        Phone Number <span className="text-red-500">*</span>
                                     </label>
                                     <div className="relative">
                                         <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -1328,7 +1328,7 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                         htmlFor="address"
                                         className="block text-sm font-medium text-gray-700 mb-2"
                                     >
-                                        Area *
+                                        Area <span className="text-red-500">*</span>
                                     </label>
                                     <div className="relative">
                                         <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
@@ -1401,7 +1401,7 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                         htmlFor="test_location"
                                         className="block text-sm font-medium text-gray-700 mb-2"
                                     >
-                                        Test Location *
+                                        Test Location <span className="text-red-500">*</span>
                                     </label>
                                     <div className="relative">
                                         <MapPinIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -1441,7 +1441,7 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                                 htmlFor="pickup_home_address"
                                                 className="block text-sm font-medium text-gray-700 mb-2"
                                             >
-                                                Home Address (Pickup) *
+                                                Home Address <span className="text-red-500">*</span>
                                             </label>
                                             <div className="relative">
                                                 <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -1492,7 +1492,11 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                 <LocationAutocomplete
                                     id="pickup_location"
                                     name="pickup_location"
-                                    label="Pickup Location *"
+                                    label={
+  <>
+    Pickup Location <span className="text-red-500">*</span>
+  </>
+}
                                     value={bookingForm.pickup_location}
                                     selectedLocation={
                                         selectedLocations.pickup_location
@@ -1520,7 +1524,7 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                                 htmlFor="dropoff_home_address"
                                                 className="block text-sm font-medium text-gray-700 mb-2"
                                             >
-                                                Home Address (Dropoff) *
+                                                Home Address  <span className="text-red-500">*</span>
                                             </label>
                                             <div className="relative">
                                                 <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -1571,7 +1575,12 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                 <LocationAutocomplete
                                     id="dropoff_location"
                                     name="dropoff_location"
-                                    label="Dropoff Location *"
+                                    label={
+    <>
+
+        Dropoff Location <span className="text-red-500">*</span>
+    </>
+}
                                     value={bookingForm.dropoff_location}
                                     selectedLocation={
                                         selectedLocations.dropoff_location
