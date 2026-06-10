@@ -255,7 +255,7 @@ const LocationAutocomplete = ({
             {!error && !disabled && (
                 <p className="mt-1 text-xs text-gray-500">
                     Choose a service-area suggestion, then add house number,
-                    unit, or pickup notes if needed.
+                    unit.
                 </p>
             )}
             {!error && disabled && (
@@ -2059,7 +2059,7 @@ export default TestCalendarIntegrationMobile;
 //             {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
 //             {!error && (
 //                 <p className="mt-1 text-xs text-gray-500">
-//                     Choose a service-area suggestion, then add house number, unit, or pickup notes if needed.
+//                     Choose a service-area suggestion, then add house number, unit.
 //                 </p>
 //             )}
 //         </div>

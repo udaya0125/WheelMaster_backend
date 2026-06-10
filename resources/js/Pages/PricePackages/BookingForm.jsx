@@ -942,7 +942,7 @@ const LocationAutocomplete = ({
                         ) : !locked ? (
                             <p className="mt-1 text-xs text-gray-500">
                                 Choose a service-area suggestion, then add house
-                                number, unit, or pickup notes if needed.
+                                number, unit.
                             </p>
                         ) : (
                             <p className="mt-1 text-xs text-gray-400">
@@ -1042,7 +1042,7 @@ const LocationAutocomplete = ({
                     ) : !locked ? (
                         <p className="mt-1 text-xs text-gray-500">
                             Choose a service-area suggestion, then add house
-                            number, unit, or pickup notes if needed.
+                            number, unit.
                         </p>
                     ) : (
                         <p className="mt-1 text-xs text-gray-400">
@@ -2047,7 +2047,7 @@ export default BookingForm;
 //             {!error && (
 //                 <p className="mt-1 text-xs text-gray-500">
 //                     Choose a service-area suggestion, then add house number,
-//                     unit, or pickup notes if needed.
+//                     unit.
 //                 </p>
 //             )}
 //         </div>

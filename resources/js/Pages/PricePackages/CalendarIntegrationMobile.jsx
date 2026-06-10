@@ -241,7 +241,7 @@ const LocationAutocomplete = ({
             {!error && !disabled && (
                 <p className="mt-1 text-xs text-gray-500">
                     Choose a service-area suggestion, then add house number,
-                    unit, or pickup notes if needed.
+                    unit.
                 </p>
             )}
             {!error && disabled && (
