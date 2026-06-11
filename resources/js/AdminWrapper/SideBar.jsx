@@ -13,7 +13,10 @@ import {
     MdOutlineCalendarMonth,
     MdOutlineShield,
     MdOutlinePeople,
+    MdOutlineAccessTimeFilled,
 } from "react-icons/md";
+import { FaRegCalendarTimes } from "react-icons/fa";
+import { PiTimer } from "react-icons/pi";
 
 const SideBar = ({
     isMobileOpen,
@@ -33,8 +36,9 @@ const SideBar = ({
         { href: "/price-package", label: "Price Package", icon: MdOutlineInventory2 },
         { href: "/calendar-booking", label: "Booking", icon: MdOutlineCalendarToday },
         { href: "/time-management", label: "Time Management", icon: MdOutlineAccessTime },
+        {href: "/block-time", label: "Block Time", icon: PiTimer }, 
         { href: "/user-reservation", label: "User Reservation", icon: MdOutlineCalendarMonth },
-        { href: "/block-reservation", label: "Block Reservation", icon: MdOutlineShield },
+        { href: "/block-reservation", label: "Block Reservation", icon: FaRegCalendarTimes },
         { href: "/user-management", label: "User Management", icon: MdOutlinePeople },
     ];
 

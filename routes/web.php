@@ -216,6 +216,26 @@ Route::middleware('auth')->group(function () {
         $data = Analytics::fetchMostVisitedPages(Period::days(30));
         return response()->json($data);
     });
+
+    // Route::get('/block-time', function () {
+    //     return Inertia::render('BlockTime');
+    // });
+
+        // --------------------------------------------------------------------------
+    // Block Time routes — redirect bare /block-time to first available slug
+    // --------------------------------------------------------------------------
+
+    Route::get('/block-time', function () {
+        $first = \App\Models\Price::whereNotNull('slug')->first();
+        if ($first) {
+            return redirect()->route('block-time.show', $first->slug);
+        }
+        return abort(404);
+    });
+
+    Route::get('/block-time/{slug}', [PriceController::class, 'blockTimeBySlug'])->name('block-time.show');
+
+        
     
 });
 

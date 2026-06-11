@@ -628,7 +628,7 @@
 
 // export default BookingForm;
 
-import { X } from "lucide-react";
+import { Calendar, Clock, Package, X } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 
@@ -1467,9 +1467,9 @@ const BookingForm = ({
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-white rounded-lg  shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                 {/* Header */}
-                <div className="p-6 rounded-t-lg bg-indigo-600 text-white">
+                {/* <div className="p-6 rounded-t-lg bg-indigo-600 text-white">
                     <div className="flex justify-between items-center">
                         <h2 className="text-2xl font-bold">
                             {isTestPackage
@@ -1495,7 +1495,53 @@ const BookingForm = ({
                             Package: {displayPackageName} - ${price.price}
                         </p>
                     </div>
-                </div>
+                </div> */}
+
+                <div className="border-b border-gray-200 px-6 py-5">
+    <div className="flex items-start justify-between gap-3">
+        <div>
+            {isTestPackage && (
+                <p className="text-xs uppercase tracking-widest text-gray-400 font-medium mb-1">
+                    Test Package
+                </p>
+            )}
+            <h2 className="text-lg font-medium text-gray-900">
+                Complete your booking
+            </h2>
+        </div>
+        <button
+            type="button"
+            onClick={onClose}
+            className="mt-0.5 flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
+        >
+            <X size={16} />
+        </button>
+    </div>
+
+    <div className="flex flex-wrap gap-2 mt-4">
+        <span className="inline-flex items-center gap-1.5 text-sm px-3 py-1 rounded-full border border-gray-200 text-gray-500 bg-gray-50">
+            <Calendar size={14} />
+            {formatDisplayDate(selectedDate)}
+        </span>
+        <span className="inline-flex items-center gap-1.5 text-sm px-3 py-1 rounded-full border border-gray-200 text-gray-500 bg-gray-50">
+            <Clock size={14} />
+            {displayTime} – {displayEndTime}
+        </span>
+    </div>
+</div>
+
+<div className="flex items-center justify-between px-6 py-4 bg-gray-50">
+    <div className="flex items-center gap-2.5">
+        <div className="w-9 h-9 rounded-md bg-blue-100 flex items-center justify-center">
+            <Package size={18} className="text-blue-600" />
+        </div>
+        <div>
+            <p className="text-xs text-gray-400">Package</p>
+            <p className="text-sm font-medium text-gray-900">{displayPackageName}</p>
+        </div>
+    </div>
+    <p className="text-lg font-medium text-gray-900">${price.price}</p>
+</div>
 
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="p-6 space-y-6">

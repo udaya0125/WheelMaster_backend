@@ -67,6 +67,23 @@ class PriceController extends Controller
         }
     }
 
+    public function blockTimeBySlug($slug)
+{
+    try {
+        $price = Price::where('slug', $slug)->firstOrFail();
+
+        return Inertia::render('BlockTime', [
+            'price' => $price,
+            'packageOptions' => $this->bookablePackageOptions(),
+        ]);
+    } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Price package not found.',
+        ], 404);
+    }
+}
+
     /**
      * Store a new price package.
      */
