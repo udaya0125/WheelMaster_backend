@@ -1670,7 +1670,7 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                             >
                                                 Privacy Policy
                                             </a>{" "}
-                                            *
+                                            <span className="text-red-500">*</span>
                                         </label>
                                     </div>
                                     {formErrors.terms && (

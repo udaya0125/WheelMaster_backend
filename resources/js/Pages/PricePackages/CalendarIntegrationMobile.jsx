@@ -1707,7 +1707,7 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                     >
                                         Privacy Policy
                                     </a>{" "}
-                                    *
+                                   <span className="text-red-500">*</span>
                                 </label>
                             </div>
                             {errors.terms && (
