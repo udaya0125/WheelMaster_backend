@@ -58,8 +58,8 @@ class BlockReservationController extends Controller
             } else {
                 $created[] = BlockReservation::create([
                     'date' => $current->toDateString(),
-                    'start_time' => $validated['start_time'],
-                    'end_time' => $validated['end_time'],
+                    'start_time' => Carbon::parse($validated['start_time'])->format('H:i:s'),
+                    'end_time' => Carbon::parse($validated['end_time'])->format('H:i:s'),
                     'duration' => $validated['duration'],
                     'reason' => $validated['reason'] ?? 'No reason provided',
                 ]);
@@ -134,6 +134,14 @@ class BlockReservationController extends Controller
         }
 
         unset($validated['block_action']);
+
+        if (isset($validated['start_time'])) {
+            $validated['start_time'] = Carbon::parse($validated['start_time'])->format('H:i:s');
+        }
+
+        if (isset($validated['end_time'])) {
+            $validated['end_time'] = Carbon::parse($validated['end_time'])->format('H:i:s');
+        }
 
         $block->update($validated);
 

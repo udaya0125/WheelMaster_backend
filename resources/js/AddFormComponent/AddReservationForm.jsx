@@ -1245,7 +1245,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { X, Calendar, Clock, Mail, Phone, Home, MapPin } from "lucide-react";
 
-const AddReservationForm = ({ isOpen, onClose, onSuccess }) => {
+const AddReservationForm = ({ isOpen, onClose, onSuccess, initialData = null }) => {
     const [formData, setFormData] = useState({
         user_name: "",
         email: "wheelmaster@outlook.com.au",
@@ -1404,6 +1404,27 @@ const AddReservationForm = ({ isOpen, onClose, onSuccess }) => {
         setError(null);
         setSuccessMessage(null);
     }, [isOpen]);
+
+    useEffect(() => {
+        if (!isOpen || !initialData?.price_id || prices.length === 0) return;
+
+        const pkg = prices.find((item) => item.id === Number(initialData.price_id));
+        if (!pkg) return;
+
+        setFilteredPackages(prices.filter((item) => item.category === pkg.category));
+        setSelectedPackage(pkg);
+        setRequiredSessionCount(1);
+        setIsBundleMode(false);
+        setBundleSessions([]);
+        setFormData((prev) => ({
+            ...prev,
+            package_type: pkg.category || "",
+            price_id: String(pkg.id),
+            reservation_date: initialData.reservation_date || "",
+            start_time: initialData.start_time || "",
+            end_time: initialData.end_time || "",
+        }));
+    }, [initialData, isOpen, prices]);
 
     // ─── auto-calculate times ───────────────────────────────────────────────────
     useEffect(() => {

@@ -78,14 +78,9 @@ class TimeSlotController extends Controller
             ->orderBy('start_time')
             ->get();
 
-        $reservationsQuery = UserReservation::where('reservation_date', $date)
-            ->where('status', '!=', 'Rejected');
-
-        if ($priceId) {
-            $reservationsQuery->where('price_id', $priceId);
-        }
-
-        $reservations = $reservationsQuery->get();
+        $reservations = UserReservation::where('reservation_date', $date)
+            ->where('status', '!=', 'Rejected')
+            ->get();
 
         $blocks          = BlockReservation::where('date', $date)->get();
         $durationMinutes = $this->getDurationMinutesForPrice($priceId);
@@ -110,11 +105,7 @@ class TimeSlotController extends Controller
                 $resStart = Carbon::parse($reservation->start_time);
                 $resEnd   = Carbon::parse($reservation->end_time);
 
-                if (
-                    $slotStart->between($resStart, $resEnd->subMinute()) ||
-                    $slotEnd->between($resStart, $resEnd->subMinute()) ||
-                    ($slotStart <= $resStart && $slotEnd >= $resEnd)
-                ) {
+                if ($slotStart < $resEnd && $slotEnd > $resStart) {
                     $status = 'reserved';
                     break;
                 }
@@ -130,11 +121,7 @@ class TimeSlotController extends Controller
                     $blockStart = Carbon::parse($block->start_time);
                     $blockEnd   = Carbon::parse($block->end_time);
 
-                    if (
-                        $slotStart->between($blockStart, $blockEnd->subMinute()) ||
-                        $slotEnd->between($blockStart, $blockEnd->subMinute()) ||
-                        ($slotStart <= $blockStart && $slotEnd >= $blockEnd)
-                    ) {
+                    if ($slotStart < $blockEnd && $slotEnd > $blockStart) {
                         $status  = 'blocked';
                         $blockId = $block->id;   // ← BlockReservation PK
                         break;
@@ -146,7 +133,12 @@ class TimeSlotController extends Controller
             if ($status === 'available' && $priceId &&
                 !$this->isBookableForDuration($date, $priceId, $slotStart, $durationMinutes)
             ) {
-                $status = 'blocked';
+                $status = 'unavailable';
+            }
+
+            // Only BlockReservation records can be unblocked from BlockTime.
+            if ($status === 'blocked' && $blockId === null) {
+                $status = 'unavailable';
             }
 
             return [
@@ -222,16 +214,19 @@ class TimeSlotController extends Controller
         }
 
         $hasBlock = BlockReservation::where('date', $date)
-            ->where('start_time', '<', $bufferEnd->format('H:i:s'))
-            ->where('end_time', '>', $startTime->format('H:i:s'))
-            ->exists();
+            ->get()
+            ->contains(function ($block) use ($startTime, $bufferEnd) {
+                $blockStart = Carbon::parse($block->start_time);
+                $blockEnd   = Carbon::parse($block->end_time);
+
+                return $blockStart < $bufferEnd && $blockEnd > $startTime;
+            });
 
         if ($hasBlock) {
             return false;
         }
 
         return ! UserReservation::where('reservation_date', $date)
-            ->where('price_id', $priceId)
             ->where('status', '!=', 'Rejected')
             ->get()
             ->contains(function ($reservation) use ($startTime, $bufferEnd) {

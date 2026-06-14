@@ -104,7 +104,6 @@ class UserReservationController extends Controller
     private function hasReservationOverlap($date, $priceId, Carbon $start, Carbon $bufferEnd, $excludeId = null)
     {
         $query = UserReservation::where('reservation_date', $date)
-            ->where('price_id', $priceId)
             ->where('status', '!=', 'Rejected');
 
         if ($excludeId) {
