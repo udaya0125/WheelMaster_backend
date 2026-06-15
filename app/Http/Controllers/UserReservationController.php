@@ -602,9 +602,11 @@ class UserReservationController extends Controller
         }
 
         try {
-            $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
-            // $adminEmail = env('ADMIN_EMAIL', 'wheelmaster@outlook.com.au');
-            Mail::to($adminEmail)->send(new ReservationStatusUpdated($reservation, true));
+            // $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
+            // // $adminEmail = env('ADMIN_EMAIL', 'wheelmaster@outlook.com.au');
+            // Mail::to($adminEmail)->send(new ReservationStatusUpdated($reservation, true));
+            Mail::to('Wheelmasterdriving@gmail.com')
+                ->send(new ReservationStatusUpdated($reservation, true));
         } catch (\Exception $e) {
             Log::error('Failed to send admin status update email: '.$e->getMessage());
         }
