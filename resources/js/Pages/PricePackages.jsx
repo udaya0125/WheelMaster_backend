@@ -178,7 +178,7 @@ const PricePackages = () => {
                         </div>
                     </div>
 
-                    <div className="text-center mb-16">
+                    <div className="text-center mb-16 ">
                         <span className="inline-block px-3 py-1 text-sm font-semibold text-blue-700 bg-blue-100 rounded-full mb-4">
                             Pricing Plans
                         </span>

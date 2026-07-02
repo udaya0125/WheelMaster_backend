@@ -2,14 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\BookingConflictException;
+use App\Mail\CartReservationsCreated;
 use App\Mail\ReservationCreated;
 use App\Models\BlockReservation;
 use App\Models\Notification;
 use App\Models\Price;
+use App\Models\SlotHold;
 use App\Models\TimeSlot;
 use App\Models\UserReservation;
+use App\Services\SlotHoldService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -87,16 +92,16 @@ class ReservationController extends Controller
             ->orderBy('start_time', 'asc')
             ->get();
 
-        // Fetch reservations for this specific price
+        // Fetch reservations globally: one instructor/car cannot be booked twice.
         $reservations = UserReservation::where('reservation_date', $date)
-            ->where('status', '!=', 'Rejected');
+            ->where('status', '!=', 'Rejected')
+            ->orderBy('start_time', 'asc')
+            ->get();
 
-        // Filter by price_id if provided
-        if ($priceId) {
-            $reservations->where('price_id', $priceId);
-        }
-
-        $reservations = $reservations->orderBy('start_time', 'asc')->get();
+        $activeHolds = SlotHold::active()
+            ->forDate($date)
+            ->orderBy('segment_start', 'asc')
+            ->get();
 
         // Combine all busy periods (blocks + reservations)
         $busyPeriods = [];
@@ -105,7 +110,7 @@ class ReservationController extends Controller
         foreach ($blocks as $block) {
             $busyPeriods[] = [
                 'start' => Carbon::parse($block->start_time),
-                'end' => Carbon::parse($block->end_time),
+                'end' => $block->bufferedEndTime(self::BOOKING_BUFFER_MINUTES),
                 'type' => 'block',
                 'price_id' => null, // blocks are not price-specific
             ];
@@ -118,6 +123,15 @@ class ReservationController extends Controller
                 'end' => Carbon::parse($reservation->end_time)->addMinutes(self::BOOKING_BUFFER_MINUTES),
                 'type' => 'reservation',
                 'price_id' => $reservation->price_id,
+            ];
+        }
+
+        foreach ($activeHolds as $hold) {
+            $busyPeriods[] = [
+                'start' => Carbon::parse($hold->segment_start),
+                'end' => Carbon::parse($hold->segment_start)->addMinutes(self::BOOKING_BUFFER_MINUTES),
+                'type' => 'hold',
+                'price_id' => null,
             ];
         }
 
@@ -221,6 +235,284 @@ class ReservationController extends Controller
         return (int) round($totalMinutes ?: 60);
     }
 
+    private function extractPackageName($description)
+    {
+        if (! $description) {
+            return '';
+        }
+
+        return str_contains($description, ':')
+            ? trim(substr(strrchr($description, ':'), 1))
+            : trim($description);
+    }
+
+    private function isNormalLessonPackage(Price $price)
+    {
+        $category = strtolower($price->category ?? '');
+        $description = strtolower($price->description ?? '');
+
+        return ! str_contains($category, 'test')
+            && ! str_contains($category, 'bundle')
+            && ! str_contains($description, 'test only');
+    }
+
+    private function getScheduleBoundsForDate($date)
+    {
+        $slots = TimeSlot::where('date', $date)->get();
+
+        if ($slots->isEmpty()) {
+            return [
+                Carbon::createFromTime(7, 0, 0),
+                Carbon::createFromTime(18, 0, 0),
+            ];
+        }
+
+        return [
+            Carbon::parse($slots->min('start_time')),
+            Carbon::parse($slots->max('end_time')),
+        ];
+    }
+
+    private function reservationOverlaps($date, Carbon $start, Carbon $bufferEnd)
+    {
+        return UserReservation::where('reservation_date', $date)
+            ->where('status', '!=', 'Rejected')
+            ->get()
+            ->contains(function ($reservation) use ($start, $bufferEnd) {
+                $existingStart = Carbon::parse($reservation->start_time);
+                $existingBufferEnd = Carbon::parse($reservation->end_time)
+                    ->addMinutes(self::BOOKING_BUFFER_MINUTES);
+
+                return $existingStart < $bufferEnd && $existingBufferEnd > $start;
+            });
+    }
+
+    private function validateCartItemAvailability(
+        array $item,
+        Price $price,
+        ?SlotHoldService $slotHoldService = null,
+        ?string $exceptHoldToken = null
+    ): array {
+        $reservationDate = Carbon::parse($item['reservation_date'])->format('Y-m-d');
+        $start = Carbon::parse($item['start_time']);
+        $durationMinutes = $this->parseDurationToMinutes($price->duration);
+        $end = $start->copy()->addMinutes($durationMinutes);
+        $bufferEnd = $end->copy()->addMinutes(self::BOOKING_BUFFER_MINUTES);
+        [$scheduleStart, $scheduleEnd] = $this->getScheduleBoundsForDate($reservationDate);
+
+        if ($start < $scheduleStart || $bufferEnd > $scheduleEnd) {
+            return [
+                'available' => false,
+                'message' => 'This lesson does not fit inside the available schedule.',
+            ];
+        }
+
+        $existingBlock = BlockReservation::overlapsDrivingWindow(
+            $reservationDate,
+            $start,
+            $bufferEnd,
+            self::BOOKING_BUFFER_MINUTES
+        );
+
+        if ($existingBlock) {
+            return [
+                'available' => false,
+                'message' => 'This time slot is blocked.',
+            ];
+        }
+
+        if ($this->reservationOverlaps($reservationDate, $start, $bufferEnd)) {
+            return [
+                'available' => false,
+                'message' => 'This time slot is already reserved.',
+            ];
+        }
+
+        if ($slotHoldService?->activeHoldExists($reservationDate, $start, $bufferEnd, $exceptHoldToken)) {
+            return [
+                'available' => false,
+                'message' => 'This time slot is temporarily held by another checkout.',
+            ];
+        }
+
+        return [
+            'available' => true,
+            'reservation_date' => $reservationDate,
+            'start' => $start,
+            'end' => $end,
+            'buffer_end' => $bufferEnd,
+            'duration_minutes' => $durationMinutes,
+        ];
+    }
+
+    public function storeCart(Request $request)
+    {
+        $validated = $request->validate([
+            'user_name' => 'required|string',
+            'email' => 'required|email',
+            'phone' => 'required|string',
+            'address' => 'required|string',
+            'pickup_location' => 'required|string',
+            'dropoff_location' => 'required|string',
+            'comment' => 'nullable|string',
+            'accepted_terms' => 'accepted',
+            'items' => 'required|array|min:1|max:20',
+            'items.*.price_id' => 'required|exists:prices,id',
+            'items.*.reservation_date' => 'required|date',
+            'items.*.start_time' => 'required',
+        ]);
+
+        $slotHoldService = new SlotHoldService();
+
+        try {
+            ['reservations' => $createdReservations, 'total_amount' => $totalAmount] = DB::transaction(
+                function () use ($validated, $slotHoldService) {
+                    $slotHoldService->releaseExpired();
+
+                    $preparedItems = [];
+                    $errors = [];
+                    $seenKeys = [];
+                    $holdToken = null;
+
+                    foreach ($validated['items'] as $index => $item) {
+                        $price = Price::find($item['price_id']);
+                        $dateKey = Carbon::parse($item['reservation_date'])->format('Y-m-d');
+                        $startKey = Carbon::parse($item['start_time'])->format('H:i');
+                        $cartKey = $item['price_id'].'|'.$dateKey.'|'.$startKey;
+
+                        if (isset($seenKeys[$cartKey])) {
+                            $errors[$index] = 'This lesson is duplicated in your cart.';
+                            continue;
+                        }
+
+                        $seenKeys[$cartKey] = true;
+
+                        if (! $price || ! $this->isNormalLessonPackage($price)) {
+                            $errors[$index] = 'This package cannot be booked through the lesson cart.';
+                            continue;
+                        }
+
+                        $availability = $this->validateCartItemAvailability($item, $price, $slotHoldService);
+
+                        if (! $availability['available']) {
+                            $errors[$index] = $availability['message'];
+                            continue;
+                        }
+
+                        $preparedItems[] = [
+                            'index' => $index,
+                            'price' => $price,
+                            ...$availability,
+                        ];
+                    }
+
+                    for ($i = 0; $i < count($preparedItems); $i++) {
+                        for ($j = $i + 1; $j < count($preparedItems); $j++) {
+                            $first = $preparedItems[$i];
+                            $second = $preparedItems[$j];
+
+                            if (
+                                $first['reservation_date'] === $second['reservation_date'] &&
+                                $first['start'] < $second['buffer_end'] &&
+                                $second['start'] < $first['buffer_end']
+                            ) {
+                                $errors[$first['index']] = 'This lesson overlaps another item in your cart.';
+                                $errors[$second['index']] = 'This lesson overlaps another item in your cart.';
+                            }
+                        }
+                    }
+
+                    if (! empty($errors)) {
+                        throw new BookingConflictException('Some cart items are not available.', [
+                            'items' => $errors,
+                        ]);
+                    }
+
+                    foreach ($preparedItems as $item) {
+                        try {
+                            $holdToken = $slotHoldService->acquire(
+                                $item['reservation_date'],
+                                $item['start'],
+                                $item['buffer_end'],
+                                $holdToken
+                            );
+                        } catch (BookingConflictException) {
+                            throw new BookingConflictException('Some cart items are not available.', [
+                                'items' => [
+                                    $item['index'] => 'This time slot is no longer available.',
+                                ],
+                            ]);
+                        }
+                    }
+
+                    $createdReservations = collect();
+                    $totalAmount = collect($preparedItems)->sum(fn ($item) => (float) $item['price']->price);
+
+                    foreach ($preparedItems as $item) {
+                        $reservation = UserReservation::create([
+                            'user_name' => $validated['user_name'],
+                            'email' => $validated['email'],
+                            'phone' => $validated['phone'],
+                            'address' => $validated['address'],
+                            'pickup_location' => $validated['pickup_location'],
+                            'dropoff_location' => $validated['dropoff_location'],
+                            'reservation_date' => $item['reservation_date'],
+                            'start_time' => $item['start']->format('H:i:s'),
+                            'end_time' => $item['end']->format('H:i:s'),
+                            'price_id' => $item['price']->id,
+                            'package_type' => $this->extractPackageName($item['price']->description),
+                            'status' => 'Pending',
+                            'comment' => $validated['comment'] ?? null,
+                        ]);
+
+                        $createdReservations->push($reservation->load('price'));
+                    }
+
+                    if ($holdToken) {
+                        $slotHoldService->releaseToken($holdToken);
+                    }
+
+                    Notification::create([
+                        'message' => "New cart booking from {$validated['user_name']} with ".$createdReservations->count().' lessons',
+                        'is_read' => false,
+                    ]);
+
+                    return [
+                        'reservations' => $createdReservations,
+                        'total_amount' => $totalAmount,
+                    ];
+                },
+                3
+            );
+        } catch (BookingConflictException $exception) {
+            return response()->json([
+                'success' => false,
+                'message' => $exception->getMessage(),
+                'errors' => $exception->errors(),
+            ], $exception->statusCode());
+        }
+
+        try {
+            Mail::to($validated['email'])->send(new CartReservationsCreated($createdReservations, false, $totalAmount));
+        } catch (\Exception $e) {
+            Log::error('Failed to send customer cart email: '.$e->getMessage());
+        }
+
+        try {
+            Mail::to('Wheelmasterdriving@gmail.com')
+                ->send(new CartReservationsCreated($createdReservations, true, $totalAmount));
+        } catch (\Exception $e) {
+            Log::error('Failed to send admin cart email: '.$e->getMessage());
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Cart booking created successfully',
+            'data' => $createdReservations,
+            'total_amount' => $totalAmount,
+        ], 201);
+    }
+
     // Check availability for a given date and price
     public function checkAvailability(Request $request)
     {
@@ -277,62 +569,81 @@ class ReservationController extends Controller
         $requestBufferEnd = $requestEnd->copy()->addMinutes(self::BOOKING_BUFFER_MINUTES);
         $reservationDate = Carbon::parse($request->reservation_date)->format('Y-m-d');
         $priceId = $request->price_id;
+        $slotHoldService = new SlotHoldService();
 
-        // Check if selected slot overlaps with any blocked reservation (blocks affect all prices)
-        $existingBlock = BlockReservation::where('date', $reservationDate)
-            ->where(function ($query) use ($requestStart, $requestBufferEnd) {
-                $query->where(function ($q) use ($requestStart, $requestBufferEnd) {
-                    // Check if blocked slot overlaps with requested lesson plus travel buffer.
-                    $q->where('start_time', '<', $requestBufferEnd->format('H:i:s'))
-                        ->where('end_time', '>', $requestStart->format('H:i:s'));
-                });
-            })
-            ->exists();
+        try {
+            $reservation = DB::transaction(function () use (
+                $request,
+                $slotHoldService,
+                $reservationDate,
+                $requestStart,
+                $requestEnd,
+                $requestBufferEnd,
+                $priceId
+            ) {
+                $slotHoldService->releaseExpired();
 
-        if ($existingBlock) {
-            return response()->json(['error' => 'Selected time slot is blocked'], 403);
+                $existingBlock = BlockReservation::overlapsDrivingWindow(
+                    $reservationDate,
+                    $requestStart,
+                    $requestBufferEnd,
+                    self::BOOKING_BUFFER_MINUTES
+                );
+
+                if ($existingBlock) {
+                    throw new BookingConflictException('Selected time slot is blocked', [], 403);
+                }
+
+                $existingReservation = $this->reservationOverlaps($reservationDate, $requestStart, $requestBufferEnd);
+
+                if ($existingReservation) {
+                    throw new BookingConflictException('Selected time slot is already reserved', [], 409);
+                }
+
+                if ($slotHoldService->activeHoldExists($reservationDate, $requestStart, $requestBufferEnd)) {
+                    throw new BookingConflictException('Selected time slot is temporarily held by another checkout', [], 409);
+                }
+
+                $holdToken = $slotHoldService->acquire(
+                    $reservationDate,
+                    $requestStart,
+                    $requestBufferEnd
+                );
+
+                $reservation = UserReservation::create([
+                    'user_name' => $request->user_name,
+                    'email' => $request->email,
+                    'phone' => $request->phone,
+                    'address' => $request->address,
+                    'pickup_location' => $request->pickup_location,
+                    'dropoff_location' => $request->dropoff_location,
+                    'reservation_date' => $reservationDate,
+                    'start_time' => $requestStart->format('H:i:s'),
+                    'end_time' => $requestEnd->format('H:i:s'),
+                    'price_id' => $priceId,
+                    'package_type' => $request->package_type,
+                    'package_price' => $request->package_price,
+                    'duration_minutes' => $request->duration_minutes,
+                    'status' => 'Pending',
+                    'comment' => $request->comment,
+                ]);
+
+                $slotHoldService->releaseToken($holdToken);
+
+                Notification::create([
+                    'message' => "New reservation from {$reservation->user_name} for {$reservationDate} ({$requestStart->format('h:i A')} - {$requestEnd->format('h:i A')})".Price::find($priceId)->name,
+                    'is_read' => false,
+                ]);
+
+                return $reservation;
+            }, 3);
+        } catch (BookingConflictException $exception) {
+            return response()->json([
+                'error' => $exception->getMessage(),
+                'message' => $exception->getMessage(),
+                'errors' => $exception->errors(),
+            ], $exception->statusCode());
         }
-
-        // Check if selected slot overlaps with any existing NON-REJECTED reservation FOR THE SAME PRICE
-        $existingReservation = UserReservation::where('reservation_date', $reservationDate)
-            ->where('price_id', $priceId) // Only check reservations for the same price
-            ->where('status', '!=', 'Rejected')
-            ->get()
-            ->contains(function ($reservation) use ($requestStart, $requestBufferEnd) {
-                $existingStart = Carbon::parse($reservation->start_time);
-                $existingBufferEnd = Carbon::parse($reservation->end_time)
-                    ->addMinutes(self::BOOKING_BUFFER_MINUTES);
-
-                return $existingStart < $requestBufferEnd && $existingBufferEnd > $requestStart;
-            });
-
-        if ($existingReservation) {
-            return response()->json(['error' => 'Selected time slot is already reserved for this service'], 409);
-        }
-
-        $reservation = UserReservation::create([
-            'user_name' => $request->user_name,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'address' => $request->address,
-            'pickup_location' => $request->pickup_location,
-            'dropoff_location' => $request->dropoff_location,
-            'reservation_date' => $reservationDate,
-            'start_time' => $requestStart->format('H:i:s'),
-            'end_time' => $requestEnd->format('H:i:s'),
-            'price_id' => $priceId,
-            'package_type' => $request->package_type,
-            'package_price' => $request->package_price,
-            'duration_minutes' => $request->duration_minutes,
-            'status' => 'Pending',
-            'comment' => $request->comment,
-        ]);
-
-        // Create notification for new reservation
-        $notification = Notification::create([
-            'message' => "New reservation from {$reservation->user_name} for {$reservationDate} ({$requestStart->format('h:i A')} - {$requestEnd->format('h:i A')})".Price::find($priceId)->name,
-            'is_read' => false,
-        ]);
 
         // Send email to customer
         try {
@@ -434,18 +745,15 @@ class ReservationController extends Controller
             // Check if buffer period is available
 
             // Check blocks (affect all prices)
-            $hasBlock = BlockReservation::where('date', $date)
-                ->where(function ($query) use ($bufferStart, $bufferEnd) {
-                    $query->where(function ($q) use ($bufferStart, $bufferEnd) {
-                        $q->where('start_time', '<', $bufferEnd->format('H:i:s'))
-                            ->where('end_time', '>', $bufferStart->format('H:i:s'));
-                    });
-                })
-                ->exists();
+            $hasBlock = BlockReservation::overlapsDrivingWindow(
+                $date,
+                $bufferStart,
+                $bufferEnd,
+                self::BOOKING_BUFFER_MINUTES
+            );
 
-            // Only check reservations for this specific price
+            // Check reservations globally: one instructor/car cannot be booked twice.
             $hasReservation = UserReservation::where('reservation_date', $date)
-                ->where('price_id', $priceId) // Filter by price_id
                 ->where('status', '!=', 'Rejected')
                 ->where(function ($query) use ($bufferStart, $bufferEnd) {
                     $query->where(function ($q) use ($bufferStart, $bufferEnd) {
@@ -455,7 +763,9 @@ class ReservationController extends Controller
                 })
                 ->exists();
 
-            if (! $hasReservation && ! $hasBlock &&
+            $hasHold = (new SlotHoldService())->activeHoldExists($date, $bufferStart, $bufferEnd);
+
+            if (! $hasReservation && ! $hasBlock && ! $hasHold &&
                 $bufferStart >= $workingHoursStart &&
                 $bufferEnd <= $workingHoursEnd) {
                 $availableSlots[] = $current->format('H:i');
@@ -521,17 +831,14 @@ class ReservationController extends Controller
             ->orderBy('start_time')
             ->get();
 
-        // Get reservations for this date and price
+        // Get reservations for this date globally.
         $reservations = UserReservation::where('reservation_date', $date)
-            ->where('status', '!=', 'Rejected');
-
-        if ($priceId) {
-            $reservations->where('price_id', $priceId);
-        }
-        $reservations = $reservations->get();
+            ->where('status', '!=', 'Rejected')
+            ->get();
 
         // Get blocks for this date
         $blocks = BlockReservation::where('date', $date)->get();
+        $activeHolds = SlotHold::active()->forDate($date)->get();
 
         $availableSlots = [];
 
@@ -545,7 +852,7 @@ class ReservationController extends Controller
             $isBlocked = false;
             foreach ($blocks as $block) {
                 $blockStart = Carbon::parse($block->start_time);
-                $blockEnd = Carbon::parse($block->end_time);
+                $blockEnd = $block->bufferedEndTime(self::BOOKING_BUFFER_MINUTES);
                 $slotStart = Carbon::parse($slot->start_time);
 
                 if ($slotStart->between($blockStart, $blockEnd->subMinute())) {
@@ -554,8 +861,12 @@ class ReservationController extends Controller
                 }
             }
 
+            $isHeld = $activeHolds->contains(function ($hold) use ($slot) {
+                return substr($hold->segment_start, 0, 5) === substr($slot->start_time, 0, 5);
+            });
+
             // If slot is available (not reserved and not blocked)
-            if (! $isReserved && ! $isBlocked && $slot->status === 'available') {
+            if (! $isReserved && ! $isBlocked && ! $isHeld && $slot->status === 'available') {
                 $availableSlots[] = $slot->start_time;
             }
         }

@@ -84,6 +84,13 @@ class PriceController extends Controller
     }
 }
 
+    public function timeManagement()
+    {
+        return Inertia::render('TimeManagement', [
+            'packageOptions' => $this->bookablePackageOptions(),
+        ]);
+    }
+
     /**
      * Store a new price package.
      */

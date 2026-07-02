@@ -9,13 +9,13 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-    public function up(): void
-    {
-        Schema::table('user_reservations', function (Blueprint $table) {
-            //
-            $table->string('test_location')->nullable()->after('test_time');
-        });
-    }
+    // public function up(): void
+    // {
+    //     Schema::table('user_reservations', function (Blueprint $table) {
+    //         //
+    //         $table->string('test_location')->nullable()->after('test_time');
+    //     });
+    // }
 
     /**
      * Reverse the migrations.

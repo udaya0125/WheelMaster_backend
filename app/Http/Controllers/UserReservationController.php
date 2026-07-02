@@ -91,14 +91,7 @@ class UserReservationController extends Controller
 
     private function hasBlockOverlap($date, Carbon $start, Carbon $bufferEnd)
     {
-        return BlockReservation::where('date', $date)
-            ->get()
-            ->contains(function ($block) use ($start, $bufferEnd) {
-                $blockStart = Carbon::parse($block->start_time);
-                $blockEnd = Carbon::parse($block->end_time);
-
-                return $blockStart < $bufferEnd && $blockEnd > $start;
-            });
+        return BlockReservation::overlapsDrivingWindow($date, $start, $bufferEnd);
     }
 
     private function hasReservationOverlap($date, $priceId, Carbon $start, Carbon $bufferEnd, $excludeId = null)

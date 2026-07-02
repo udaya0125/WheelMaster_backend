@@ -25,6 +25,33 @@ const formatDisplayDate = (date) => {
     });
 };
 
+const startOfMonth = (date) =>
+    new Date(date.getFullYear(), date.getMonth(), 1);
+
+const endOfMonth = (date) =>
+    new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+const addDays = (date, days) => {
+    const next = new Date(date);
+    next.setDate(next.getDate() + days);
+    return next;
+};
+
+const getCalendarRangeForMonth = (monthDate) => {
+    const monthStart = startOfMonth(monthDate);
+    const monthEnd = endOfMonth(monthDate);
+
+    return {
+        startDate: formatDateKey(addDays(monthStart, -monthStart.getDay())),
+        endDate: formatDateKey(addDays(monthEnd, 6 - monthEnd.getDay())),
+    };
+};
+
+const dateKeyToDate = (dateKey) => {
+    const [year, month, day] = dateKey.split("-").map(Number);
+    return new Date(year, month - 1, day);
+};
+
 const isPastDate = (date) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -84,61 +111,131 @@ const getTimeSlotDisplay = (startTime, duration) => {
     return `${start} - ${calculateEndTime(start, duration)}`;
 };
 
+const getWindowBounds = (windowStartStr, duration) => {
+    const startMin = timeToMinutes(windowStartStr);
+    return {
+        startMin,
+        endMin: startMin + parseDuration(duration),
+    };
+};
+
+const blockBounds = (block) => ({
+    startMin: timeToMinutes(hhmm(block.start_time)),
+    endMin:   timeToMinutes(hhmm(block.end_time)),
+});
+
+const getExactBlocksForDuration = (blockRecords, duration) => {
+    const durationMins = parseDuration(duration);
+
+    return blockRecords.filter((block) => {
+        const blockRange = blockBounds(block);
+        return blockRange.endMin - blockRange.startMin === durationMins;
+    });
+};
+
+const getExactBlockForWindow = (windowStartStr, blockRecords, duration) => {
+    const { startMin, endMin } = getWindowBounds(windowStartStr, duration);
+
+    return blockRecords.find((block) => {
+        const blockRange = blockBounds(block);
+        return blockRange.startMin === startMin && blockRange.endMin === endMin;
+    });
+};
+
+const blocksCoverRange = (blockRecords, startTime, endTime) => {
+    const rangeStart = timeToMinutes(hhmm(startTime));
+    const rangeEnd   = timeToMinutes(hhmm(endTime));
+
+    if (!Number.isFinite(rangeStart) || !Number.isFinite(rangeEnd) || rangeStart >= rangeEnd) {
+        return false;
+    }
+
+    const ranges = blockRecords
+        .map(blockBounds)
+        .filter((range) => (
+            Number.isFinite(range.startMin) &&
+            Number.isFinite(range.endMin) &&
+            range.startMin < rangeEnd &&
+            range.endMin > rangeStart
+        ))
+        .sort((a, b) => a.startMin - b.startMin);
+
+    let coveredUntil = rangeStart;
+
+    for (const range of ranges) {
+        if (range.startMin > coveredUntil) return false;
+        coveredUntil = Math.max(coveredUntil, range.endMin);
+        if (coveredUntil >= rangeEnd) return true;
+    }
+
+    return false;
+};
+
 // ─── Build display-slot grid ──────────────────────────────────────────────────
 
-const buildDisplayGrid = (rawSlots, scheduleEndStr, duration) => {
-    if (!rawSlots || rawSlots.length === 0) return [];
-
+const buildDisplayGrid = (rawSlots, scheduleEndStr, duration, blockRecords = []) => {
     const durationMins    = parseDuration(duration);
     const bookingStepMins = durationMins + 20;
 
-    const rawStartMins = rawSlots
+    const availableStartMins = (rawSlots || [])
+        .filter((s) => s.status === "available")
         .map((s) => timeToMinutes(hhmm(s.start_time)))
         .filter(Number.isFinite)
         .sort((a, b) => a - b);
 
-    if (rawStartMins.length === 0) return [];
+    const exactBlockStartMins = getExactBlocksForDuration(blockRecords, duration)
+        .map((block) => blockBounds(block).startMin)
+        .filter(Number.isFinite);
+
+    if (availableStartMins.length === 0 && exactBlockStartMins.length === 0) return [];
 
     let scheduleEndMins;
     if (scheduleEndStr) {
         scheduleEndMins = timeToMinutes(hhmm(scheduleEndStr));
     } else {
-        const lastEndTimes = rawSlots
+        const lastEndTimes = (rawSlots || [])
             .map((s) => timeToMinutes(hhmm(s.end_time)))
             .filter(Number.isFinite);
         scheduleEndMins = lastEndTimes.length > 0
             ? Math.max(...lastEndTimes)
-            : rawStartMins[rawStartMins.length - 1] + bookingStepMins;
+            : Math.max(...exactBlockStartMins) + bookingStepMins;
     }
 
-    const latestStart = scheduleEndMins - durationMins;
+    const latestStart = scheduleEndMins - bookingStepMins;
 
     const displaySlots = [];
-    let candidate = rawStartMins[0];
+    let candidate = availableStartMins[0];
 
-    while (candidate <= latestStart) {
+    while (Number.isFinite(candidate) && candidate <= latestStart) {
         displaySlots.push(minutesToTime(candidate));
         const next = candidate + bookingStepMins;
 
-        const hasNearby = rawStartMins.some((m) => m >= next && m < next + 20);
+        const hasNearby = availableStartMins.some((m) => m >= next && m < next + 20);
         if (hasNearby) {
             candidate = next;
         } else {
-            const nextReal = rawStartMins.find((m) => m >= next);
+            const nextReal = availableStartMins.find((m) => m >= next);
             if (nextReal === undefined) break;
             candidate = nextReal;
         }
     }
 
-    return displaySlots;
+    return Array.from(
+        new Set([
+            ...displaySlots,
+            ...exactBlockStartMins.map(minutesToTime),
+        ])
+    ).sort((a, b) => timeToMinutes(a) - timeToMinutes(b));
 };
 
 // ─── Status resolver for a display window ────────────────────────────────────
 
-const resolveWindowStatus = (windowStartStr, rawSlots, duration) => {
+const resolveWindowStatus = (windowStartStr, rawSlots, blockRecords, duration) => {
     const durationMins = parseDuration(duration);
     const startMin     = timeToMinutes(windowStartStr);
     const endMin       = startMin + durationMins;
+
+    if (getExactBlockForWindow(windowStartStr, blockRecords, duration)) return "blocked";
 
     const windowSlots = rawSlots.filter((s) => {
         const sm = timeToMinutes(hhmm(s.start_time));
@@ -149,27 +246,8 @@ const resolveWindowStatus = (windowStartStr, rawSlots, duration) => {
     );
 
     if (windowSlots.some((s) => s.status === "reserved")) return "reserved";
-    if (windowSlots.some((s) => s.status === "blocked"))  return "blocked";
     if (startingSlot?.status === "unavailable") return "unavailable";
     return "available";
-};
-
-// ─── Get unique BlockReservation IDs covering a display window ────────────────
-
-const getBlockIdsForWindow = (windowStartStr, rawSlots, duration) => {
-    const durationMins = parseDuration(duration);
-    const startMin     = timeToMinutes(windowStartStr);
-    const endMin       = startMin + durationMins;
-
-    const ids = rawSlots
-        .filter((s) => {
-            if (s.status !== "blocked" || !s.block_id) return false;
-            const sm = timeToMinutes(hhmm(s.start_time));
-            return sm >= startMin && sm < endMin;
-        })
-        .map((s) => s.block_id);
-
-    return [...new Set(ids)];
 };
 
 // ─── Slot styling ─────────────────────────────────────────────────────────────
@@ -267,8 +345,11 @@ const SlotActionModal = ({ slot, date, duration, onClose, onBlock, onUnblock, on
 
 const BlockTime = ({ price, packageOptions = [] }) => {
     const [selectedDate, setSelectedDate]             = useState(new Date());
+    const [calendarMonth, setCalendarMonth]           = useState(() => startOfMonth(new Date()));
     const [activePrice, setActivePrice]               = useState(price);
     const [rawSlotsCache, setRawSlotsCache]           = useState({});
+    const [blockRecordsCache, setBlockRecordsCache]   = useState({});
+    const [availabilitySummaryCache, setAvailabilitySummaryCache] = useState({});
     const [scheduleEndCache, setScheduleEndCache]     = useState({});
     const [loading, setLoading]                       = useState(false);
     const [activeSlot, setActiveSlot]                 = useState(null);
@@ -301,6 +382,65 @@ const BlockTime = ({ price, packageOptions = [] }) => {
         [packages]
     );
 
+    const calendarRange = React.useMemo(
+        () => getCalendarRangeForMonth(calendarMonth),
+        [calendarMonth]
+    );
+    const calendarRangeKey = `${calendarRange.startDate}:${calendarRange.endDate}:${activePrice?.id || ""}`;
+    const availabilitySummary = availabilitySummaryCache[calendarRangeKey] || {};
+
+    const blockedCalendarDays = React.useMemo(
+        () =>
+            Object.entries(availabilitySummary)
+                .filter(([, day]) => day?.status !== "available")
+                .map(([date]) => dateKeyToDate(date))
+                .filter((date) => !isPastDate(date)),
+        [availabilitySummary]
+    );
+
+    const availableCalendarDays = React.useMemo(
+        () =>
+            Object.entries(availabilitySummary)
+                .filter(([, day]) => day?.status === "available")
+                .map(([date]) => dateKeyToDate(date))
+                .filter((date) => !isPastDate(date)),
+        [availabilitySummary]
+    );
+
+    const refreshAvailabilitySummary = async (force = false) => {
+        if (!activePrice?.id) return;
+        if (!force && availabilitySummaryCache[calendarRangeKey]) return;
+
+        try {
+            const res = await axios.get(route("ourtimeslots.availability-summary"), {
+                params: {
+                    start_date: calendarRange.startDate,
+                    end_date: calendarRange.endDate,
+                    price_id: activePrice.id,
+                },
+            });
+
+            if (res.data.success) {
+                setAvailabilitySummaryCache((prev) => ({
+                    ...prev,
+                    [calendarRangeKey]: res.data.data || {},
+                }));
+            }
+        } catch {
+            toast.error("Error loading calendar availability.");
+        }
+    };
+
+    const refreshCalendarAfterMutation = async () => {
+        setAvailabilitySummaryCache({});
+        await refreshAvailabilitySummary(true);
+    };
+
+    useEffect(() => {
+        refreshAvailabilitySummary();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [calendarRangeKey, activePrice?.id]);
+
     const handlePackageChange = (e) => {
         const id   = Number(e.target.value);
         const next = packages.find((p) => p.id === id);
@@ -322,6 +462,10 @@ const BlockTime = ({ price, packageOptions = [] }) => {
                 setRawSlotsCache((prev) => ({
                     ...prev,
                     [dateKey]: res.data.slots || [],
+                }));
+                setBlockRecordsCache((prev) => ({
+                    ...prev,
+                    [dateKey]: res.data.blocks || [],
                 }));
                 setScheduleEndCache((prev) => ({
                     ...prev,
@@ -348,15 +492,20 @@ const BlockTime = ({ price, packageOptions = [] }) => {
             toast.error("Cannot select past dates", { icon: "⚠️" });
         } else {
             setSelectedDate(date);
+            setCalendarMonth(startOfMonth(date));
         }
     };
 
     // ── Derived display data ──────────────────────────────────────────────────
     const dateKey     = selectedDate ? formatDateKey(selectedDate) : null;
     const rawSlots    = dateKey ? rawSlotsCache[dateKey]    || [] : [];
+    const blockRecords = dateKey ? blockRecordsCache[dateKey] || [] : [];
     const scheduleEnd = dateKey ? scheduleEndCache[dateKey] || "" : "";
 
-    const displaySlots = buildDisplayGrid(rawSlots, scheduleEnd, activePrice?.duration);
+    const displaySlots = buildDisplayGrid(rawSlots, scheduleEnd, activePrice?.duration, blockRecords);
+    const sortedBlockRecords = [...blockRecords].sort(
+        (a, b) => timeToMinutes(hhmm(a.start_time)) - timeToMinutes(hhmm(b.start_time))
+    );
 
     // ── Helpers: first/last raw slot times ────────────────────────────────────
     const getScheduleBounds = () => {
@@ -393,6 +542,7 @@ const BlockTime = ({ price, packageOptions = [] }) => {
 
             toast.success("Entire day blocked.");
             await fetchSlots(selectedDate);
+            await refreshCalendarAfterMutation();
         } catch (err) {
             toast.error(err.response?.data?.message || "Failed to block day.");
         } finally {
@@ -405,14 +555,16 @@ const BlockTime = ({ price, packageOptions = [] }) => {
         if (!selectedDate || !rawSlots.length) return;
         setIsSubmitting(true);
         try {
-            const blockIds = [...new Set(
-                rawSlots
-                    .filter((s) => s.status === "blocked" && s.block_id)
-                    .map((s) => s.block_id)
-            )];
+            const { startTime, endTime } = getScheduleBounds();
+            const blockIds = blockRecords.map((block) => block.id);
 
             if (blockIds.length === 0) {
                 toast.error("No block records found for this day.");
+                return;
+            }
+
+            if (!blocksCoverRange(blockRecords, startTime, endTime)) {
+                toast.error("Block records do not cover the full day.");
                 return;
             }
 
@@ -424,6 +576,7 @@ const BlockTime = ({ price, packageOptions = [] }) => {
 
             toast.success("Entire day unblocked.");
             await fetchSlots(selectedDate);
+            await refreshCalendarAfterMutation();
         } catch (err) {
             toast.error(err.response?.data?.message || "Failed to unblock day.");
         } finally {
@@ -456,6 +609,7 @@ const BlockTime = ({ price, packageOptions = [] }) => {
             setRangeStart("");
             setRangeEnd("");
             await fetchSlots(selectedDate);
+            await refreshCalendarAfterMutation();
         } catch (err) {
             toast.error(err.response?.data?.message || "Failed to block date range.");
         } finally {
@@ -464,12 +618,11 @@ const BlockTime = ({ price, packageOptions = [] }) => {
     };
 
     // ── Derived: is day fully blocked? ────────────────────────────────────────
-    const isDayFullyBlocked =
-        displaySlots.length > 0 &&
-        displaySlots.every((t) => {
-            const s = resolveWindowStatus(t, rawSlots, activePrice?.duration);
-            return s === "blocked" || s === "reserved";
-        });
+    const isDayFullyBlocked = (() => {
+        if (displaySlots.length === 0 || blockRecords.length === 0) return false;
+        const { startTime, endTime } = getScheduleBounds();
+        return blocksCoverRange(blockRecords, startTime, endTime);
+    })();
 
     // ── Single slot: block ────────────────────────────────────────────────────
     const handleBlockSlot = async () => {
@@ -494,6 +647,7 @@ const BlockTime = ({ price, packageOptions = [] }) => {
             toast.success("Time slot blocked.");
             setActiveSlot(null);
             await fetchSlots(selectedDate);
+            await refreshCalendarAfterMutation();
         } catch (err) {
             toast.error(
                 err.response?.data?.message || "Failed to block. Please try again."
@@ -508,27 +662,24 @@ const BlockTime = ({ price, packageOptions = [] }) => {
         if (!activeSlot || !selectedDate) return;
         setIsSubmitting(true);
         try {
-            const blockIds = getBlockIdsForWindow(
+            const exactBlock = getExactBlockForWindow(
                 activeSlot.startTime,
-                rawSlots,
+                blockRecords,
                 activePrice?.duration
             );
 
-            if (blockIds.length === 0) {
+            if (!exactBlock) {
                 toast.error("No block records found for this slot.");
                 setIsSubmitting(false);
                 return;
             }
 
-            await Promise.all(
-                blockIds.map((id) =>
-                    axios.delete(route("ourblockreservations.destroy", { id }))
-                )
-            );
+            await axios.delete(route("ourblockreservations.destroy", { id: exactBlock.id }));
 
             toast.success("Time slot unblocked.");
             setActiveSlot(null);
             await fetchSlots(selectedDate);
+            await refreshCalendarAfterMutation();
         } catch (err) {
             toast.error(
                 err.response?.data?.message || "Failed to unblock. Please try again."
@@ -559,6 +710,7 @@ const BlockTime = ({ price, packageOptions = [] }) => {
         setReservationInitial(null);
         toast.success("Reservation added.");
         await fetchSlots(selectedDate);
+        await refreshCalendarAfterMutation();
     };
 
     // ── Schedule bounds hint for the range panel ──────────────────────────────
@@ -572,6 +724,7 @@ const BlockTime = ({ price, packageOptions = [] }) => {
     // ── Render ────────────────────────────────────────────────────────────────
     return (
         <Wrapper>
+            <div className="lg:p-4">
             <Toaster
                 position="top-right"
                 toastOptions={{
@@ -620,9 +773,20 @@ const BlockTime = ({ price, packageOptions = [] }) => {
                     </div>
                     <Calendar
                         mode="single"
+                        month={calendarMonth}
+                        onMonthChange={(month) => setCalendarMonth(startOfMonth(month))}
                         selected={selectedDate}
                         onSelect={handleDateSelect}
                         disabled={isPastDate}
+                        fixedWeeks
+                        modifiers={{
+                            unavailable: blockedCalendarDays,
+                            available: availableCalendarDays,
+                        }}
+                        modifiersClassNames={{
+                            unavailable: "relative after:pointer-events-none after:absolute after:bottom-1 after:left-1/2 after:z-10 after:h-1 after:w-4 after:-translate-x-1/2 after:rounded-full after:bg-red-500",
+                            available: "relative after:pointer-events-none after:absolute after:bottom-1 after:left-1/2 after:z-10 after:h-1 after:w-4 after:-translate-x-1/2 after:rounded-full after:bg-emerald-500",
+                        }}
                         className="rounded-md border
                             [&_.rdp-day_selected]:!bg-indigo-600
                             [&_.rdp-day_selected]:!text-white
@@ -631,6 +795,16 @@ const BlockTime = ({ price, packageOptions = [] }) => {
                             [&_.rdp-day_disabled]:!text-gray-300
                             [&_.rdp-day_disabled]:cursor-not-allowed"
                     />
+                    <div className="mt-4 flex flex-wrap gap-3 border-t border-gray-100 pt-3 text-xs text-gray-500">
+                        <div className="flex items-center gap-1.5">
+                            <span className="h-1.5 w-4 rounded-full bg-emerald-500" />
+                            <span>Bookable for selected lesson</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <span className="h-1.5 w-4 rounded-full bg-red-500" />
+                            <span>No bookable lesson times</span>
+                        </div>
+                    </div>
                 </div>
 
                 {/* ── Time Slots panel ── */}
@@ -777,6 +951,26 @@ const BlockTime = ({ price, packageOptions = [] }) => {
                         </div>
                     )}
 
+                    {sortedBlockRecords.length > 0 && (
+                        <div className="mt-3 mb-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                <p className="text-xs font-semibold uppercase tracking-wider text-red-700">
+                                    Blocked times
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                    {sortedBlockRecords.map((block) => (
+                                        <span
+                                            key={block.id}
+                                            className="rounded-md border border-red-200 bg-white px-2.5 py-1 text-xs font-medium text-red-700"
+                                        >
+                                            {hhmm(block.start_time)} - {hhmm(block.end_time)}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Legend */}
                     <div className="flex flex-wrap items-center gap-4 mb-4 mt-3 text-xs text-gray-500">
                         <div className="flex items-center gap-1.5">
@@ -806,7 +1000,7 @@ const BlockTime = ({ price, packageOptions = [] }) => {
                     ) : displaySlots.length > 0 ? (
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
                             {displaySlots.map((timeStr, index) => {
-                                const status    = resolveWindowStatus(timeStr, rawSlots, activePrice?.duration);
+                                const status    = resolveWindowStatus(timeStr, rawSlots, blockRecords, activePrice?.duration);
                                 const clickable = status === "available" || status === "blocked";
                                 return (
                                     <div
@@ -844,6 +1038,7 @@ const BlockTime = ({ price, packageOptions = [] }) => {
                     )}
                 </div>
 
+            </div>
             </div>
         </Wrapper>
     );

@@ -1,15 +1,23 @@
 
 import Wrapper from "@/AdminWrapper/Wrapper";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarRange, Clock, X } from "lucide-react";
+import { CalendarRange, Clock, Package, X } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
 
-const TimeManagement = () => {
+const getPackageLabel = (pkg) =>
+    pkg?.duration ? `${pkg.duration} Lesson` : pkg?.description || "Lesson";
+
+const TimeManagement = ({ packageOptions = [] }) => {
     const [selectedDate, setSelectedDate] = useState(new Date());
+    const [calendarMonth, setCalendarMonth] = useState(
+        () => new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+    );
     const [timeSlots, setTimeSlots] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [activePrice, setActivePrice] = useState(() => packageOptions[0] || null);
+    const [availabilitySummaryCache, setAvailabilitySummaryCache] = useState({});
     const [customStartTime, setCustomStartTime] = useState("07:00");
     const [customEndTime, setCustomEndTime] = useState("18:00");
     const [defaultStartTime] = useState("07:00");
@@ -34,6 +42,36 @@ const TimeManagement = () => {
     });
 
     const inputRefs = useRef({});
+
+    const packages = React.useMemo(() => {
+        const map = new Map();
+        packageOptions.forEach((pkg) => {
+            if (pkg?.id) map.set(pkg.id, pkg);
+        });
+        return Array.from(map.values());
+    }, [packageOptions]);
+
+    const groupedPackages = React.useMemo(
+        () =>
+            packages.reduce((groups, pkg) => {
+                const key = pkg.category || "Driving Lessons";
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(pkg);
+                return groups;
+            }, {}),
+        [packages],
+    );
+
+    useEffect(() => {
+        if (!packages.length) {
+            if (activePrice) setActivePrice(null);
+            return;
+        }
+
+        if (!activePrice || !packages.some((pkg) => pkg.id === activePrice.id)) {
+            setActivePrice(packages[0]);
+        }
+    }, [activePrice?.id, packages]);
 
     useEffect(() => {
         fetchTimeSlots();
@@ -66,6 +104,28 @@ const TimeManagement = () => {
         return `${y}-${m}-${d}`;
     };
 
+    const startOfMonth = (date) =>
+        new Date(date.getFullYear(), date.getMonth(), 1);
+
+    const endOfMonth = (date) =>
+        new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+    const addDays = (date, days) => {
+        const next = new Date(date);
+        next.setDate(next.getDate() + days);
+        return next;
+    };
+
+    const getCalendarRangeForMonth = (monthDate) => {
+        const monthStart = startOfMonth(monthDate);
+        const monthEnd = endOfMonth(monthDate);
+
+        return {
+            startDate: formatDateKey(addDays(monthStart, -monthStart.getDay())),
+            endDate: formatDateKey(addDays(monthEnd, 6 - monthEnd.getDay())),
+        };
+    };
+
     const formatTime = (timeString) => {
         if (!timeString) return "";
         const [hours, minutes] = timeString.split(":");
@@ -93,6 +153,52 @@ const TimeManagement = () => {
         today.setHours(0, 0, 0, 0);
         return date < today;
     };
+
+    const calendarRange = React.useMemo(
+        () => getCalendarRangeForMonth(calendarMonth),
+        [calendarMonth],
+    );
+    const calendarRangeKey = `${calendarRange.startDate}:${calendarRange.endDate}:${activePrice?.id || ""}`;
+    const availabilitySummary =
+        availabilitySummaryCache[calendarRangeKey] || {};
+
+    const refreshAvailabilitySummary = async (force = false) => {
+        if (!activePrice?.id) return;
+        if (!force && availabilitySummaryCache[calendarRangeKey]) return;
+
+        try {
+            const response = await axios.get(
+                route("ourtimeslots.availability-summary"),
+                {
+                    params: {
+                        start_date: calendarRange.startDate,
+                        end_date: calendarRange.endDate,
+                        price_id: activePrice.id,
+                    },
+                },
+            );
+
+            if (response.data.success) {
+                setAvailabilitySummaryCache((current) => ({
+                    ...current,
+                    [calendarRangeKey]: response.data.data || {},
+                }));
+            }
+        } catch (error) {
+            console.error("Error fetching availability summary:", error);
+            toast.error("Failed to load calendar availability");
+        }
+    };
+
+    const refreshCalendarAfterScheduleChange = async () => {
+        setAvailabilitySummaryCache({});
+        await refreshAvailabilitySummary(true);
+    };
+
+    useEffect(() => {
+        refreshAvailabilitySummary();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [calendarRangeKey, activePrice?.id]);
 
     const getRangeDayCount = () => {
         if (!rangeForm.startDate || !rangeForm.endDate) return 0;
@@ -167,17 +273,26 @@ const TimeManagement = () => {
         const d = new Date(selectedDate);
         d.setDate(d.getDate() - 1);
         setSelectedDate(d);
+        setCalendarMonth(startOfMonth(d));
     };
 
     const handleNextDay = () => {
         const d = new Date(selectedDate);
         d.setDate(d.getDate() + 1);
         setSelectedDate(d);
+        setCalendarMonth(startOfMonth(d));
     };
 
-    const handleToday = () => setSelectedDate(new Date());
+    const handleToday = () => {
+        const today = new Date();
+        setSelectedDate(today);
+        setCalendarMonth(startOfMonth(today));
+    };
     const handleDateSelect = (date) => {
-        if (date) setSelectedDate(date);
+        if (date) {
+            setSelectedDate(date);
+            setCalendarMonth(startOfMonth(date));
+        }
     };
 
     // ── Reset ──────────────────────────────────────────────────────────────────
@@ -246,6 +361,7 @@ const TimeManagement = () => {
                 setShowRangeModal(false);
                 toast.success(response.data.message || "Date range updated");
                 await fetchTimeSlots();
+                await refreshCalendarAfterScheduleChange();
             }
         } catch (error) {
             console.error("Error updating date range:", error);
@@ -277,6 +393,7 @@ const TimeManagement = () => {
                 setCustomEndTime(defaultEndTime);
                 toast.success("Reset to default schedule");
                 await fetchTimeSlots();
+                await refreshCalendarAfterScheduleChange();
             }
         } catch (error) {
             console.error("Error resetting:", error);
@@ -334,6 +451,7 @@ const TimeManagement = () => {
                 setCustomEndTime(response.data.current_end);
                 calculateStats(updatedSlots);
                 toast.success(response.data.message || "End time updated");
+                await refreshCalendarAfterScheduleChange();
             }
         } catch (error) {
             console.error("Error updating end time:", error);
@@ -458,6 +576,7 @@ const TimeManagement = () => {
                     setCustomStartTime(response.data.current_start);
                 if (response.data.current_end)
                     setCustomEndTime(response.data.current_end);
+                await refreshCalendarAfterScheduleChange();
             } else {
                 throw new Error(
                     response.data.message || "Failed to update slots",
@@ -495,22 +614,6 @@ const TimeManagement = () => {
         );
     };
 
-    // ── Calendar day renderer ──────────────────────────────────────────────────
-
-    const renderDayContent = (date) => {
-        const isPast = isPastDate(date);
-        return (
-            <div className="relative">
-                <span className={isPast ? "text-gray-400" : ""}>
-                    {date.getDate()}
-                </span>
-                {!isPast && (
-                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-500 rounded-full" />
-                )}
-            </div>
-        );
-    };
-
     // ── Render ─────────────────────────────────────────────────────────────────
 
     return (
@@ -544,14 +647,60 @@ const TimeManagement = () => {
                                 date range.
                             </p>
                         </div>
-                        <button
-                            onClick={handleOpenRangeModal}
-                            disabled={loading}
-                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
-                        >
-                            <CalendarRange size={18} />
-                            Set Date Range
-                        </button>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                            {packages.length > 0 && (
+                                <label
+                                    htmlFor="time-management-package-selector"
+                                    className="block text-sm font-medium text-gray-700"
+                                >
+                                    Lesson Type
+                                    <div className="relative mt-1">
+                                        <Package className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                                        <select
+                                            id="time-management-package-selector"
+                                            value={activePrice?.id || ""}
+                                            onChange={(event) => {
+                                                const next = packages.find(
+                                                    (pkg) =>
+                                                        pkg.id ===
+                                                        Number(event.target.value),
+                                                );
+                                                setActivePrice(next || null);
+                                            }}
+                                            className="w-full min-w-52 appearance-none rounded-lg border border-gray-300 bg-white py-2.5 pl-9 pr-8 text-sm text-gray-900 shadow-sm transition focus:border-emerald-500 focus:ring-emerald-500"
+                                        >
+                                            {Object.entries(groupedPackages).map(
+                                                ([category, options]) => (
+                                                    <optgroup
+                                                        key={category}
+                                                        label={category}
+                                                    >
+                                                        {options.map((pkg) => (
+                                                            <option
+                                                                key={pkg.id}
+                                                                value={pkg.id}
+                                                            >
+                                                                {getPackageLabel(
+                                                                    pkg,
+                                                                )}
+                                                            </option>
+                                                        ))}
+                                                    </optgroup>
+                                                ),
+                                            )}
+                                        </select>
+                                    </div>
+                                </label>
+                            )}
+                            <button
+                                onClick={handleOpenRangeModal}
+                                disabled={loading}
+                                className="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
+                            >
+                                <CalendarRange size={18} />
+                                Set Date Range
+                            </button>
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -567,15 +716,41 @@ const TimeManagement = () => {
                             </div>
                             <Calendar
                                 mode="single"
+                                month={calendarMonth}
+                                onMonthChange={(month) =>
+                                    setCalendarMonth(startOfMonth(month))
+                                }
                                 selected={selectedDate}
                                 onSelect={handleDateSelect}
                                 disabled={(date) => isPastDate(date)}
+                                fixedWeeks
+                                modifiers={{
+                                    unavailable: (date) => {
+                                        const day =
+                                            availabilitySummary[
+                                                formatDateKey(date)
+                                            ];
+                                        return (
+                                            !isPastDate(date) &&
+                                            Boolean(day) &&
+                                            day.status !== "available"
+                                        );
+                                    },
+                                    available: (date) =>
+                                        !isPastDate(date) &&
+                                        availabilitySummary[
+                                            formatDateKey(date)
+                                        ]?.status ===
+                                            "available",
+                                }}
+                                modifiersClassNames={{
+                                    unavailable:
+                                        "relative after:pointer-events-none after:absolute after:bottom-1 after:left-1/2 after:z-10 after:h-1 after:w-4 after:-translate-x-1/2 after:rounded-full after:bg-red-500",
+                                    available:
+                                        "relative after:pointer-events-none after:absolute after:bottom-1 after:left-1/2 after:z-10 after:h-1 after:w-4 after:-translate-x-1/2 after:rounded-full after:bg-emerald-500",
+                                }}
                                 captionLayout="dropdown"
                                 className="rounded-md border [&_.rdp-day_selected]:bg-emerald-600 [&_.rdp-day_selected]:text-white [&_.rdp-day_selected:hover]:bg-emerald-700 [&_.rdp-button:hover]:bg-emerald-50 [&_.rdp-day_today]:bg-gray-100"
-                                components={{
-                                    DayContent: ({ date }) =>
-                                        renderDayContent(date),
-                                }}
                                 fromYear={new Date().getFullYear()}
                                 toYear={new Date().getFullYear() + 8}
                                 formatters={{
@@ -587,6 +762,16 @@ const TimeManagement = () => {
                                         d.getFullYear().toString(),
                                 }}
                             />
+                            <div className="mt-4 flex flex-wrap gap-3 border-t border-gray-100 pt-3 text-xs text-gray-500">
+                                <div className="flex items-center gap-1.5">
+                                    <span className="h-1.5 w-4 rounded-full bg-emerald-500" />
+                                    <span>Bookable for selected lesson</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <span className="h-1.5 w-4 rounded-full bg-red-500" />
+                                    <span>No bookable lesson times</span>
+                                </div>
+                            </div>
                         </div>
 
                         {/* ── Slots grid ── */}

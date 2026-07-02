@@ -108,3 +108,33 @@ html {
 }
 
 
+/* Remove focus outline and box shadow for react-select components */
+
+
+.react-select__control,
+.react-select__control--is-focused,
+.react-select__input-container {
+  box-shadow: none !important;
+  outline: none !important;
+  border-color: inherit;
+}
+
+
+*:focus {
+  outline: none !important; /* Remove default outline */
+  box-shadow: none; /* Remove any box shadow */
+}
+
+/* Optional: Customize focus styles for specific elements */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none !important; /* Remove outline */
+  box-shadow: none !important; /* Remove box shadow */
+  border-color: inherit !important; /* Reset border color */
+}
+
+
+
+
+

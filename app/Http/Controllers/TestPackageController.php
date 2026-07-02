@@ -2,13 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\BookingConflictException;
 use App\Mail\ReservationCreated;
 use App\Models\BlockReservation;
 use App\Models\Notification;
 use App\Models\Price;
 use App\Models\UserReservation;
+use App\Services\SlotHoldService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -48,9 +51,8 @@ class TestPackageController extends Controller
             ]);
         }
 
-        // Check for overlapping reservations for THIS SPECIFIC PRICE (non-rejected)
+        // Check for overlapping reservations globally: one instructor/car cannot be booked twice.
         $overlappingReservations = UserReservation::where('reservation_date', $date)
-            ->where('price_id', $priceId)
             ->where('status', '!=', 'Rejected')
             ->where(function ($query) use ($startTime, $endTime) {
                 $query->where(function ($q) use ($startTime, $endTime) {
@@ -61,16 +63,15 @@ class TestPackageController extends Controller
             ->exists();
 
         // Check for blocked slots (block slots are universal for all prices)
-        $blockedSlot = BlockReservation::where('date', $date)
-            ->where(function ($query) use ($startTime, $endTime) {
-                $query->where(function ($q) use ($startTime, $endTime) {
-                    $q->where('start_time', '<', $endTime->format('H:i:s'))
-                        ->where('end_time', '>', $startTime->format('H:i:s'));
-                });
-            })
-            ->exists();
+        $blockedSlot = BlockReservation::overlapsDrivingWindow(
+            $date,
+            $startTime,
+            $endTime
+        );
 
-        if ($overlappingReservations || $blockedSlot) {
+        $heldSlot = (new SlotHoldService())->activeHoldExists($date, $startTime, $endTime);
+
+        if ($overlappingReservations || $blockedSlot || $heldSlot) {
             $alternativeTimes = $this->findAlternativeTestTimes($date, $durationMinutes, $priceId);
 
             $message = $blockedSlot ?
@@ -138,7 +139,6 @@ class TestPackageController extends Controller
     private function isTestTimeAvailable($date, $startTime, $endTime, $priceId)
     {
         $hasReservation = UserReservation::where('reservation_date', $date)
-            ->where('price_id', $priceId)
             ->where('status', '!=', 'Rejected')
             ->where(function ($query) use ($startTime, $endTime) {
                 $query->where(function ($q) use ($startTime, $endTime) {
@@ -148,16 +148,15 @@ class TestPackageController extends Controller
             })
             ->exists();
 
-        $hasBlock = BlockReservation::where('date', $date)
-            ->where(function ($query) use ($startTime, $endTime) {
-                $query->where(function ($q) use ($startTime, $endTime) {
-                    $q->where('start_time', '<', $endTime->format('H:i:s'))
-                        ->where('end_time', '>', $startTime->format('H:i:s'));
-                });
-            })
-            ->exists();
+        $hasBlock = BlockReservation::overlapsDrivingWindow(
+            $date,
+            $startTime,
+            $endTime
+        );
 
-        return ! $hasReservation && ! $hasBlock;
+        $hasHold = (new SlotHoldService())->activeHoldExists($date, $startTime, $endTime);
+
+        return ! $hasReservation && ! $hasBlock && ! $hasHold;
     }
 
     /**
@@ -241,66 +240,79 @@ class TestPackageController extends Controller
         // Calculate start and end times based on test time
         $testTime = Carbon::parse($request->test_time);
         $durationMinutes = $request->duration_minutes;
+        $date = Carbon::parse($request->reservation_date)->format('Y-m-d');
 
         $startTime = $testTime->copy()->subHour();
         $endTime = $testTime->copy()->addMinutes($durationMinutes);
 
-        // Double-check availability for this specific price
-        $availabilityCheck = $this->checkAvailability(new Request([
-            'date' => $request->reservation_date,
-            'test_time' => $request->test_time,
-            'duration_minutes' => $request->duration_minutes,
-            'price_id' => $request->price_id,
-        ]));
+        $slotHoldService = new SlotHoldService();
 
-        $availabilityData = $availabilityCheck->getData();
+        try {
+            $reservation = DB::transaction(function () use (
+                $request,
+                $slotHoldService,
+                $date,
+                $startTime,
+                $endTime,
+                $testType,
+                $durationMinutes
+            ) {
+                $slotHoldService->releaseExpired();
 
-        if (! $availabilityData->available) {
+                if (! $this->isTestTimeAvailable($date, $startTime, $endTime, $request->price_id)) {
+                    throw new BookingConflictException('Time slot no longer available.');
+                }
+
+                $holdToken = $slotHoldService->acquire($date, $startTime, $endTime);
+
+                $reservation = UserReservation::create([
+                    'user_name' => $request->user_name,
+                    'email' => $request->email,
+                    'phone' => $request->phone,
+                    'address' => $request->address,
+                    'pickup_location' => $request->pickup_location,
+                    'dropoff_location' => $request->dropoff_location,
+                    'reservation_date' => $date,
+                    'start_time' => $startTime->format('H:i:s'),
+                    'end_time' => $endTime->format('H:i:s'),
+                    'test_time' => $request->test_time,
+                    'test_location' => $request->test_location,
+                    'price_id' => $request->price_id,
+                    'package_type' => 'Test Package: '.$testType,
+                    'test_type' => $testType,
+                    'status' => 'Pending',
+                    'notes' => json_encode([
+                        'test_type' => $testType,
+                        'actual_test_time' => $request->test_time,
+                        'test_location' => $request->test_location,
+                        'test_duration' => $durationMinutes.' minutes',
+                        'buffer_before_test' => '1 hour',
+                        'calculated_start_time' => $startTime->format('H:i:s'),
+                        'calculated_end_time' => $endTime->format('H:i:s'),
+                        'price_id' => $request->price_id,
+                    ]),
+                    'comment' => $request->comment,
+                ]);
+
+                $slotHoldService->releaseToken($holdToken);
+
+                Notification::create([
+                    'message' => "New test package reservation from {$reservation->user_name} for {$reservation->reservation_date} ".
+                                "({$startTime->format('h:i A')} - {$endTime->format('h:i A')})",
+                    'is_read' => false,
+                    'type' => 'test_package',
+                    'reservation_id' => $reservation->id,
+                ]);
+
+                return $reservation;
+            }, 3);
+        } catch (BookingConflictException $exception) {
             return response()->json([
                 'success' => false,
-                'message' => 'Time slot no longer available',
-                'alternative_times' => $availabilityData->alternative_times ?? [],
-            ], 409);
+                'message' => $exception->getMessage(),
+                'alternative_times' => $this->findAlternativeTestTimes($date, $durationMinutes, $request->price_id),
+            ], $exception->statusCode());
         }
-
-        // Create reservation
-        $reservation = UserReservation::create([
-            'user_name' => $request->user_name,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'address' => $request->address,
-            'pickup_location' => $request->pickup_location,
-            'dropoff_location' => $request->dropoff_location,
-            'reservation_date' => $request->reservation_date,
-            'start_time' => $startTime->format('H:i:s'),
-            'end_time' => $endTime->format('H:i:s'),
-            'test_time' => $request->test_time,
-            'test_location' => $request->test_location,
-            'price_id' => $request->price_id,
-            'package_type' => 'Test Package: '.$testType,
-            'test_type' => $testType,
-            'status' => 'Pending',
-            'notes' => json_encode([
-                'test_type' => $testType,
-                'actual_test_time' => $request->test_time,
-                'test_location' => $request->test_location,
-                'test_duration' => $durationMinutes.' minutes',
-                'buffer_before_test' => '1 hour',
-                'calculated_start_time' => $startTime->format('H:i:s'),
-                'calculated_end_time' => $endTime->format('H:i:s'),
-                'price_id' => $request->price_id,
-            ]),
-            'comment' => $request->comment,
-        ]);
-
-        // Create notification for new reservation - FIXED: Removed duplicate field
-        $notification = Notification::create([
-            'message' => "New test package reservation from {$reservation->user_name} for {$reservation->reservation_date} ".
-                        "({$startTime->format('h:i A')} - {$endTime->format('h:i A')})",
-            'is_read' => false,
-            'type' => 'test_package',
-            'reservation_id' => $reservation->id, // Keep only one field
-        ]);
 
         // Send confirmation emails
         try {
@@ -391,7 +403,6 @@ class TestPackageController extends Controller
         }
 
         $overlappingReservations = UserReservation::where('reservation_date', $date)
-            ->where('price_id', $priceId)
             ->where('status', '!=', 'Rejected')
             ->where(function ($query) use ($startTime, $endTime) {
                 $query->where(function ($q) use ($startTime, $endTime) {
@@ -401,19 +412,18 @@ class TestPackageController extends Controller
             })
             ->exists();
 
-        $blockedSlot = BlockReservation::where('date', $date)
-            ->where(function ($query) use ($startTime, $endTime) {
-                $query->where(function ($q) use ($startTime, $endTime) {
-                    $q->where('start_time', '<', $endTime->format('H:i:s'))
-                        ->where('end_time', '>', $startTime->format('H:i:s'));
-                });
-            })
-            ->exists();
+        $blockedSlot = BlockReservation::overlapsDrivingWindow(
+            $date,
+            $startTime,
+            $endTime
+        );
 
-        if ($overlappingReservations) {
+        $heldSlot = (new SlotHoldService())->activeHoldExists($date, $startTime, $endTime);
+
+        if ($overlappingReservations || $heldSlot) {
             return [
                 'available' => false,
-                'message' => 'Slot booked for this price',
+                'message' => 'Slot booked',
             ];
         }
 

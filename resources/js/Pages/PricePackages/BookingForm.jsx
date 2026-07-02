@@ -1,1236 +1,9 @@
-// import { Calendar, Clock, Package, X } from "lucide-react";
-// import React, { useState, useEffect, useRef } from "react";
-// import axios from "axios";
 
-// const MEETPOINT_AREA = "meetpoint-mandurah-dot";
-
-// // Home address shown in the left "Home Address" field
-// const MEETPOINT_HOME_ADDRESS = "Ranceby Avenue";
-
-// // Suburb/area shown in the right "Location" autocomplete field
-// const MEETPOINT_LOCATION_LABEL = "Mandurah, Western Australia 6210";
-
-// // Full location object used for selectedLocations (source:"fixed" marks it as meetpoint)
-// const MEETPOINT_LOCATION = {
-//     label: MEETPOINT_LOCATION_LABEL,
-//     name: "Mandurah",
-//     street: "Ranceby Avenue",
-//     housenumber: null,
-//     postcode: "6210",
-//     city: "Mandurah",
-//     district: null,
-//     state: "Western Australia",
-//     source: "fixed",
-// };
-
-// const normaliseAddressText = (text = "") => {
-//     const ordinals = {
-//         "1st": "first",
-//         "2nd": "second",
-//         "3rd": "third",
-//         "4th": "fourth",
-//         "5th": "fifth",
-//         "6th": "sixth",
-//         "7th": "seventh",
-//         "8th": "eighth",
-//         "9th": "ninth",
-//         "10th": "tenth",
-//         "11th": "eleventh",
-//         "12th": "twelfth",
-//         "13th": "thirteenth",
-//         "14th": "fourteenth",
-//         "15th": "fifteenth",
-//         "16th": "sixteenth",
-//         "17th": "seventeenth",
-//         "18th": "eighteenth",
-//         "19th": "nineteenth",
-//         "20th": "twentieth",
-//     };
-
-//     return text
-//         .toLowerCase()
-//         .replace(
-//             /\b([0-9]{1,2}(?:st|nd|rd|th))\b/g,
-//             (match) => ordinals[match] || match,
-//         )
-//         .replace(/\bav\b|\bave\b/g, "avenue")
-//         .replace(/\brd\b/g, "road")
-//         .replace(/\bst\b/g, "street")
-//         .replace(/\bdr\b/g, "drive")
-//         .replace(/\bct\b/g, "court")
-//         .replace(/\bpde\b/g, "parade")
-//         .replace(/[^a-z0-9]+/g, " ")
-//         .replace(/\s+/g, " ")
-//         .trim();
-// };
-
-// const locationMatchesTypedAddress = (location, typedAddress) => {
-//     if (!location || !typedAddress?.trim()) return false;
-
-//     const typed = normaliseAddressText(typedAddress);
-//     const streetAnchor = normaliseAddressText(
-//         location.street || location.name || "",
-//     );
-//     const suburbAnchors = [location.city, location.district, location.postcode]
-//         .filter(Boolean)
-//         .map(normaliseAddressText);
-
-//     if (streetAnchor && typed.includes(streetAnchor)) return true;
-//     return suburbAnchors.some((anchor) => anchor && typed.includes(anchor));
-// };
-
-// const LocationAutocomplete = ({
-//     id,
-//     name,
-//     label,
-//     value,
-//     error,
-//     selectedLocation,
-//     placeholder,
-//     onInputChange,
-//     onLocationSelect,
-//     action,
-//     showHomeAddress,
-//     homeAddress,
-//     homeAddressError,
-//     onHomeAddressChange,
-//     locked,
-// }) => {
-//     const [suggestions, setSuggestions] = useState([]);
-//     const [loading, setLoading] = useState(false);
-//     const [searchError, setSearchError] = useState("");
-//     const [isOpen, setIsOpen] = useState(false);
-//     const blurTimeout = useRef(null);
-
-//     useEffect(() => {
-//         // Don't search when locked (meetpoint selected)
-//         if (locked) {
-//             setSuggestions([]);
-//             setSearchError("");
-//             setLoading(false);
-//             return undefined;
-//         }
-
-//         const query = value.trim();
-//         if (
-//             query.length < 3 ||
-//             locationMatchesTypedAddress(selectedLocation, query)
-//         ) {
-//             setSuggestions([]);
-//             setSearchError("");
-//             setLoading(false);
-//             return undefined;
-//         }
-
-//         const controller = new AbortController();
-//         const timeout = setTimeout(async () => {
-//             try {
-//                 setLoading(true);
-//                 setSearchError("");
-//                 const response = await axios.get(route("locations.search"), {
-//                     params: { q: query },
-//                     signal: controller.signal,
-//                 });
-//                 setSuggestions(response.data.suggestions || []);
-//                 setIsOpen(true);
-//             } catch (err) {
-//                 if (err.code !== "ERR_CANCELED") {
-//                     setSuggestions([]);
-//                     setSearchError(
-//                         "Address search is unavailable. Please try again.",
-//                     );
-//                 }
-//             } finally {
-//                 setLoading(false);
-//             }
-//         }, 350);
-
-//         return () => {
-//             clearTimeout(timeout);
-//             controller.abort();
-//         };
-//     }, [value, selectedLocation, locked]);
-
-//     useEffect(
-//         () => () => {
-//             if (blurTimeout.current) clearTimeout(blurTimeout.current);
-//         },
-//         [],
-//     );
-
-//     const handleBlur = () => {
-//         blurTimeout.current = setTimeout(() => setIsOpen(false), 150);
-//     };
-
-//     const shouldShowSuggestions =
-//         !locked &&
-//         isOpen &&
-//         value.trim().length >= 3 &&
-//         !locationMatchesTypedAddress(selectedLocation, value);
-
-//     const lockedInputClass =
-//         "w-full px-4 py-2 border rounded-lg outline-none transition bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed select-none";
-
-//     return (
-//         <div>
-//             {showHomeAddress ? (
-//                 /* ── Two-column layout ── */
-//                 <div className="flex gap-4 items-start">
-//                     {/* Left: Home Address */}
-//                     <div className="flex-1">
-//                         <label
-//                             htmlFor={`${id}_home_address`}
-//                             className="block text-sm font-medium text-gray-700 mb-2"
-//                         >
-//                             Home Address <span className="text-red-500">*</span>
-//                         </label>
-//                         <input
-//                             type="text"
-//                             id={`${id}_home_address`}
-//                             value={homeAddress}
-//                             onChange={(e) =>
-//                                 !locked &&
-//                                 onHomeAddressChange(name, e.target.value)
-//                             }
-//                             required
-//                             readOnly={locked}
-//                             autoComplete="street-address"
-//                             className={
-//                                 locked
-//                                     ? lockedInputClass
-//                                     : `w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
-//                                           homeAddressError
-//                                               ? "border-red-500"
-//                                               : "border-gray-300"
-//                                       }`
-//                             }
-//                             placeholder="e.g. 12 Ocean Drive, Mandurah"
-//                         />
-//                         {!locked && homeAddressError ? (
-//                             <p className="mt-1 text-sm text-red-600">
-//                                 {homeAddressError}
-//                             </p>
-//                         ) : !locked ? (
-//                             <p className="mt-1 text-xs text-gray-500">
-//                                 House/unit number and street name.
-//                             </p>
-//                         ) : (
-//                             <p className="mt-1 text-xs text-gray-400">
-//                                 Set by meetpoint selection.
-//                             </p>
-//                         )}
-//                     </div>
-
-//                     {/* Right: Location Autocomplete */}
-//                     <div className="flex-1">
-//                         <div className="flex justify-between items-center gap-3 mb-2">
-//                             <label
-//                                 htmlFor={id}
-//                                 className="block text-sm font-medium text-gray-700"
-//                             >
-//                                 {label}
-//                             </label>
-//                             {!locked && action}
-//                         </div>
-//                         <div className="relative">
-//                             <input
-//                                 type="text"
-//                                 id={id}
-//                                 name={name}
-//                                 value={value}
-//                                 onChange={(e) =>
-//                                     !locked &&
-//                                     onInputChange(name, e.target.value)
-//                                 }
-//                                 onFocus={() => !locked && setIsOpen(true)}
-//                                 onBlur={handleBlur}
-//                                 required
-//                                 readOnly={locked}
-//                                 autoComplete="off"
-//                                 className={
-//                                     locked
-//                                         ? lockedInputClass
-//                                         : `w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
-//                                               error
-//                                                   ? "border-red-500"
-//                                                   : "border-gray-300"
-//                                           }`
-//                                 }
-//                                 placeholder={placeholder}
-//                             />
-
-//                             {shouldShowSuggestions && (
-//                                 <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
-//                                     {loading && (
-//                                         <div className="px-4 py-3 text-sm text-gray-500">
-//                                             Searching service area...
-//                                         </div>
-//                                     )}
-//                                     {!loading &&
-//                                         suggestions.map((suggestion) => (
-//                                             <button
-//                                                 key={`${suggestion.source}-${suggestion.label}`}
-//                                                 type="button"
-//                                                 onMouseDown={(e) => {
-//                                                     e.preventDefault();
-//                                                     onLocationSelect(
-//                                                         name,
-//                                                         suggestion,
-//                                                     );
-//                                                     setIsOpen(false);
-//                                                 }}
-//                                                 className="block w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-indigo-50 focus:bg-indigo-50 focus:outline-none"
-//                                             >
-//                                                 <span className="block font-medium">
-//                                                     {suggestion.label}
-//                                                 </span>
-//                                                 {suggestion.postcode && (
-//                                                     <span className="block text-xs text-gray-500">
-//                                                         Postcode{" "}
-//                                                         {suggestion.postcode}
-//                                                     </span>
-//                                                 )}
-//                                             </button>
-//                                         ))}
-//                                     {!loading &&
-//                                         suggestions.length === 0 &&
-//                                         !searchError && (
-//                                             <div className="px-4 py-3 text-sm text-gray-500">
-//                                                 No service-area address found.
-//                                             </div>
-//                                         )}
-//                                     {!loading && searchError && (
-//                                         <div className="px-4 py-3 text-sm text-red-600">
-//                                             {searchError}
-//                                         </div>
-//                                     )}
-//                                 </div>
-//                             )}
-//                         </div>
-//                         {!locked && error ? (
-//                             <p className="mt-1 text-sm text-red-600">{error}</p>
-//                         ) : !locked ? (
-//                             <p className="mt-1 text-xs text-gray-500">
-//                                 Choose a service-area suggestion, then add house
-//                                 number, unit.
-//                             </p>
-//                         ) : (
-//                             <p className="mt-1 text-xs text-gray-400">
-//                                 Set by meetpoint selection.
-//                             </p>
-//                         )}
-//                     </div>
-//                     {/* end right column */}
-//                 </div>
-//             ) : (
-//                 /* single-column layout — no home address yet */
-//                 <div>
-//                     <div className="flex justify-between items-center gap-3 mb-2">
-//                         <label
-//                             htmlFor={id}
-//                             className="block text-sm font-medium text-gray-700"
-//                         >
-//                             {label}
-//                         </label>
-//                         {!locked && action}
-//                     </div>
-//                     <div className="relative">
-//                         <input
-//                             type="text"
-//                             id={id}
-//                             name={name}
-//                             value={value}
-//                             onChange={(e) =>
-//                                 !locked && onInputChange(name, e.target.value)
-//                             }
-//                             onFocus={() => !locked && setIsOpen(true)}
-//                             onBlur={handleBlur}
-//                             required
-//                             readOnly={locked}
-//                             autoComplete="off"
-//                             className={
-//                                 locked
-//                                     ? lockedInputClass
-//                                     : `w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
-//                                           error
-//                                               ? "border-red-500"
-//                                               : "border-gray-300"
-//                                       }`
-//                             }
-//                             placeholder={placeholder}
-//                         />
-//                         {shouldShowSuggestions && (
-//                             <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
-//                                 {loading && (
-//                                     <div className="px-4 py-3 text-sm text-gray-500">
-//                                         Searching service area...
-//                                     </div>
-//                                 )}
-//                                 {!loading &&
-//                                     suggestions.map((suggestion) => (
-//                                         <button
-//                                             key={`${suggestion.source}-${suggestion.label}`}
-//                                             type="button"
-//                                             onMouseDown={(e) => {
-//                                                 e.preventDefault();
-//                                                 onLocationSelect(
-//                                                     name,
-//                                                     suggestion,
-//                                                 );
-//                                                 setIsOpen(false);
-//                                             }}
-//                                             className="block w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-indigo-50 focus:bg-indigo-50 focus:outline-none"
-//                                         >
-//                                             <span className="block font-medium">
-//                                                 {suggestion.label}
-//                                             </span>
-//                                             {suggestion.postcode && (
-//                                                 <span className="block text-xs text-gray-500">
-//                                                     Postcode{" "}
-//                                                     {suggestion.postcode}
-//                                                 </span>
-//                                             )}
-//                                         </button>
-//                                     ))}
-//                                 {!loading &&
-//                                     suggestions.length === 0 &&
-//                                     !searchError && (
-//                                         <div className="px-4 py-3 text-sm text-gray-500">
-//                                             No service-area address found.
-//                                         </div>
-//                                     )}
-//                                 {!loading && searchError && (
-//                                     <div className="px-4 py-3 text-sm text-red-600">
-//                                         {searchError}
-//                                     </div>
-//                                 )}
-//                             </div>
-//                         )}
-//                     </div>
-//                     {!locked && error ? (
-//                         <p className="mt-1 text-sm text-red-600">{error}</p>
-//                     ) : !locked ? (
-//                         <p className="mt-1 text-xs text-gray-500">
-//                             Choose a service-area suggestion, then add house
-//                             number, unit.
-//                         </p>
-//                     ) : (
-//                         <p className="mt-1 text-xs text-gray-400">
-//                             Set by meetpoint selection.
-//                         </p>
-//                     )}
-//                 </div>
-//             )}
-//         </div>
-//     );
-// };
-
-// // ─── BookingForm ─────────────────────────────────────────────────────────────
-// const BookingForm = ({
-//     selectedDate,
-//     selectedTime,
-//     testTime,
-//     priceId,
-//     price,
-//     isTestPackage = false,
-//     bookingDetails = null,
-//     onClose,
-//     onBookingSuccess,
-// }) => {
-//     const [bookingForm, setBookingForm] = useState({
-//         user_name: "",
-//         email: "",
-//         phone: "",
-//         address: "",
-//         test_location: isTestPackage ? "Mandurah licensing center" : "",
-//         test_type: "",
-//         pickup_location: "",
-//         dropoff_location: "",
-//         pickup_home_address: "",
-//         dropoff_home_address: "",
-//         comment: "",
-//     });
-
-//     const [loading, setLoading] = useState(false);
-//     const [errors, setErrors] = useState({});
-//     const [acceptTerms, setAcceptTerms] = useState(false);
-//     const [selectedLocations, setSelectedLocations] = useState({
-//         pickup_location: null,
-//         dropoff_location: null,
-//     });
-
-//     // Whether the meetpoint area is currently selected
-//     const isMeetpoint = bookingForm.address === MEETPOINT_AREA;
-
-//     // True only when a valid autocomplete suggestion is confirmed for each field
-//     const pickupConfirmed =
-//         !!selectedLocations.pickup_location &&
-//         locationMatchesTypedAddress(
-//             selectedLocations.pickup_location,
-//             bookingForm.pickup_location,
-//         );
-
-//     const dropoffConfirmed =
-//         !!selectedLocations.dropoff_location &&
-//         locationMatchesTypedAddress(
-//             selectedLocations.dropoff_location,
-//             bookingForm.dropoff_location,
-//         );
-
-//     // For meetpoint, always show the two-column layout (home address + location)
-//     const showPickupHomeAddress = isMeetpoint || pickupConfirmed;
-//     const showDropoffHomeAddress = isMeetpoint || dropoffConfirmed;
-
-//     useEffect(() => {
-//         if (bookingDetails) {
-//             setBookingForm((prev) => ({
-//                 ...prev,
-//                 pickup_location:
-//                     bookingDetails.pickup_location ||
-//                     bookingDetails.test_location ||
-//                     "",
-//                 dropoff_location:
-//                     bookingDetails.dropoff_location ||
-//                     bookingDetails.test_location ||
-//                     "",
-//                 test_location:
-//                     bookingDetails.test_location ||
-//                     (isTestPackage ? "Mandurah licensing center" : "") ||
-//                     "",
-//             }));
-//         } else if (isTestPackage) {
-//             setBookingForm((prev) => ({
-//                 ...prev,
-//                 test_location: "Mandurah licensing center",
-//             }));
-//         }
-//     }, [bookingDetails, isTestPackage]);
-
-//     useEffect(() => {
-//         document.body.style.overflow = "hidden";
-//         document.body.style.position = "fixed";
-//         document.body.style.width = "100%";
-//         return () => {
-//             document.body.style.overflow = "unset";
-//             document.body.style.position = "static";
-//             document.body.style.width = "auto";
-//         };
-//     }, []);
-
-//     const parseDuration = (durationString) => {
-//         if (!durationString) return 60;
-//         const s = durationString.trim().toLowerCase();
-//         const hourMatch = s.match(/(\d+(?:\.\d+)?)\s*(?:hrs|hr|hour|hours)/);
-//         const minuteMatch = s.match(/(\d+)\s*(?:min|mins|minute|minutes)/);
-//         let total = 0;
-//         if (hourMatch) total += parseFloat(hourMatch[1]) * 60;
-//         if (minuteMatch) total += parseInt(minuteMatch[1]);
-//         if (total === 0) {
-//             const n = s.match(/(\d+(?:\.\d+)?)/);
-//             if (n) {
-//                 const v = parseFloat(n[1]);
-//                 total = v < 10 ? Math.round(v * 60) : Math.round(v);
-//             }
-//         }
-//         return total || 60;
-//     };
-
-//     const extractPackageName = (description) => {
-//         if (!description) return "";
-//         return description.includes(":")
-//             ? description.split(":").pop().trim()
-//             : description.trim();
-//     };
-
-//     const handleChange = (e) => {
-//         const { name, value } = e.target;
-
-//         if (name === "address") {
-//             if (value === MEETPOINT_AREA) {
-//                 // Auto-fill with split meetpoint values
-//                 setBookingForm((prev) => ({
-//                     ...prev,
-//                     address: value,
-//                     pickup_location: MEETPOINT_LOCATION_LABEL,
-//                     dropoff_location: MEETPOINT_LOCATION_LABEL,
-//                     pickup_home_address: MEETPOINT_HOME_ADDRESS,
-//                     dropoff_home_address: MEETPOINT_HOME_ADDRESS,
-//                 }));
-//                 setSelectedLocations({
-//                     pickup_location: MEETPOINT_LOCATION,
-//                     dropoff_location: MEETPOINT_LOCATION,
-//                 });
-//             } else {
-//                 // Switching away from meetpoint: clear the auto-filled location fields
-//                 setBookingForm((prev) => {
-//                     const wasMeetpoint =
-//                         prev.pickup_location === MEETPOINT_LOCATION_LABEL ||
-//                         prev.dropoff_location === MEETPOINT_LOCATION_LABEL;
-//                     return {
-//                         ...prev,
-//                         address: value,
-//                         pickup_location: wasMeetpoint
-//                             ? ""
-//                             : prev.pickup_location,
-//                         dropoff_location: wasMeetpoint
-//                             ? ""
-//                             : prev.dropoff_location,
-//                         pickup_home_address: wasMeetpoint
-//                             ? ""
-//                             : prev.pickup_home_address,
-//                         dropoff_home_address: wasMeetpoint
-//                             ? ""
-//                             : prev.dropoff_home_address,
-//                     };
-//                 });
-//                 setSelectedLocations((prev) => {
-//                     const pickupWasMeetpoint =
-//                         prev.pickup_location?.source === "fixed";
-//                     const dropoffWasMeetpoint =
-//                         prev.dropoff_location?.source === "fixed";
-//                     return {
-//                         pickup_location: pickupWasMeetpoint
-//                             ? null
-//                             : prev.pickup_location,
-//                         dropoff_location: dropoffWasMeetpoint
-//                             ? null
-//                             : prev.dropoff_location,
-//                     };
-//                 });
-//             }
-
-//             setErrors((prev) => ({
-//                 ...prev,
-//                 address: "",
-//                 pickup_location: "",
-//                 dropoff_location: "",
-//                 pickup_home_address: "",
-//                 dropoff_home_address: "",
-//             }));
-//             return;
-//         }
-
-//         setBookingForm((prev) => ({ ...prev, [name]: value }));
-//         if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
-//     };
-
-//     const handleLocationInputChange = (name, value) => {
-//         setBookingForm((prev) => ({ ...prev, [name]: value }));
-//         setSelectedLocations((prev) => ({
-//             ...prev,
-//             [name]: locationMatchesTypedAddress(prev[name], value)
-//                 ? prev[name]
-//                 : null,
-//         }));
-//         if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
-//     };
-
-//     const handleLocationSelect = (name, location) => {
-//         setBookingForm((prev) => ({ ...prev, [name]: location.label }));
-//         setSelectedLocations((prev) => ({ ...prev, [name]: location }));
-//         if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
-//     };
-
-//     const handleHomeAddressChange = (locationField, value) => {
-//         const key =
-//             locationField === "pickup_location"
-//                 ? "pickup_home_address"
-//                 : "dropoff_home_address";
-//         setBookingForm((prev) => ({ ...prev, [key]: value }));
-//         if (errors[key]) setErrors((prev) => ({ ...prev, [key]: "" }));
-//     };
-
-//     const validateSelectedLocations = () => {
-//         const errs = {};
-
-//         [
-//             ["pickup_location", "pickup location"],
-//             ["dropoff_location", "dropoff location"],
-//         ].forEach(([field, label]) => {
-//             if (!bookingForm[field]?.trim()) {
-//                 errs[field] = `Please enter a ${label}.`;
-//                 return;
-//             }
-//             if (
-//                 !selectedLocations[field] ||
-//                 !locationMatchesTypedAddress(
-//                     selectedLocations[field],
-//                     bookingForm[field],
-//                 )
-//             ) {
-//                 errs[field] =
-//                     `Please choose a service-area suggestion for the ${label}, then add house/unit details if needed.`;
-//             }
-//         });
-
-//         // For meetpoint, home address fields are pre-filled — skip validation
-//         if (!isMeetpoint) {
-//             if (pickupConfirmed && !bookingForm.pickup_home_address?.trim()) {
-//                 errs.pickup_home_address =
-//                     "Please enter your home address for pickup.";
-//             }
-//             if (dropoffConfirmed && !bookingForm.dropoff_home_address?.trim()) {
-//                 errs.dropoff_home_address =
-//                     "Please enter your home address for dropoff.";
-//             }
-//         }
-
-//         return errs;
-//     };
-
-//     const setDropoffSameAsPickup = () => {
-//         if (
-//             bookingForm.pickup_location &&
-//             locationMatchesTypedAddress(
-//                 selectedLocations.pickup_location,
-//                 bookingForm.pickup_location,
-//             )
-//         ) {
-//             setBookingForm((prev) => ({
-//                 ...prev,
-//                 dropoff_location: prev.pickup_location,
-//                 dropoff_home_address: prev.pickup_home_address,
-//             }));
-//             setSelectedLocations((prev) => ({
-//                 ...prev,
-//                 dropoff_location: prev.pickup_location,
-//             }));
-//             setErrors((prev) => ({
-//                 ...prev,
-//                 dropoff_location: "",
-//                 dropoff_home_address: "",
-//             }));
-//         } else {
-//             alert("Please select a pickup location from the suggestions first");
-//         }
-//     };
-
-//     const handleSubmit = async (e) => {
-//         e.preventDefault();
-//         setLoading(true);
-//         setErrors({});
-
-//         if (!acceptTerms) {
-//             setErrors({
-//                 terms: "Please accept the Terms & Conditions and Privacy Policy",
-//             });
-//             setLoading(false);
-//             return;
-//         }
-
-//         const locationErrors = validateSelectedLocations();
-//         if (Object.keys(locationErrors).length > 0) {
-//             setErrors(locationErrors);
-//             setLoading(false);
-//             return;
-//         }
-
-//         try {
-//             const durationMinutes = parseDuration(price.duration);
-//             const routeName = isTestPackage
-//                 ? "test-packages.store"
-//                 : "ourreservations.store";
-//             const packageName = extractPackageName(price.description);
-
-//             // Combine home address + suburb location into a single saved string
-//             const pickupFull = bookingForm.pickup_home_address
-//                 ? `${bookingForm.pickup_home_address}, ${bookingForm.pickup_location}`
-//                 : bookingForm.pickup_location;
-
-//             const dropoffFull = bookingForm.dropoff_home_address
-//                 ? `${bookingForm.dropoff_home_address}, ${bookingForm.dropoff_location}`
-//                 : bookingForm.dropoff_location;
-
-//             const bookingData = {
-//                 ...bookingForm,
-//                 reservation_date: formatDateKey(selectedDate),
-//                 price_id: priceId,
-//                 duration_minutes: durationMinutes,
-//                 accepted_terms: acceptTerms,
-//             };
-
-//             if (isTestPackage) {
-//                 Object.assign(bookingData, {
-//                     start_time: bookingDetails?.start_time || selectedTime,
-//                     end_time:
-//                         bookingDetails?.end_time ||
-//                         calculateEndTime(selectedTime, price.duration),
-//                     test_time: testTime || selectedTime,
-//                     test_location: bookingForm.test_location,
-//                     pickup_location: pickupFull,
-//                     dropoff_location: dropoffFull,
-//                     test_type: packageName,
-//                 });
-//             } else {
-//                 Object.assign(bookingData, {
-//                     start_time: selectedTime,
-//                     end_time: calculateEndTime(selectedTime, price.duration),
-//                     package_type: packageName,
-//                     package_price: price.price,
-//                     pickup_location: pickupFull,
-//                     dropoff_location: dropoffFull,
-//                 });
-//             }
-
-//             const response = await axios.post(route(routeName), bookingData);
-
-//             if (response.data.success || response.data.message) {
-//                 alert(
-//                     isTestPackage
-//                         ? "Test package booked successfully!"
-//                         : "Booking confirmed successfully!",
-//                 );
-//                 await onBookingSuccess();
-//                 onClose();
-//             } else {
-//                 alert("Error confirming booking: " + response.data.message);
-//             }
-//         } catch (error) {
-//             if (error.response?.data?.message) {
-//                 const msg = error.response.data.message;
-//                 if (msg.includes("already reserved for this service")) {
-//                     alert(
-//                         "This time slot has just been booked by someone else. Please select another time.",
-//                     );
-//                     if (onBookingSuccess) await onBookingSuccess();
-//                 } else {
-//                     alert("Booking error: " + msg);
-//                 }
-//             } else if (error.response?.data?.errors) {
-//                 setErrors(error.response.data.errors);
-//                 alert("Please fix the errors in the form.");
-//             } else if (error.response?.data?.error) {
-//                 alert("Booking error: " + error.response.data.error);
-//             } else {
-//                 alert("Error confirming booking. Please try again.");
-//             }
-//         } finally {
-//             setLoading(false);
-//         }
-//     };
-
-//     const formatDateKey = (date) => {
-//         if (!date) return "";
-//         return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-//     };
-
-//     const formatDisplayDate = (date) => {
-//         if (!date) return "";
-//         return date.toLocaleDateString("en-US", {
-//             weekday: "long",
-//             year: "numeric",
-//             month: "long",
-//             day: "numeric",
-//         });
-//     };
-
-//     const calculateEndTime = (startTime, durationString) => {
-//         const mins = parseDuration(durationString);
-//         const [h, m] = startTime.split(":").map(Number);
-//         const total = h * 60 + m + mins;
-//         return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
-//     };
-
-//     const displayTime = isTestPackage ? testTime || selectedTime : selectedTime;
-//     const displayEndTime = calculateEndTime(displayTime, price.duration);
-//     const displayPackageName = extractPackageName(price.description);
-
-//     return (
-//         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-//             <div className="bg-white rounded-lg  shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-//                 {/* Header */}
-//                 {/* <div className="p-6 rounded-t-lg bg-indigo-600 text-white">
-//                     <div className="flex justify-between items-center">
-//                         <h2 className="text-2xl font-bold">
-//                             {isTestPackage
-//                                 ? "Complete Your Test Booking"
-//                                 : "Complete Your Booking"}
-//                         </h2>
-//                         <button
-//                             type="button"
-//                             onClick={onClose}
-//                             className="text-white hover:opacity-80 transition-colors"
-//                         >
-//                             <X size={24} />
-//                         </button>
-//                     </div>
-//                     <div className="mt-2">
-//                         <p className="opacity-90">
-//                             {formatDisplayDate(selectedDate)}
-//                         </p>
-//                         <p className="opacity-90 mt-1">
-//                             Time: {displayTime} to {displayEndTime}
-//                         </p>
-//                         <p className="opacity-90 mt-1">
-//                             Package: {displayPackageName} - ${price.price}
-//                         </p>
-//                     </div>
-//                 </div> */}
-
-//                 <div className="border-b border-gray-200 px-6 py-5">
-//     <div className="flex items-start justify-between gap-3">
-//         <div>
-//             {isTestPackage && (
-//                 <p className="text-xs uppercase tracking-widest text-gray-400 font-medium mb-1">
-//                     Test Package
-//                 </p>
-//             )}
-//             <h2 className="text-lg font-medium text-gray-900">
-//                 Complete your booking
-//             </h2>
-//         </div>
-//         <button
-//             type="button"
-//             onClick={onClose}
-//             className="mt-0.5 flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
-//         >
-//             <X size={16} />
-//         </button>
-//     </div>
-
-//     <div className="flex flex-wrap gap-2 mt-4">
-//         <span className="inline-flex items-center gap-1.5 text-sm px-3 py-1 rounded-full border border-gray-200 text-gray-500 bg-gray-50">
-//             <Calendar size={14} />
-//             {formatDisplayDate(selectedDate)}
-//         </span>
-//         <span className="inline-flex items-center gap-1.5 text-sm px-3 py-1 rounded-full border border-gray-200 text-gray-500 bg-gray-50">
-//             <Clock size={14} />
-//             {displayTime} – {displayEndTime}
-//         </span>
-//     </div>
-// </div>
-
-// <div className="flex items-center justify-between px-6 py-4 bg-gray-50">
-//     <div className="flex items-center gap-2.5">
-//         <div className="w-9 h-9 rounded-md bg-blue-100 flex items-center justify-center">
-//             <Package size={18} className="text-blue-600" />
-//         </div>
-//         <div>
-//             <p className="text-xs text-gray-400">Package</p>
-//             <p className="text-sm font-medium text-gray-900">{displayPackageName}</p>
-//         </div>
-//     </div>
-//     <p className="text-lg font-medium text-gray-900">${price.price}</p>
-// </div>
-
-//                 {/* Form */}
-//                 <form onSubmit={handleSubmit} className="p-6 space-y-6">
-//                     {/* Full Name */}
-//                     <div>
-//                         <label
-//                             htmlFor="user_name"
-//                             className="block text-sm font-medium text-gray-700 mb-2"
-//                         >
-//                             Full Name <span className="text-red-500">*</span>
-//                         </label>
-//                         <input
-//                             type="text"
-//                             id="user_name"
-//                             name="user_name"
-//                             value={bookingForm.user_name}
-//                             onChange={handleChange}
-//                             required
-//                             className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${errors.user_name ? "border-red-500" : "border-gray-300"}`}
-//                             placeholder="John Doe"
-//                         />
-//                         {errors.user_name && (
-//                             <p className="mt-1 text-sm text-red-600">
-//                                 {errors.user_name}
-//                             </p>
-//                         )}
-//                     </div>
-
-//                     {/* Email */}
-//                     <div>
-//                         <label
-//                             htmlFor="email"
-//                             className="block text-sm font-medium text-gray-700 mb-2"
-//                         >
-//                             Email Address{" "}
-//                             <span className="text-red-500">*</span>
-//                         </label>
-//                         <input
-//                             type="email"
-//                             id="email"
-//                             name="email"
-//                             value={bookingForm.email}
-//                             onChange={handleChange}
-//                             required
-//                             className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${errors.email ? "border-red-500" : "border-gray-300"}`}
-//                             placeholder="john@example.com"
-//                         />
-//                         {errors.email && (
-//                             <p className="mt-1 text-sm text-red-600">
-//                                 {errors.email}
-//                             </p>
-//                         )}
-//                     </div>
-
-//                     {/* Phone */}
-//                     <div>
-//                         <label
-//                             htmlFor="phone"
-//                             className="block text-sm font-medium text-gray-700 mb-2"
-//                         >
-//                             Phone Number <span className="text-red-500">*</span>
-//                         </label>
-//                         <input
-//                             type="tel"
-//                             id="phone"
-//                             name="phone"
-//                             value={bookingForm.phone}
-//                             onChange={handleChange}
-//                             required
-//                             className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${errors.phone ? "border-red-500" : "border-gray-300"}`}
-//                             placeholder="+1 (555) 000-0000"
-//                         />
-//                         {errors.phone && (
-//                             <p className="mt-1 text-sm text-red-600">
-//                                 {errors.phone}
-//                             </p>
-//                         )}
-//                     </div>
-
-//                     {/* Area */}
-//                     <div>
-//                         <label
-//                             htmlFor="address"
-//                             className="block text-sm font-medium text-gray-700 mb-2"
-//                         >
-//                             Area <span className="text-red-500">*</span>
-//                         </label>
-//                         <select
-//                             id="address"
-//                             name="address"
-//                             value={bookingForm.address}
-//                             onChange={handleChange}
-//                             required
-//                             className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition bg-white ${errors.address ? "border-red-500" : "border-gray-300"}`}
-//                         >
-//                             <option value="">Select your Area</option>
-//                             <option value="mandurah">Mandurah</option>
-//                             <option value="meadow-springs">
-//                                 Meadow Springs
-//                             </option>
-//                             <option value="silver-sands">Silver Sands</option>
-//                             <option value="lakelands">Lakelands</option>
-//                             <option value="dudley-park">Dudley Park</option>
-//                             <option value="halls-head">Halls Head</option>
-//                             <option value="madora-bay">Madora Bay</option>
-//                             <option value="greenfields">Greenfields</option>
-//                             <option value="erskine">Erskine</option>
-//                             <option value="singleton">Singleton</option>
-//                             <option value="parklands">Parklands</option>
-//                             <option value="stake-hill">Stake Hill</option>
-//                             <option value="san-remo">San Remo</option>
-//                             <option value="meetpoint-mandurah-dot">
-//                                 Meetpoint Mandurah Dot
-//                             </option>
-//                         </select>
-//                         {errors.address && (
-//                             <p className="mt-1 text-sm text-red-600">
-//                                 {errors.address}
-//                             </p>
-//                         )}
-//                         <p className="mt-1 text-sm text-gray-500">
-//                             Currently serving only these areas with postcode
-//                             6210, 6180, or 6175.{" "}
-//                             <span className="block">
-//                                 If your address is not available, please select
-//                                 "Meetpoint Mandurah Dot" where you will be
-//                                 meeting the instructor.
-//                             </span>
-//                         </p>
-//                     </div>
-
-//                     {/* Test Location */}
-//                     {isTestPackage && (
-//                         <div>
-//                             <label
-//                                 htmlFor="test_location"
-//                                 className="block text-sm font-medium text-gray-700 mb-2"
-//                             >
-//                                 Test Location{" "}
-//                                 <span className="text-red-500">*</span>
-//                             </label>
-//                             <input
-//                                 type="text"
-//                                 id="test_location"
-//                                 name="test_location"
-//                                 value={bookingForm.test_location}
-//                                 onChange={handleChange}
-//                                 required={isTestPackage}
-//                                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${errors.test_location ? "border-red-500" : "border-gray-300"}`}
-//                                 placeholder="Enter test location"
-//                             />
-//                             {errors.test_location && (
-//                                 <p className="mt-1 text-sm text-red-600">
-//                                     {errors.test_location}
-//                                 </p>
-//                             )}
-//                         </div>
-//                     )}
-
-//                     {/* Pickup: Home Address (left) + Autocomplete (right) */}
-//                     <LocationAutocomplete
-//                         id="pickup_location"
-//                         name="pickup_location"
-//                         label={
-//                             <>
-//                                 Pickup Location{" "}
-//                                 <span className="text-red-500">*</span>
-//                             </>
-//                         }
-//                         value={bookingForm.pickup_location}
-//                         selectedLocation={selectedLocations.pickup_location}
-//                         error={errors.pickup_location}
-//                         placeholder="Start typing pickup address"
-//                         onInputChange={handleLocationInputChange}
-//                         onLocationSelect={handleLocationSelect}
-//                         showHomeAddress={showPickupHomeAddress}
-//                         homeAddress={bookingForm.pickup_home_address}
-//                         homeAddressError={errors.pickup_home_address}
-//                         onHomeAddressChange={handleHomeAddressChange}
-//                         locked={isMeetpoint}
-//                     />
-
-//                     {/* Dropoff: Home Address (left) + Autocomplete (right) */}
-//                     <LocationAutocomplete
-//                         id="dropoff_location"
-//                         name="dropoff_location"
-//                         label={
-//                             <>
-//                                 Dropoff Location{" "}
-//                                 <span className="text-red-500">*</span>
-//                             </>
-//                         }
-//                         value={bookingForm.dropoff_location}
-//                         selectedLocation={selectedLocations.dropoff_location}
-//                         error={errors.dropoff_location}
-//                         placeholder="Start typing dropoff address"
-//                         onInputChange={handleLocationInputChange}
-//                         onLocationSelect={handleLocationSelect}
-//                         showHomeAddress={showDropoffHomeAddress}
-//                         homeAddress={bookingForm.dropoff_home_address}
-//                         homeAddressError={errors.dropoff_home_address}
-//                         onHomeAddressChange={handleHomeAddressChange}
-//                         locked={isMeetpoint}
-//                         action={
-//                             <button
-//                                 type="button"
-//                                 onClick={setDropoffSameAsPickup}
-//                                 className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors whitespace-nowrap"
-//                             >
-//                                 Same as Pickup Location
-//                             </button>
-//                         }
-//                     />
-
-//                     {/* Comment */}
-//                     <div>
-//                         <label
-//                             htmlFor="comment"
-//                             className="block text-sm font-medium text-gray-700 mb-2"
-//                         >
-//                             Comment
-//                         </label>
-//                         <textarea
-//                             id="comment"
-//                             name="comment"
-//                             value={bookingForm.comment}
-//                             onChange={handleChange}
-//                             rows={3}
-//                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition resize-none"
-//                             placeholder="Any special requests, notes for your instructor, etc."
-//                         />
-//                     </div>
-
-//                     {/* Terms */}
-//                     <div className="border-t border-gray-200 pt-4">
-//                         <div className="flex items-start gap-3">
-//                             <input
-//                                 type="checkbox"
-//                                 id="acceptTerms"
-//                                 checked={acceptTerms}
-//                                 onChange={(e) => {
-//                                     setAcceptTerms(e.target.checked);
-//                                     if (errors.terms)
-//                                         setErrors((prev) => ({
-//                                             ...prev,
-//                                             terms: "",
-//                                         }));
-//                                 }}
-//                                 className="mt-1 h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-//                                 required
-//                             />
-//                             <label
-//                                 htmlFor="acceptTerms"
-//                                 className="text-sm text-gray-700"
-//                             >
-//                                 I agree to the{" "}
-//                                 <a
-//                                     href="https://wheelmasterdriving.com.au/terms"
-//                                     target="_blank"
-//                                     rel="noopener noreferrer"
-//                                     className="text-indigo-600 hover:text-indigo-800 underline font-medium"
-//                                 >
-//                                     Terms & Conditions
-//                                 </a>{" "}
-//                                 and{" "}
-//                                 <a
-//                                     href="https://wheelmasterdriving.com.au/policy"
-//                                     target="_blank"
-//                                     rel="noopener noreferrer"
-//                                     className="text-indigo-600 hover:text-indigo-800 underline font-medium"
-//                                 >
-//                                     Privacy Policy
-//                                 </a>{" "}
-//                               <span className="text-red-500">*</span>
-//                             </label>
-//                         </div>
-//                         {errors.terms && (
-//                             <p className="mt-1 text-sm text-red-600">
-//                                 {errors.terms}
-//                             </p>
-//                         )}
-//                     </div>
-
-//                     {/* Buttons */}
-//                     <div className="flex gap-4 pt-4">
-//                         <button
-//                             type="button"
-//                             onClick={onClose}
-//                             disabled={loading}
-//                             className="flex-1 py-3 px-6 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors duration-200 disabled:opacity-50"
-//                         >
-//                             Cancel
-//                         </button>
-//                         <button
-//                             type="submit"
-//                             disabled={loading || !acceptTerms}
-//                             className="flex-1 bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-//                         >
-//                             {loading ? (
-//                                 <div className="flex items-center justify-center">
-//                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-//                                     Processing...
-//                                 </div>
-//                             ) : (
-//                                 "Confirm Booking"
-//                             )}
-//                         </button>
-//                     </div>
-//                 </form>
-//             </div>
-//         </div>
-//     );
-// };
-
-// export default BookingForm;
 
 import { Calendar, Clock, Package, X } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
+import toast from "react-hot-toast";
 
 const MEETPOINT_AREA = "meetpoint-mandurah-dot";
 
@@ -1497,9 +270,12 @@ const BookingForm = ({
     price,
     isTestPackage = false,
     bookingDetails = null,
+    cartItems = [],
     onClose,
     onBookingSuccess,
+    onCartItemsUnavailable,
 }) => {
+    const isCartCheckout = cartItems.length > 0;
     const [bookingForm, setBookingForm] = useState({
         user_name: "",
         email: "",
@@ -1707,7 +483,7 @@ const BookingForm = ({
                 dropoff_location: "",
             }));
         } else {
-            alert("Please select a pickup location from the suggestions first");
+            toast.error("Please select a pickup location from the suggestions first");
         }
     };
 
@@ -1732,22 +508,29 @@ const BookingForm = ({
         }
 
         try {
-            const durationMinutes = parseDuration(price.duration);
-            const routeName = isTestPackage
-                ? "test-packages.store"
-                : "ourreservations.store";
-            const packageName = extractPackageName(price.description);
-
             const bookingData = {
                 ...bookingForm,
-                reservation_date: formatDateKey(selectedDate),
-                price_id: priceId,
-                duration_minutes: durationMinutes,
                 accepted_terms: acceptTerms,
             };
+            let routeName = "ourreservations.store";
 
-            if (isTestPackage) {
+            if (isCartCheckout) {
+                routeName = "ourreservations.cart";
                 Object.assign(bookingData, {
+                    items: cartItems.map((item) => ({
+                        price_id: item.price_id,
+                        reservation_date: item.reservation_date,
+                        start_time: item.start_time,
+                    })),
+                });
+            } else if (isTestPackage) {
+                const durationMinutes = parseDuration(price.duration);
+                const packageName = extractPackageName(price.description);
+                routeName = "test-packages.store";
+                Object.assign(bookingData, {
+                    reservation_date: formatDateKey(selectedDate),
+                    price_id: priceId,
+                    duration_minutes: durationMinutes,
                     start_time: bookingDetails?.start_time || selectedTime,
                     end_time:
                         bookingDetails?.end_time ||
@@ -1757,7 +540,12 @@ const BookingForm = ({
                     test_type: packageName,
                 });
             } else {
+                const durationMinutes = parseDuration(price.duration);
+                const packageName = extractPackageName(price.description);
                 Object.assign(bookingData, {
+                    reservation_date: formatDateKey(selectedDate),
+                    price_id: priceId,
+                    duration_minutes: durationMinutes,
                     start_time: selectedTime,
                     end_time: calculateEndTime(selectedTime, price.duration),
                     package_type: packageName,
@@ -1768,34 +556,49 @@ const BookingForm = ({
             const response = await axios.post(route(routeName), bookingData);
 
             if (response.data.success || response.data.message) {
-                alert(
-                    isTestPackage
+                toast.success(
+                    isCartCheckout
+                        ? `${response.data.data?.length || cartItems.length} lessons booked successfully!`
+                        : isTestPackage
                         ? "Test package booked successfully!"
                         : "Booking confirmed successfully!",
                 );
-                await onBookingSuccess();
+                await onBookingSuccess(response.data);
                 onClose();
             } else {
-                alert("Error confirming booking: " + response.data.message);
+                toast.error("Error confirming booking: " + response.data.message);
             }
         } catch (error) {
+            const cartItemErrors = error.response?.data?.errors?.items;
+            if (isCartCheckout && cartItemErrors) {
+                const unavailableIndexes = Object.keys(cartItemErrors).map(
+                    (index) => Number(index),
+                );
+                onCartItemsUnavailable?.(unavailableIndexes);
+                setErrors({ items: cartItemErrors });
+                toast.error(
+                    "Some lessons in your cart are no longer available. They have been removed from your cart.",
+                );
+                return;
+            }
+
             if (error.response?.data?.message) {
                 const msg = error.response.data.message;
                 if (msg.includes("already reserved for this service")) {
-                    alert(
+                    toast.error(
                         "This time slot has just been booked by someone else. Please select another time.",
                     );
                     if (onBookingSuccess) await onBookingSuccess();
                 } else {
-                    alert("Booking error: " + msg);
+                    toast.error("Booking error: " + msg);
                 }
             } else if (error.response?.data?.errors) {
                 setErrors(error.response.data.errors);
-                alert("Please fix the errors in the form.");
+                toast.error("Please fix the errors in the form.");
             } else if (error.response?.data?.error) {
-                alert("Booking error: " + error.response.data.error);
+                toast.error("Booking error: " + error.response.data.error);
             } else {
-                alert("Error confirming booking. Please try again.");
+                toast.error("Error confirming booking. Please try again.");
             }
         } finally {
             setLoading(false);
@@ -1825,8 +628,15 @@ const BookingForm = ({
     };
 
     const displayTime = isTestPackage ? testTime || selectedTime : selectedTime;
-    const displayEndTime = calculateEndTime(displayTime, price.duration);
-    const displayPackageName = extractPackageName(price.description);
+    const displayEndTime =
+        !isCartCheckout && displayTime
+            ? calculateEndTime(displayTime, price.duration)
+            : "";
+    const displayPackageName = price ? extractPackageName(price.description) : "";
+    const cartSubtotal = cartItems.reduce(
+        (sum, item) => sum + Number(item.price?.price || item.price_amount || 0),
+        0,
+    );
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -1835,13 +645,15 @@ const BookingForm = ({
                 <div className="border-b border-gray-200 px-6 py-5">
                     <div className="flex items-start justify-between gap-3">
                         <div>
-                            {isTestPackage && (
+                            {(isTestPackage || isCartCheckout) && (
                                 <p className="text-xs uppercase tracking-widest text-gray-400 font-medium mb-1">
-                                    Test Package
+                                    {isCartCheckout ? "Cart Checkout" : "Test Package"}
                                 </p>
                             )}
                             <h2 className="text-lg font-medium text-gray-900">
-                                Complete your booking
+                                {isCartCheckout
+                                    ? "Complete your cart booking"
+                                    : "Complete your booking"}
                             </h2>
                         </div>
                         <button
@@ -1853,6 +665,7 @@ const BookingForm = ({
                         </button>
                     </div>
 
+                    {!isCartCheckout && (
                     <div className="flex flex-wrap gap-2 mt-4">
                         <span className="inline-flex items-center gap-1.5 text-sm px-3 py-1 rounded-full border border-gray-200 text-gray-500 bg-gray-50">
                             <Calendar size={14} />
@@ -1863,8 +676,44 @@ const BookingForm = ({
                             {displayTime} – {displayEndTime}
                         </span>
                     </div>
+                    )}
                 </div>
 
+                {isCartCheckout ? (
+                    <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-9 h-9 rounded-md bg-blue-100 flex items-center justify-center">
+                                    <Package size={18} className="text-blue-600" />
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-400">Cart</p>
+                                    <p className="text-sm font-medium text-gray-900">
+                                        {cartItems.length} lessons
+                                    </p>
+                                </div>
+                            </div>
+                            <p className="text-lg font-medium text-gray-900">
+                                ${cartSubtotal.toFixed(2)}
+                            </p>
+                        </div>
+                        <div className="space-y-2">
+                            {cartItems.map((item) => (
+                                <div
+                                    key={item.key}
+                                    className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
+                                >
+                                    <div className="font-medium text-gray-900">
+                                        {item.price?.description || "Driving lesson"}
+                                    </div>
+                                    <div className="text-gray-500">
+                                        {item.reservation_date} at {item.start_time}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
                 <div className="flex items-center justify-between px-6 py-4 bg-gray-50">
                     <div className="flex items-center gap-2.5">
                         <div className="w-9 h-9 rounded-md bg-blue-100 flex items-center justify-center">
@@ -1881,6 +730,7 @@ const BookingForm = ({
                         ${price.price}
                     </p>
                 </div>
+                )}
 
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="p-6 space-y-6">
@@ -1904,7 +754,7 @@ const BookingForm = ({
                                     ? "border-red-500"
                                     : "border-gray-300"
                             }`}
-                            placeholder="John Doe"
+                            placeholder="WheelMaster Driving"
                         />
                         {errors.user_name && (
                             <p className="mt-1 text-sm text-red-600">
@@ -1934,7 +784,7 @@ const BookingForm = ({
                                     ? "border-red-500"
                                     : "border-gray-300"
                             }`}
-                            placeholder="john@example.com"
+                            placeholder="wheelmasterdriving@outlook.com.au"
                         />
                         {errors.email && (
                             <p className="mt-1 text-sm text-red-600">
@@ -1963,7 +813,7 @@ const BookingForm = ({
                                     ? "border-red-500"
                                     : "border-gray-300"
                             }`}
-                            placeholder="+1 (555) 000-0000"
+                            placeholder="0481 488 216"
                         />
                         {errors.phone && (
                             <p className="mt-1 text-sm text-red-600">
@@ -2196,6 +1046,8 @@ const BookingForm = ({
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                                     Processing...
                                 </div>
+                            ) : isCartCheckout ? (
+                                "Book Cart"
                             ) : (
                                 "Confirm Booking"
                             )}
