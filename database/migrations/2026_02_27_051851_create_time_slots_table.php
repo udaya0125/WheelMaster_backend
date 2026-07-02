@@ -9,17 +9,17 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-    // public function up(): void
-    // {
-    //     Schema::create('time_slots', function (Blueprint $table) {
-    //         $table->id();
-    //         $table->date('date');
-    //         $table->string('start_time');
-    //         $table->string('end_time');
-    //         $table->string('status')->default('available'); 
-    //         $table->timestamps();
-    //     });
-    // }
+    public function up(): void
+    {
+        Schema::create('time_slots', function (Blueprint $table) {
+            $table->id();
+            $table->date('date');
+            $table->string('start_time');
+            $table->string('end_time');
+            $table->string('status')->default('available'); 
+            $table->timestamps();
+        });
+    }
 
     /**
      * Reverse the migrations.
