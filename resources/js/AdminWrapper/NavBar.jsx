@@ -16,6 +16,7 @@ const NavBar = ({ onMenuToggle }) => {
     const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [isScrolled, setIsScrolled] = useState(false);
     const userMenuRef = useRef(null);
     const notificationMenuRef = useRef(null);
     const { auth } = usePage().props;
@@ -68,6 +69,16 @@ const NavBar = ({ onMenuToggle }) => {
         fetchNotifications();
         const interval = setInterval(fetchNotifications, 30000);
         return () => clearInterval(interval);
+    }, []);
+
+    useEffect(() => {
+        const handleScroll = () => {
+            setIsScrolled(window.scrollY > 0);
+        };
+
+        handleScroll();
+        window.addEventListener("scroll", handleScroll, { passive: true });
+        return () => window.removeEventListener("scroll", handleScroll);
     }, []);
 
     const toggleUserMenu = () => {
@@ -175,7 +186,13 @@ const NavBar = ({ onMenuToggle }) => {
     }, []);
 
     return (
-        <nav className="fixed top-0 right-0 left-0 lg:left-auto lg:w-[98%] h-16 bg-white border-b border-gray-200 z-30">
+        <nav
+            className={`fixed top-0 right-0 left-0 lg:left-auto lg:w-[98%] h-16 z-30 transition-all duration-300 ${
+                isScrolled
+                    ? "bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-200/60"
+                    : "bg-transparent"
+            }`}
+        >
             <div className="h-full px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-full">
                     {/* Left: Menu toggle (mobile) + Brand (optional) */}

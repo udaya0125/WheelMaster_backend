@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Mail\ReservationCreated;
 use App\Mail\ReservationStatusUpdated;
+use App\Mail\ReservationTimeUpdated;
 use App\Models\BlockReservation;
 use App\Models\UserReservation;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -91,41 +93,62 @@ class UserReservationController extends Controller
 
     private function hasBlockOverlap($date, Carbon $start, Carbon $bufferEnd)
     {
-        return BlockReservation::where('date', $date)
-            ->get()
-            ->contains(function ($block) use ($start, $bufferEnd) {
-                $blockStart = Carbon::parse($block->start_time);
-                $blockEnd = Carbon::parse($block->end_time);
-
-                return $blockStart < $bufferEnd && $blockEnd > $start;
-            });
+        return BlockReservation::overlapsDrivingWindow($date, $start, $bufferEnd);
     }
 
-    private function hasReservationOverlap($date, $priceId, Carbon $start, Carbon $bufferEnd, $excludeId = null)
+    private function findReservationConflict(
+        $date,
+        Carbon $start,
+        Carbon $end,
+        ?UserReservation $exclude = null
+    ): ?array
     {
         $query = UserReservation::where('reservation_date', $date)
             ->where('status', '!=', 'Rejected');
 
-        if ($excludeId) {
-            $query->where('id', '!=', $excludeId);
+        // An update is allowed to overlap the reservation's old time window.
+        // Only other reservations can make the requested window unavailable.
+        if ($exclude) {
+            $query->whereKeyNot($exclude->getKey());
         }
 
-        return $query->get()->contains(function ($reservation) use ($start, $bufferEnd) {
+        $requestBufferEnd = $this->bookingBufferEnd($end);
+
+        foreach ($query->get() as $reservation) {
             $reservationStart = Carbon::parse($reservation->start_time);
+            $reservationEnd = Carbon::parse($reservation->end_time);
             $reservationBufferEnd = $this->bookingBufferEnd($reservation->end_time);
 
-            return $reservationStart < $bufferEnd && $reservationBufferEnd > $start;
-        });
+            $directOverlap = $reservationStart < $end && $reservationEnd > $start;
+            $bufferOverlap = $reservationStart < $requestBufferEnd && $reservationBufferEnd > $start;
+
+            if ($directOverlap || $bufferOverlap) {
+                return [
+                    'reservation' => $reservation,
+                    'type' => $directOverlap ? 'direct_overlap' : 'buffer_violation',
+                    'requested_buffered_end' => $requestBufferEnd,
+                    'reservation_buffered_end' => $reservationBufferEnd,
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    private function hasReservationOverlap($date, Carbon $start, Carbon $end, ?UserReservation $exclude = null): bool
+    {
+        return $this->findReservationConflict($date, $start, $end, $exclude) !== null;
     }
 
     // ---------------------------------------
     // Helper: Check if a single session is available
     // ---------------------------------------
-    private function isSessionAvailable($date, $startTime, $endTime, $priceId, $excludeId = null)
+    private function isSessionAvailable($date, $startTime, $endTime, $priceId)
     {
         $dateFormatted = Carbon::parse($date)->format('Y-m-d');
         $requestStart = Carbon::parse($startTime);
-        $requestBufferEnd = $this->bookingBufferEnd($endTime);
+        $requestEnd = Carbon::parse($endTime);
+        $requestBufferEnd = $this->bookingBufferEnd($requestEnd);
 
         // Check blocked slots
         $blocked = $this->hasBlockOverlap($dateFormatted, $requestStart, $requestBufferEnd);
@@ -135,7 +158,7 @@ class UserReservationController extends Controller
         }
 
         // Check existing reservations
-        return ! $this->hasReservationOverlap($dateFormatted, $priceId, $requestStart, $requestBufferEnd, $excludeId);
+        return ! $this->hasReservationOverlap($dateFormatted, $requestStart, $requestEnd);
     }
 
     // ---------------------------------------
@@ -144,11 +167,96 @@ class UserReservationController extends Controller
     public function index()
     {
         $reservations = UserReservation::with('price')->get();
+        $paymentSummaries = $this->paymentSummariesForReservations($reservations->pluck('id')->all());
+        $data = $reservations->map(function (UserReservation $reservation) use ($paymentSummaries) {
+            $reservationData = $reservation->toArray();
+            $reservationData['payment_summary'] = $paymentSummaries[$reservation->id] ?? null;
+
+            return $reservationData;
+        })->values();
 
         return response()->json([
             'success' => true,
-            'data' => $reservations,
+            'data' => $data,
         ], 200);
+    }
+
+    private function paymentSummariesForReservations(array $reservationIds): array
+    {
+        if (empty($reservationIds)) {
+            return [];
+        }
+
+        $paymentLinks = DB::table('payment_reservations')
+            ->whereIn('user_reservation_id', $reservationIds)
+            ->get(['payment_intent_id', 'user_reservation_id']);
+
+        if ($paymentLinks->isEmpty()) {
+            return [];
+        }
+
+        $intentIds = $paymentLinks->pluck('payment_intent_id')->unique()->values();
+        $paymentIntents = DB::table('payment_intents')
+            ->whereIn('id', $intentIds)
+            ->get([
+                'id',
+                'status',
+                'amount_cents',
+                'currency',
+                'merchant_reference',
+                'westpac_checkout_id',
+                'paid_at',
+                'failed_at',
+            ])
+            ->keyBy('id');
+
+        $linkedReservationCounts = DB::table('payment_reservations')
+            ->whereIn('payment_intent_id', $intentIds)
+            ->select('payment_intent_id', DB::raw('count(*) as linked_reservation_count'))
+            ->groupBy('payment_intent_id')
+            ->pluck('linked_reservation_count', 'payment_intent_id');
+
+        $latestWebhookEvents = DB::table('payment_webhook_events')
+            ->whereIn('payment_intent_id', $intentIds)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get([
+                'payment_intent_id',
+                'event_type',
+                'status',
+                'processed_at',
+            ])
+            ->unique('payment_intent_id')
+            ->keyBy('payment_intent_id');
+
+        return $paymentLinks->mapWithKeys(function ($paymentLink) use ($paymentIntents, $linkedReservationCounts, $latestWebhookEvents) {
+            $paymentIntent = $paymentIntents->get($paymentLink->payment_intent_id);
+
+            if (! $paymentIntent) {
+                return [$paymentLink->user_reservation_id => null];
+            }
+
+            $latestWebhookEvent = $latestWebhookEvents->get($paymentIntent->id);
+
+            return [
+                $paymentLink->user_reservation_id => [
+                    'source' => 'OnlinePay',
+                    'status' => $paymentIntent->status,
+                    'amount_cents' => $paymentIntent->amount_cents,
+                    'currency' => $paymentIntent->currency,
+                    'merchant_reference' => $paymentIntent->merchant_reference,
+                    'westpac_checkout_id' => $paymentIntent->westpac_checkout_id,
+                    'paid_at' => $paymentIntent->paid_at,
+                    'failed_at' => $paymentIntent->failed_at,
+                    'linked_reservation_count' => (int) ($linkedReservationCounts[$paymentIntent->id] ?? 1),
+                    'latest_webhook_event' => $latestWebhookEvent ? [
+                        'event_type' => $latestWebhookEvent->event_type,
+                        'status' => $latestWebhookEvent->status,
+                        'processed_at' => $latestWebhookEvent->processed_at,
+                    ] : null,
+                ],
+            ];
+        })->all();
     }
 
     // ---------------------------------------
@@ -205,7 +313,7 @@ class UserReservationController extends Controller
         }
 
         // Check for existing reservations
-        $existingReservation = $this->hasReservationOverlap($reservationDate, $priceId, $requestStart, $requestBufferEnd);
+        $existingReservation = $this->hasReservationOverlap($reservationDate, $requestStart, $requestEnd);
 
         if ($existingReservation) {
             return response()->json([
@@ -402,42 +510,78 @@ class UserReservationController extends Controller
         }
 
         // Check for overlapping reservations
-        $overlappingReservation = $this->hasReservationOverlap(
+        $conflict = $this->findReservationConflict(
             $reservationDate,
-            $priceId,
             $requestStart,
-            $requestBufferEnd,
-            $reservation->id
+            $requestEnd,
+            $reservation
         );
 
-        if ($overlappingReservation) {
+        if ($conflict) {
+            $conflictingReservation = $conflict['reservation'];
+            Log::warning('Reservation update rejected due to time conflict', [
+                'reservation_id' => $reservation->getKey(),
+                'reservation_date' => $reservationDate,
+                'submitted_start_time' => $requestStart->format('H:i:s'),
+                'submitted_end_time' => $requestEnd->format('H:i:s'),
+                'submitted_buffered_end_time' => $conflict['requested_buffered_end']->format('H:i:s'),
+                'conflicting_reservation_id' => $conflictingReservation->getKey(),
+                'conflict_type' => $conflict['type'],
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Selected time slot is already reserved for this service',
+                'message' => $conflict['type'] === 'direct_overlap'
+                    ? 'Selected lesson time overlaps another reservation'
+                    : 'Selected lesson time violates the required 20-minute driving buffer',
+                'conflict' => [
+                    'type' => $conflict['type'],
+                    'reservation_id' => $conflictingReservation->getKey(),
+                    'start_time' => Carbon::parse($conflictingReservation->start_time)->format('H:i:s'),
+                    'end_time' => Carbon::parse($conflictingReservation->end_time)->format('H:i:s'),
+                    'buffered_end_time' => $conflict['reservation_buffered_end']->format('H:i:s'),
+                    'requested_buffered_end_time' => $conflict['requested_buffered_end']->format('H:i:s'),
+                ],
             ], 409);
         }
 
         $oldStatus = $reservation->status;
+        $oldSchedule = [
+            'reservation_date' => $reservation->reservation_date,
+            'start_time' => $reservation->start_time,
+            'end_time' => $reservation->end_time,
+        ];
 
         $reservation->update([
             'user_name' => $request->user_name,
             'email' => $request->email,
             'phone' => $request->phone,
             'address' => $request->address,
-            'pickup_location' => $request->pickup_location,
-            'dropoff_location' => $request->dropoff_location,
+            // The dashboard edit form does not expose every optional field.
+            // Missing fields must not erase values already stored on the booking.
+            'pickup_location' => $request->input('pickup_location', $reservation->pickup_location),
+            'dropoff_location' => $request->input('dropoff_location', $reservation->dropoff_location),
             'reservation_date' => $reservationDate,
             'start_time' => $requestStart->format('H:i:s'),
             'end_time' => $requestEnd->format('H:i:s'),
             'price_id' => $priceId,
             'package_type' => $request->package_type,
-            'test_time' => $request->test_time,
-            'test_location' => $request->test_location,
-                'comment' => $request->comment,
+            'test_time' => $request->input('test_time', $reservation->test_time),
+            'test_location' => $request->input('test_location', $reservation->test_location),
+            'comment' => $request->input('comment', $reservation->comment),
         ]);
 
         if ($oldStatus !== $reservation->status) {
             $this->sendStatusUpdateEmails($reservation, $oldStatus);
+        }
+
+        $scheduleChanged =
+            Carbon::parse($oldSchedule['reservation_date'])->format('Y-m-d') !== $reservationDate ||
+            Carbon::parse($oldSchedule['start_time'])->format('H:i:s') !== $requestStart->format('H:i:s') ||
+            Carbon::parse($oldSchedule['end_time'])->format('H:i:s') !== $requestEnd->format('H:i:s');
+
+        if ($scheduleChanged) {
+            $this->sendTimeUpdateEmail($reservation, $oldSchedule);
         }
 
         return response()->json([
@@ -474,13 +618,11 @@ class UserReservationController extends Controller
         // For Accepting or Resetting to Pending, check for conflicts
         if ($newStatus === 'Accepted' || $newStatus === 'Pending') {
             $reservationStart = Carbon::parse($reservation->start_time);
-            $reservationBufferEnd = $this->bookingBufferEnd($reservation->end_time);
             $overlappingReservation = $this->hasReservationOverlap(
                 $reservation->reservation_date,
-                $reservation->price_id,
                 $reservationStart,
-                $reservationBufferEnd,
-                $reservation->id
+                Carbon::parse($reservation->end_time),
+                $reservation
             );
 
             if ($overlappingReservation) {
@@ -493,7 +635,7 @@ class UserReservationController extends Controller
             $blockedSlot = $this->hasBlockOverlap(
                 $reservation->reservation_date,
                 $reservationStart,
-                $reservationBufferEnd
+                $this->bookingBufferEnd($reservation->end_time)
             );
 
             if ($blockedSlot) {
@@ -602,13 +744,23 @@ class UserReservationController extends Controller
         }
 
         try {
-            // $adminEmail = env('ADMIN_EMAIL', 'adhikariudaya736@gmail.com');
-            // // $adminEmail = env('ADMIN_EMAIL', 'wheelmaster@outlook.com.au');
-            // Mail::to($adminEmail)->send(new ReservationStatusUpdated($reservation, true));
-            Mail::to('Wheelmasterdriving@gmail.com')
+            Mail::to(config('services.onlinepay.admin_email', 'Wheelmasterdriving@gmail.com'))
                 ->send(new ReservationStatusUpdated($reservation, true));
         } catch (\Exception $e) {
             Log::error('Failed to send admin status update email: '.$e->getMessage());
+        }
+    }
+
+    private function sendTimeUpdateEmail(UserReservation $reservation, array $oldSchedule): void
+    {
+        try {
+            Mail::to($reservation->email)->send(new ReservationTimeUpdated($reservation, $oldSchedule));
+        } catch (\Exception $e) {
+            Log::error('Failed to send reservation time update email', [
+                'reservation_id' => $reservation->getKey(),
+                'customer_email' => $reservation->email,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 }

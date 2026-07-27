@@ -31,8 +31,10 @@ const Wrapper = ({ children }) => {
         window.localStorage.setItem("sidebar-collapsed", String(isCollapsed));
     }, [isCollapsed]);
 
+
+     //style={{ background: "#f8fafc" }}
     return (
-        <div className="min-h-screen" style={{ background: "#f8fafc" }}>
+        <div className="min-h-screen bg-[#f2f2f2]">
             <NavBar onMenuToggle={toggleMobile} />
 
             <SideBar
@@ -46,7 +48,7 @@ const Wrapper = ({ children }) => {
                 className="pt-16 min-h-screen transition-all duration-300 ease-in-out"
                 style={{ marginLeft: `${SIDEBAR_WIDTH}px` }}
             >
-                <div className="lg:p-6 p-3">
+                <div className="lg:p-2 p-3">
                     <div style={{ animation: "pageIn 0.25s ease-out" }}>
                         {children}
                     </div>

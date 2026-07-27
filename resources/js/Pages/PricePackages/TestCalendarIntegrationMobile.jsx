@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
-import { Link } from "@inertiajs/react";
+import { Link, usePage } from "@inertiajs/react";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -267,6 +267,8 @@ const LocationAutocomplete = ({
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const TestCalendarIntegrationMobile = ({ price }) => {
+    const { payment } = usePage().props;
+    const useOnlinePay = payment?.bookingMode === "onlinepay";
     const [selectedDate, setSelectedDate] = useState("");
     const [selectedTime, setSelectedTime] = useState("");
     const [loading, setLoading] = useState(false);
@@ -768,10 +770,24 @@ const TestCalendarIntegrationMobile = ({ price }) => {
             };
 
             const response = await axios.post(
-                route("test-packages.store"),
-                bookingData,
+                route(useOnlinePay ? "payments.onlinepay.checkout" : "test-packages.store"),
+                {
+                    ...bookingData,
+                    booking_type: "test",
+                },
             );
             toast.dismiss(submittingToast);
+
+            if (useOnlinePay) {
+                if (response.data.checkout_url) {
+                    toast.success("Redirecting to secure payment...");
+                    window.location.assign(response.data.checkout_url);
+                    return;
+                }
+
+                toast.error("Secure payment could not be started. Please try again.");
+                return;
+            }
 
             if (response.data.success || response.data.message) {
                 toast.success(
@@ -1499,6 +1515,8 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                                                 Processing...
                                             </div>
+                                        ) : useOnlinePay ? (
+                                            "Continue to secure payment"
                                         ) : (
                                             "Confirm Booking"
                                         )}

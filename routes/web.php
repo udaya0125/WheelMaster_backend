@@ -5,6 +5,7 @@ use App\Http\Controllers\BlogController;
 use App\Http\Controllers\GalleryController;
 use App\Http\Controllers\LocationSearchController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PriceController;
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\TestimonialController;
@@ -180,9 +181,7 @@ Route::middleware('auth')->group(function () {
     // User Management routes for Dashboard
     // --------------------------------------------------------------------------
 
-    Route::get('/time-management', function () {
-        return Inertia::render('TimeManagement');
-    });
+    Route::get('/time-management', [PriceController::class, 'timeManagement']);
 
 
     // --------------------------------------------------------------------------
@@ -272,14 +271,21 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/ourreservations/timeslots', [ReservationController::class, 'getTimeSlotsForCalendar'])->name('ourreservations.timeslots');
     Route::get('/ourreservations/availability', [ReservationController::class, 'checkAvailability'])->name('ourreservations.availability');
+    Route::post('/ourreservations/cart', [ReservationController::class, 'storeCart'])->name('ourreservations.cart');
     Route::post('/ourreservations', [ReservationController::class, 'store'])->name('ourreservations.store');
     Route::get('/location-search', [LocationSearchController::class, 'search'])->name('locations.search');
+
+    Route::post('/payments/onlinepay/checkout', [PaymentController::class, 'checkout'])->name('payments.onlinepay.checkout');
+    Route::get('/payments/onlinepay/status/{paymentIntent:uuid}', [PaymentController::class, 'status'])->name('payments.onlinepay.status');
+    Route::get('/payments/onlinepay/return/{paymentIntent:uuid}', [PaymentController::class, 'paymentReturn'])->name('payments.onlinepay.return');
+    Route::post('/webhooks/onlinepay', [PaymentController::class, 'webhook'])->name('webhooks.onlinepay');
 
 
     // --------------------------------------------------------------------------
     // Test Package routes for public access
     // --------------------------------------------------------------------------
 
+    Route::get('/test-packages/available-slots', [TestPackageController::class, 'getAvailableTimeSlots'])->name('test-packages.available-slots');
     Route::post('/test-packages/check-availability', [TestPackageController::class, 'checkAvailability'])->name('test-packages.check-availability');
     Route::post('/test-packages/book', [TestPackageController::class, 'storeTestReservation'])->name('test-packages.store');
 
@@ -300,6 +306,8 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/ourtimeslots', [TimeSlotController::class, 'index'])->name('ourtimeslots.index');
     Route::get('/ourtimeslots/get', [TimeSlotController::class, 'getSlotsForDate'])->name('ourtimeslots.get');
+    Route::get('/ourtimeslots/block-summary', [TimeSlotController::class, 'getBlockSummary'])->name('ourtimeslots.block-summary');
+    Route::get('/ourtimeslots/availability-summary', [TimeSlotController::class, 'getAvailabilitySummary'])->name('ourtimeslots.availability-summary');
     Route::post('/ourtimeslots/update', [TimeSlotController::class, 'updateAvailability'])->name('ourtimeslots.update');
     Route::post('/ourtimeslots/update-end', [TimeSlotController::class, 'updateEndTime'])->name('ourtimeslots.update-end');
     Route::post('/ourtimeslots/update-range', [TimeSlotController::class, 'updateDateRange'])->name('ourtimeslots.update-range');
@@ -316,5 +324,8 @@ Route::middleware('auth')->group(function () {
     // Route::get('/test-calendar', function () {
     //     return Inertia::render('PricePackages/TestCalendarIntegrationMobile');
     // });
+
+
+ 
 
 require __DIR__.'/auth.php';

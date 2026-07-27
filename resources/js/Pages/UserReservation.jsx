@@ -1245,6 +1245,62 @@ const UserReservation = () => {
             });
     };
 
+    const formatPaymentAmount = (payment) => {
+        if (!payment || payment.amount_cents === null || payment.amount_cents === undefined) {
+            return "-";
+        }
+
+        try {
+            return new Intl.NumberFormat("en-AU", {
+                style: "currency",
+                currency: payment.currency || "AUD",
+            }).format(Number(payment.amount_cents) / 100);
+        } catch (error) {
+            return `${payment.currency || "AUD"} ${(Number(payment.amount_cents) / 100).toFixed(2)}`;
+        }
+    };
+
+    const formatDateTime = (value) => {
+        if (!value) {
+            return "-";
+        }
+
+        return new Date(value).toLocaleString("en-AU", {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+        });
+    };
+
+    const formatLabel = (value) => {
+        if (!value) {
+            return "-";
+        }
+
+        return value
+            .toString()
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (letter) => letter.toUpperCase());
+    };
+
+    const getPaymentStatusClasses = (status) => {
+        if (status === "paid") {
+            return "bg-green-100 text-green-700";
+        }
+
+        if (status === "failed" || status === "expired" || status === "cancelled") {
+            return "bg-red-100 text-red-700";
+        }
+
+        if (status === "paid_unbooked") {
+            return "bg-orange-100 text-orange-700";
+        }
+
+        return "bg-yellow-100 text-yellow-700";
+    };
+
     return (
         <Wrapper>
             <div className="px-2 sm:px-6 lg:px-8 py-6 lg:py-8">
@@ -1612,6 +1668,144 @@ const UserReservation = () => {
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+
+                            {/* Payment Information */}
+                            <div className="mt-6 bg-gray-50 rounded-lg p-4">
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3 pb-2 border-b border-gray-200">
+                                    <h4 className="font-medium text-gray-900">
+                                        Payment Information
+                                    </h4>
+                                    {viewingReservation.payment_summary && (
+                                        <span
+                                            className={`px-3 py-1 rounded-full text-xs font-semibold w-fit ${getPaymentStatusClasses(
+                                                viewingReservation.payment_summary.status,
+                                            )}`}
+                                        >
+                                            {formatLabel(
+                                                viewingReservation.payment_summary.status,
+                                            )}
+                                        </span>
+                                    )}
+                                </div>
+
+                                {viewingReservation.payment_summary ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
+                                        <div>
+                                            <span className="text-sm text-gray-500">
+                                                Source:
+                                            </span>
+                                            <p className="text-gray-900">
+                                                {
+                                                    viewingReservation.payment_summary
+                                                        .source
+                                                }
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <span className="text-sm text-gray-500">
+                                                Amount:
+                                            </span>
+                                            <p className="text-gray-900 font-medium">
+                                                {formatPaymentAmount(
+                                                    viewingReservation.payment_summary,
+                                                )}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <span className="text-sm text-gray-500">
+                                                Merchant Reference:
+                                            </span>
+                                            <p className="text-gray-900 break-all">
+                                                {viewingReservation.payment_summary
+                                                    .merchant_reference || "-"}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <span className="text-sm text-gray-500">
+                                                Westpac Checkout ID:
+                                            </span>
+                                            <p className="text-gray-900 break-all">
+                                                {viewingReservation.payment_summary
+                                                    .westpac_checkout_id || "-"}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <span className="text-sm text-gray-500">
+                                                Paid At:
+                                            </span>
+                                            <p className="text-gray-900">
+                                                {formatDateTime(
+                                                    viewingReservation.payment_summary
+                                                        .paid_at,
+                                                )}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <span className="text-sm text-gray-500">
+                                                Failed At:
+                                            </span>
+                                            <p className="text-gray-900">
+                                                {formatDateTime(
+                                                    viewingReservation.payment_summary
+                                                        .failed_at,
+                                                )}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <span className="text-sm text-gray-500">
+                                                Latest Webhook:
+                                            </span>
+                                            <p className="text-gray-900">
+                                                {viewingReservation.payment_summary
+                                                    .latest_webhook_event
+                                                    ? `${formatLabel(
+                                                          viewingReservation
+                                                              .payment_summary
+                                                              .latest_webhook_event
+                                                              .event_type,
+                                                      )} (${formatLabel(
+                                                          viewingReservation
+                                                              .payment_summary
+                                                              .latest_webhook_event
+                                                              .status,
+                                                      )})`
+                                                    : "-"}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <span className="text-sm text-gray-500">
+                                                Webhook Processed:
+                                            </span>
+                                            <p className="text-gray-900">
+                                                {formatDateTime(
+                                                    viewingReservation.payment_summary
+                                                        .latest_webhook_event
+                                                        ?.processed_at,
+                                                )}
+                                            </p>
+                                        </div>
+                                        {viewingReservation.payment_summary
+                                            .linked_reservation_count > 1 && (
+                                            <div className="md:col-span-2 rounded-md bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700">
+                                                Covers{" "}
+                                                {
+                                                    viewingReservation
+                                                        .payment_summary
+                                                        .linked_reservation_count
+                                                }{" "}
+                                                reservations
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <p className="text-gray-600">
+                                        No online payment linked. This
+                                        reservation may have been created
+                                        manually or paid outside the online
+                                        payment integration.
+                                    </p>
+                                )}
                             </div>
 
                             {/* ── Comment (full width, only when present) ── */}

@@ -172,19 +172,21 @@ export default function Login({ status, canResetPassword }) {
                     </form>
 
                     {/* Divider */}
-                    {/* <div className="flex items-center my-6">
+                    <div className="flex items-center my-6">
                         <div className="flex-1 border-t border-gray-200"></div>
                         <span className="px-3 text-xs text-gray-400">OR</span>
                         <div className="flex-1 border-t border-gray-200"></div>
-                    </div> */}
+                    </div>
 
                     {/* Sign Up Link */}
-                    {/* <p className="text-center text-sm text-gray-600">
+                    <p className="text-center text-sm text-gray-600">
                         Don't have an account?{' '}
-                        <a href="#" className="text-blue-600 hover:text-blue-700 font-semibold transition-colors">
+                        <Link
+                        href={route("register")}
+                         className="text-blue-600 hover:text-blue-700 font-semibold transition-colors">
                             Sign up here
-                        </a>
-                    </p> */}
+                        </Link>
+                    </p>
                 </div>
 
                 {/* Footer Text */}

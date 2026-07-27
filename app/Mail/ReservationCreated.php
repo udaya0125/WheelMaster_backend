@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\UserReservation;
+use App\Support\ReservationCalendarInvite;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
@@ -30,13 +31,25 @@ class ReservationCreated extends Mailable
     {
         $subject = $this->isAdmin 
             ? 'New Reservation Received - ' . $this->reservation->user_name
-            : 'Reservation Confirmation - Booking #' . $this->reservation->id;
+            : 'Booking confirmation- Wheel Master Driving Academy';
 
-        return $this->subject($subject)
+        $mail = $this->subject($subject)
                     ->view('reservation-created')
                     ->with([
                         'reservation' => $this->reservation,
                         'isAdmin' => $this->isAdmin,
                     ]);
+
+        if ($this->isAdmin) {
+            $mail->attachData(
+                ReservationCalendarInvite::make($this->reservation),
+                ReservationCalendarInvite::filename($this->reservation),
+                ['mime' => 'text/calendar']
+            );
+        }
+
+        return $mail;
     }
 }
+
+

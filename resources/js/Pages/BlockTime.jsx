@@ -3,7 +3,15 @@ import { Calendar } from "@/components/ui/calendar";
 import axios from "axios";
 import React, { useEffect, useState } from "react";
 import toast, { Toaster } from "react-hot-toast";
-import { Package, X, Lock, Unlock, CalendarCheck } from "lucide-react";
+import {
+    Package,
+    X,
+    Lock,
+    Unlock,
+    CalendarCheck,
+    CalendarRange,
+    Clock,
+} from "lucide-react";
 import AddReservationForm from "@/AddFormComponent/AddReservationForm";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -23,6 +31,33 @@ const formatDisplayDate = (date) => {
         month: "long",
         day: "numeric",
     });
+};
+
+const startOfMonth = (date) =>
+    new Date(date.getFullYear(), date.getMonth(), 1);
+
+const endOfMonth = (date) =>
+    new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+const addDays = (date, days) => {
+    const next = new Date(date);
+    next.setDate(next.getDate() + days);
+    return next;
+};
+
+const getCalendarRangeForMonth = (monthDate) => {
+    const monthStart = startOfMonth(monthDate);
+    const monthEnd = endOfMonth(monthDate);
+
+    return {
+        startDate: formatDateKey(addDays(monthStart, -monthStart.getDay())),
+        endDate: formatDateKey(addDays(monthEnd, 6 - monthEnd.getDay())),
+    };
+};
+
+const dateKeyToDate = (dateKey) => {
+    const [year, month, day] = dateKey.split("-").map(Number);
+    return new Date(year, month - 1, day);
 };
 
 const isPastDate = (date) => {
@@ -84,61 +119,131 @@ const getTimeSlotDisplay = (startTime, duration) => {
     return `${start} - ${calculateEndTime(start, duration)}`;
 };
 
+const getWindowBounds = (windowStartStr, duration) => {
+    const startMin = timeToMinutes(windowStartStr);
+    return {
+        startMin,
+        endMin: startMin + parseDuration(duration),
+    };
+};
+
+const blockBounds = (block) => ({
+    startMin: timeToMinutes(hhmm(block.start_time)),
+    endMin:   timeToMinutes(hhmm(block.end_time)),
+});
+
+const getExactBlocksForDuration = (blockRecords, duration) => {
+    const durationMins = parseDuration(duration);
+
+    return blockRecords.filter((block) => {
+        const blockRange = blockBounds(block);
+        return blockRange.endMin - blockRange.startMin === durationMins;
+    });
+};
+
+const getExactBlockForWindow = (windowStartStr, blockRecords, duration) => {
+    const { startMin, endMin } = getWindowBounds(windowStartStr, duration);
+
+    return blockRecords.find((block) => {
+        const blockRange = blockBounds(block);
+        return blockRange.startMin === startMin && blockRange.endMin === endMin;
+    });
+};
+
+const blocksCoverRange = (blockRecords, startTime, endTime) => {
+    const rangeStart = timeToMinutes(hhmm(startTime));
+    const rangeEnd   = timeToMinutes(hhmm(endTime));
+
+    if (!Number.isFinite(rangeStart) || !Number.isFinite(rangeEnd) || rangeStart >= rangeEnd) {
+        return false;
+    }
+
+    const ranges = blockRecords
+        .map(blockBounds)
+        .filter((range) => (
+            Number.isFinite(range.startMin) &&
+            Number.isFinite(range.endMin) &&
+            range.startMin < rangeEnd &&
+            range.endMin > rangeStart
+        ))
+        .sort((a, b) => a.startMin - b.startMin);
+
+    let coveredUntil = rangeStart;
+
+    for (const range of ranges) {
+        if (range.startMin > coveredUntil) return false;
+        coveredUntil = Math.max(coveredUntil, range.endMin);
+        if (coveredUntil >= rangeEnd) return true;
+    }
+
+    return false;
+};
+
 // ─── Build display-slot grid ──────────────────────────────────────────────────
 
-const buildDisplayGrid = (rawSlots, scheduleEndStr, duration) => {
-    if (!rawSlots || rawSlots.length === 0) return [];
-
+const buildDisplayGrid = (rawSlots, scheduleEndStr, duration, blockRecords = []) => {
     const durationMins    = parseDuration(duration);
     const bookingStepMins = durationMins + 20;
 
-    const rawStartMins = rawSlots
+    const availableStartMins = (rawSlots || [])
+        .filter((s) => s.status === "available")
         .map((s) => timeToMinutes(hhmm(s.start_time)))
         .filter(Number.isFinite)
         .sort((a, b) => a - b);
 
-    if (rawStartMins.length === 0) return [];
+    const exactBlockStartMins = getExactBlocksForDuration(blockRecords, duration)
+        .map((block) => blockBounds(block).startMin)
+        .filter(Number.isFinite);
+
+    if (availableStartMins.length === 0 && exactBlockStartMins.length === 0) return [];
 
     let scheduleEndMins;
     if (scheduleEndStr) {
         scheduleEndMins = timeToMinutes(hhmm(scheduleEndStr));
     } else {
-        const lastEndTimes = rawSlots
+        const lastEndTimes = (rawSlots || [])
             .map((s) => timeToMinutes(hhmm(s.end_time)))
             .filter(Number.isFinite);
         scheduleEndMins = lastEndTimes.length > 0
             ? Math.max(...lastEndTimes)
-            : rawStartMins[rawStartMins.length - 1] + bookingStepMins;
+            : Math.max(...exactBlockStartMins) + bookingStepMins;
     }
 
-    const latestStart = scheduleEndMins - durationMins;
+    const latestStart = scheduleEndMins - bookingStepMins;
 
     const displaySlots = [];
-    let candidate = rawStartMins[0];
+    let candidate = availableStartMins[0];
 
-    while (candidate <= latestStart) {
+    while (Number.isFinite(candidate) && candidate <= latestStart) {
         displaySlots.push(minutesToTime(candidate));
         const next = candidate + bookingStepMins;
 
-        const hasNearby = rawStartMins.some((m) => m >= next && m < next + 20);
+        const hasNearby = availableStartMins.some((m) => m >= next && m < next + 20);
         if (hasNearby) {
             candidate = next;
         } else {
-            const nextReal = rawStartMins.find((m) => m >= next);
+            const nextReal = availableStartMins.find((m) => m >= next);
             if (nextReal === undefined) break;
             candidate = nextReal;
         }
     }
 
-    return displaySlots;
+    return Array.from(
+        new Set([
+            ...displaySlots,
+            ...exactBlockStartMins.map(minutesToTime),
+        ])
+    ).sort((a, b) => timeToMinutes(a) - timeToMinutes(b));
 };
 
 // ─── Status resolver for a display window ────────────────────────────────────
 
-const resolveWindowStatus = (windowStartStr, rawSlots, duration) => {
+const resolveWindowStatus = (windowStartStr, rawSlots, blockRecords, duration) => {
     const durationMins = parseDuration(duration);
     const startMin     = timeToMinutes(windowStartStr);
     const endMin       = startMin + durationMins;
+
+    if (getExactBlockForWindow(windowStartStr, blockRecords, duration)) return "blocked";
 
     const windowSlots = rawSlots.filter((s) => {
         const sm = timeToMinutes(hhmm(s.start_time));
@@ -149,27 +254,8 @@ const resolveWindowStatus = (windowStartStr, rawSlots, duration) => {
     );
 
     if (windowSlots.some((s) => s.status === "reserved")) return "reserved";
-    if (windowSlots.some((s) => s.status === "blocked"))  return "blocked";
     if (startingSlot?.status === "unavailable") return "unavailable";
     return "available";
-};
-
-// ─── Get unique BlockReservation IDs covering a display window ────────────────
-
-const getBlockIdsForWindow = (windowStartStr, rawSlots, duration) => {
-    const durationMins = parseDuration(duration);
-    const startMin     = timeToMinutes(windowStartStr);
-    const endMin       = startMin + durationMins;
-
-    const ids = rawSlots
-        .filter((s) => {
-            if (s.status !== "blocked" || !s.block_id) return false;
-            const sm = timeToMinutes(hhmm(s.start_time));
-            return sm >= startMin && sm < endMin;
-        })
-        .map((s) => s.block_id);
-
-    return [...new Set(ids)];
 };
 
 // ─── Slot styling ─────────────────────────────────────────────────────────────
@@ -267,13 +353,26 @@ const SlotActionModal = ({ slot, date, duration, onClose, onBlock, onUnblock, on
 
 const BlockTime = ({ price, packageOptions = [] }) => {
     const [selectedDate, setSelectedDate]             = useState(new Date());
+    const [calendarMonth, setCalendarMonth]           = useState(() => startOfMonth(new Date()));
     const [activePrice, setActivePrice]               = useState(price);
     const [rawSlotsCache, setRawSlotsCache]           = useState({});
+    const [blockRecordsCache, setBlockRecordsCache]   = useState({});
+    const [availabilitySummaryCache, setAvailabilitySummaryCache] = useState({});
     const [scheduleEndCache, setScheduleEndCache]     = useState({});
     const [loading, setLoading]                       = useState(false);
     const [activeSlot, setActiveSlot]                 = useState(null);
     const [isSubmitting, setIsSubmitting]             = useState(false);
     const [reservationInitial, setReservationInitial] = useState(null);
+
+    // Schedule range state
+    const [showScheduleModal, setShowScheduleModal] = useState(false);
+    const [scheduleRangeSubmitting, setScheduleRangeSubmitting] = useState(false);
+    const [scheduleForm, setScheduleForm] = useState({
+        startDate: "",
+        endDate: "",
+        startTime: "07:00",
+        endTime: "18:00",
+    });
 
     // ── Bulk / range state ────────────────────────────────────────────────────
     const [showRangePanel, setShowRangePanel]         = useState(false);
@@ -301,6 +400,65 @@ const BlockTime = ({ price, packageOptions = [] }) => {
         [packages]
     );
 
+    const calendarRange = React.useMemo(
+        () => getCalendarRangeForMonth(calendarMonth),
+        [calendarMonth]
+    );
+    const calendarRangeKey = `${calendarRange.startDate}:${calendarRange.endDate}:${activePrice?.id || ""}`;
+    const availabilitySummary = availabilitySummaryCache[calendarRangeKey] || {};
+
+    const blockedCalendarDays = React.useMemo(
+        () =>
+            Object.entries(availabilitySummary)
+                .filter(([, day]) => day?.status !== "available")
+                .map(([date]) => dateKeyToDate(date))
+                .filter((date) => !isPastDate(date)),
+        [availabilitySummary]
+    );
+
+    const availableCalendarDays = React.useMemo(
+        () =>
+            Object.entries(availabilitySummary)
+                .filter(([, day]) => day?.status === "available")
+                .map(([date]) => dateKeyToDate(date))
+                .filter((date) => !isPastDate(date)),
+        [availabilitySummary]
+    );
+
+    const refreshAvailabilitySummary = async (force = false) => {
+        if (!activePrice?.id) return;
+        if (!force && availabilitySummaryCache[calendarRangeKey]) return;
+
+        try {
+            const res = await axios.get(route("ourtimeslots.availability-summary"), {
+                params: {
+                    start_date: calendarRange.startDate,
+                    end_date: calendarRange.endDate,
+                    price_id: activePrice.id,
+                },
+            });
+
+            if (res.data.success) {
+                setAvailabilitySummaryCache((prev) => ({
+                    ...prev,
+                    [calendarRangeKey]: res.data.data || {},
+                }));
+            }
+        } catch {
+            toast.error("Error loading calendar availability.");
+        }
+    };
+
+    const refreshCalendarAfterMutation = async () => {
+        setAvailabilitySummaryCache({});
+        await refreshAvailabilitySummary(true);
+    };
+
+    useEffect(() => {
+        refreshAvailabilitySummary();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [calendarRangeKey, activePrice?.id]);
+
     const handlePackageChange = (e) => {
         const id   = Number(e.target.value);
         const next = packages.find((p) => p.id === id);
@@ -322,6 +480,10 @@ const BlockTime = ({ price, packageOptions = [] }) => {
                 setRawSlotsCache((prev) => ({
                     ...prev,
                     [dateKey]: res.data.slots || [],
+                }));
+                setBlockRecordsCache((prev) => ({
+                    ...prev,
+                    [dateKey]: res.data.blocks || [],
                 }));
                 setScheduleEndCache((prev) => ({
                     ...prev,
@@ -348,15 +510,20 @@ const BlockTime = ({ price, packageOptions = [] }) => {
             toast.error("Cannot select past dates", { icon: "⚠️" });
         } else {
             setSelectedDate(date);
+            setCalendarMonth(startOfMonth(date));
         }
     };
 
     // ── Derived display data ──────────────────────────────────────────────────
     const dateKey     = selectedDate ? formatDateKey(selectedDate) : null;
     const rawSlots    = dateKey ? rawSlotsCache[dateKey]    || [] : [];
+    const blockRecords = dateKey ? blockRecordsCache[dateKey] || [] : [];
     const scheduleEnd = dateKey ? scheduleEndCache[dateKey] || "" : "";
 
-    const displaySlots = buildDisplayGrid(rawSlots, scheduleEnd, activePrice?.duration);
+    const displaySlots = buildDisplayGrid(rawSlots, scheduleEnd, activePrice?.duration, blockRecords);
+    const sortedBlockRecords = [...blockRecords].sort(
+        (a, b) => timeToMinutes(hhmm(a.start_time)) - timeToMinutes(hhmm(b.start_time))
+    );
 
     // ── Helpers: first/last raw slot times ────────────────────────────────────
     const getScheduleBounds = () => {
@@ -372,6 +539,116 @@ const BlockTime = ({ price, packageOptions = [] }) => {
         const durationHrs = ((timeToMinutes(endTime) - timeToMinutes(startTime)) / 60).toFixed(2);
         return { startTime, endTime, durationHrs };
     };
+
+    const getScheduleRangeDayCount = () => {
+        if (!scheduleForm.startDate || !scheduleForm.endDate) return 0;
+
+        const toUtcTimestamp = (dateString) => {
+            const [year, month, day] = dateString.split("-").map(Number);
+            return Date.UTC(year, month - 1, day);
+        };
+        const dayCount =
+            Math.floor(
+                (toUtcTimestamp(scheduleForm.endDate) -
+                    toUtcTimestamp(scheduleForm.startDate)) /
+                    86400000,
+            ) + 1;
+
+        return dayCount > 0 ? dayCount : 0;
+    };
+
+    const handleOpenScheduleModal = () => {
+        const selectedDateKey = formatDateKey(selectedDate || new Date());
+        const { startTime, endTime } = getScheduleBounds();
+
+        setScheduleForm({
+            startDate: selectedDateKey,
+            endDate: selectedDateKey,
+            startTime,
+            endTime,
+        });
+        setShowScheduleModal(true);
+    };
+
+    const handleScheduleFormChange = (event) => {
+        const { name, value } = event.target;
+        setScheduleForm((current) => ({ ...current, [name]: value }));
+    };
+
+    const handleApplyScheduleRange = async (event) => {
+        event.preventDefault();
+
+        if (!scheduleForm.startDate || !scheduleForm.endDate) {
+            toast.error("Please choose both dates.");
+            return;
+        }
+
+        if (scheduleForm.endDate < scheduleForm.startDate) {
+            toast.error("End date must be on or after start date.");
+            return;
+        }
+
+        const scheduleMinutes =
+            timeToMinutes(scheduleForm.endTime) -
+            timeToMinutes(scheduleForm.startTime);
+
+        if (scheduleMinutes < 20) {
+            toast.error("End time must be at least 20 minutes after start time.");
+            return;
+        }
+
+        if (scheduleMinutes % 20 !== 0) {
+            toast.error("Schedule must align with 20-minute slots.");
+            return;
+        }
+
+        try {
+            setScheduleRangeSubmitting(true);
+            const response = await axios.post(
+                route("ourtimeslots.update-range"),
+                {
+                    start_date: scheduleForm.startDate,
+                    end_date: scheduleForm.endDate,
+                    start_time: scheduleForm.startTime,
+                    end_time: scheduleForm.endTime,
+                },
+            );
+
+            if (response.data.success) {
+                setShowScheduleModal(false);
+                setRawSlotsCache({});
+                setScheduleEndCache({});
+                toast.success(response.data.message || "Schedule hours updated.");
+                await fetchSlots(selectedDate);
+                await refreshCalendarAfterMutation();
+            }
+        } catch (error) {
+            toast.error(
+                error.response?.data?.message ||
+                    "Failed to update schedule hours.",
+            );
+        } finally {
+            setScheduleRangeSubmitting(false);
+        }
+    };
+
+    useEffect(() => {
+        if (!showScheduleModal) return;
+
+        const handleKeyDown = (event) => {
+            if (event.key === "Escape" && !scheduleRangeSubmitting) {
+                setShowScheduleModal(false);
+            }
+        };
+
+        document.body.style.overflow = "hidden";
+        document.addEventListener("keydown", handleKeyDown);
+
+        return () => {
+            document.body.style.overflow = "";
+            document.removeEventListener("keydown", handleKeyDown);
+        };
+    }, [showScheduleModal, scheduleRangeSubmitting]);
 
     // ── Bulk: block entire day ────────────────────────────────────────────────
     const handleBlockAllDay = async () => {
@@ -393,6 +670,7 @@ const BlockTime = ({ price, packageOptions = [] }) => {
 
             toast.success("Entire day blocked.");
             await fetchSlots(selectedDate);
+            await refreshCalendarAfterMutation();
         } catch (err) {
             toast.error(err.response?.data?.message || "Failed to block day.");
         } finally {
@@ -405,14 +683,16 @@ const BlockTime = ({ price, packageOptions = [] }) => {
         if (!selectedDate || !rawSlots.length) return;
         setIsSubmitting(true);
         try {
-            const blockIds = [...new Set(
-                rawSlots
-                    .filter((s) => s.status === "blocked" && s.block_id)
-                    .map((s) => s.block_id)
-            )];
+            const { startTime, endTime } = getScheduleBounds();
+            const blockIds = blockRecords.map((block) => block.id);
 
             if (blockIds.length === 0) {
                 toast.error("No block records found for this day.");
+                return;
+            }
+
+            if (!blocksCoverRange(blockRecords, startTime, endTime)) {
+                toast.error("Block records do not cover the full day.");
                 return;
             }
 
@@ -424,6 +704,7 @@ const BlockTime = ({ price, packageOptions = [] }) => {
 
             toast.success("Entire day unblocked.");
             await fetchSlots(selectedDate);
+            await refreshCalendarAfterMutation();
         } catch (err) {
             toast.error(err.response?.data?.message || "Failed to unblock day.");
         } finally {
@@ -456,6 +737,7 @@ const BlockTime = ({ price, packageOptions = [] }) => {
             setRangeStart("");
             setRangeEnd("");
             await fetchSlots(selectedDate);
+            await refreshCalendarAfterMutation();
         } catch (err) {
             toast.error(err.response?.data?.message || "Failed to block date range.");
         } finally {
@@ -464,12 +746,11 @@ const BlockTime = ({ price, packageOptions = [] }) => {
     };
 
     // ── Derived: is day fully blocked? ────────────────────────────────────────
-    const isDayFullyBlocked =
-        displaySlots.length > 0 &&
-        displaySlots.every((t) => {
-            const s = resolveWindowStatus(t, rawSlots, activePrice?.duration);
-            return s === "blocked" || s === "reserved";
-        });
+    const isDayFullyBlocked = (() => {
+        if (displaySlots.length === 0 || blockRecords.length === 0) return false;
+        const { startTime, endTime } = getScheduleBounds();
+        return blocksCoverRange(blockRecords, startTime, endTime);
+    })();
 
     // ── Single slot: block ────────────────────────────────────────────────────
     const handleBlockSlot = async () => {
@@ -494,6 +775,7 @@ const BlockTime = ({ price, packageOptions = [] }) => {
             toast.success("Time slot blocked.");
             setActiveSlot(null);
             await fetchSlots(selectedDate);
+            await refreshCalendarAfterMutation();
         } catch (err) {
             toast.error(
                 err.response?.data?.message || "Failed to block. Please try again."
@@ -508,27 +790,24 @@ const BlockTime = ({ price, packageOptions = [] }) => {
         if (!activeSlot || !selectedDate) return;
         setIsSubmitting(true);
         try {
-            const blockIds = getBlockIdsForWindow(
+            const exactBlock = getExactBlockForWindow(
                 activeSlot.startTime,
-                rawSlots,
+                blockRecords,
                 activePrice?.duration
             );
 
-            if (blockIds.length === 0) {
+            if (!exactBlock) {
                 toast.error("No block records found for this slot.");
                 setIsSubmitting(false);
                 return;
             }
 
-            await Promise.all(
-                blockIds.map((id) =>
-                    axios.delete(route("ourblockreservations.destroy", { id }))
-                )
-            );
+            await axios.delete(route("ourblockreservations.destroy", { id: exactBlock.id }));
 
             toast.success("Time slot unblocked.");
             setActiveSlot(null);
             await fetchSlots(selectedDate);
+            await refreshCalendarAfterMutation();
         } catch (err) {
             toast.error(
                 err.response?.data?.message || "Failed to unblock. Please try again."
@@ -559,6 +838,7 @@ const BlockTime = ({ price, packageOptions = [] }) => {
         setReservationInitial(null);
         toast.success("Reservation added.");
         await fetchSlots(selectedDate);
+        await refreshCalendarAfterMutation();
     };
 
     // ── Schedule bounds hint for the range panel ──────────────────────────────
@@ -572,6 +852,7 @@ const BlockTime = ({ price, packageOptions = [] }) => {
     // ── Render ────────────────────────────────────────────────────────────────
     return (
         <Wrapper>
+            <div className="lg:p-4">
             <Toaster
                 position="top-right"
                 toastOptions={{
@@ -602,8 +883,161 @@ const BlockTime = ({ price, packageOptions = [] }) => {
                 onSuccess={handleReservationSuccess}
             />
 
-            <div className="mb-6">
+            {showScheduleModal && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="block-time-schedule-title"
+                    onMouseDown={(event) => {
+                        if (
+                            event.target === event.currentTarget &&
+                            !scheduleRangeSubmitting
+                        ) {
+                            setShowScheduleModal(false);
+                        }
+                    }}
+                >
+                    <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
+                        <div className="flex items-start justify-between border-b border-gray-100 px-5 py-5 sm:px-6">
+                            <div>
+                                <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700">
+                                    <CalendarRange size={20} />
+                                </div>
+                                <h2
+                                    id="block-time-schedule-title"
+                                    className="text-xl font-semibold text-gray-900"
+                                >
+                                    Update schedule hours
+                                </h2>
+                                <p className="mt-1 text-sm text-gray-500">
+                                    Apply the same opening hours to several days at once.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowScheduleModal(false)}
+                                disabled={scheduleRangeSubmitting}
+                                aria-label="Close schedule hours"
+                                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <form
+                            onSubmit={handleApplyScheduleRange}
+                            className="space-y-5 px-5 py-5 sm:px-6"
+                        >
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <label className="text-sm font-medium text-gray-700">
+                                    Start date
+                                    <input
+                                        type="date"
+                                        name="startDate"
+                                        min={formatDateKey(new Date())}
+                                        value={scheduleForm.startDate}
+                                        onChange={handleScheduleFormChange}
+                                        required
+                                        className="mt-1 block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    />
+                                </label>
+                                <label className="text-sm font-medium text-gray-700">
+                                    End date
+                                    <input
+                                        type="date"
+                                        name="endDate"
+                                        min={
+                                            scheduleForm.startDate ||
+                                            formatDateKey(new Date())
+                                        }
+                                        value={scheduleForm.endDate}
+                                        onChange={handleScheduleFormChange}
+                                        required
+                                        className="mt-1 block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    />
+                                </label>
+                            </div>
+
+                            <div className="rounded-xl bg-indigo-50 p-4">
+                                <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-indigo-900">
+                                    <Clock size={16} />
+                                    Daily opening hours
+                                </div>
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <label className="text-sm font-medium text-indigo-900">
+                                        Start time
+                                        <input
+                                            type="time"
+                                            name="startTime"
+                                            step="1200"
+                                            value={scheduleForm.startTime}
+                                            onChange={handleScheduleFormChange}
+                                            required
+                                            className="mt-1 block w-full rounded-lg border-indigo-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        />
+                                    </label>
+                                    <label className="text-sm font-medium text-indigo-900">
+                                        End time
+                                        <input
+                                            type="time"
+                                            name="endTime"
+                                            step="1200"
+                                            value={scheduleForm.endTime}
+                                            onChange={handleScheduleFormChange}
+                                            required
+                                            className="mt-1 block w-full rounded-lg border-indigo-200 bg-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        />
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                                This replaces custom schedules for{" "}
+                                <span className="font-semibold">
+                                    {getScheduleRangeDayCount()} selected day(s)
+                                </span>
+                                . Existing reservations are protected if they fall outside the new hours.
+                            </div>
+
+                            <div className="flex flex-col-reverse gap-3 border-t border-gray-100 pt-5 sm:flex-row sm:justify-end">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowScheduleModal(false)}
+                                    disabled={scheduleRangeSubmitting}
+                                    className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={
+                                        scheduleRangeSubmitting ||
+                                        getScheduleRangeDayCount() === 0
+                                    }
+                                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+                                >
+                                    <CalendarRange size={17} />
+                                    {scheduleRangeSubmitting
+                                        ? "Updating schedule..."
+                                        : `Update ${getScheduleRangeDayCount()} day(s)`}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h1 className="text-2xl font-bold text-gray-900">Schedule Management</h1>
+                <button
+                    type="button"
+                    onClick={handleOpenScheduleModal}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700"
+                >
+                    <CalendarRange size={17} />
+                    Update Schedule Hours
+                </button>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -620,9 +1054,20 @@ const BlockTime = ({ price, packageOptions = [] }) => {
                     </div>
                     <Calendar
                         mode="single"
+                        month={calendarMonth}
+                        onMonthChange={(month) => setCalendarMonth(startOfMonth(month))}
                         selected={selectedDate}
                         onSelect={handleDateSelect}
                         disabled={isPastDate}
+                        fixedWeeks
+                        modifiers={{
+                            unavailable: blockedCalendarDays,
+                            available: availableCalendarDays,
+                        }}
+                        modifiersClassNames={{
+                            unavailable: "relative after:pointer-events-none after:absolute after:bottom-1 after:left-1/2 after:z-10 after:h-1 after:w-4 after:-translate-x-1/2 after:rounded-full after:bg-red-500",
+                            available: "relative after:pointer-events-none after:absolute after:bottom-1 after:left-1/2 after:z-10 after:h-1 after:w-4 after:-translate-x-1/2 after:rounded-full after:bg-emerald-500",
+                        }}
                         className="rounded-md border
                             [&_.rdp-day_selected]:!bg-indigo-600
                             [&_.rdp-day_selected]:!text-white
@@ -631,6 +1076,16 @@ const BlockTime = ({ price, packageOptions = [] }) => {
                             [&_.rdp-day_disabled]:!text-gray-300
                             [&_.rdp-day_disabled]:cursor-not-allowed"
                     />
+                    <div className="mt-4 flex flex-wrap gap-3 border-t border-gray-100 pt-3 text-xs text-gray-500">
+                        <div className="flex items-center gap-1.5">
+                            <span className="h-1.5 w-4 rounded-full bg-emerald-500" />
+                            <span>Bookable for selected lesson</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <span className="h-1.5 w-4 rounded-full bg-red-500" />
+                            <span>No bookable lesson times</span>
+                        </div>
+                    </div>
                 </div>
 
                 {/* ── Time Slots panel ── */}
@@ -777,6 +1232,26 @@ const BlockTime = ({ price, packageOptions = [] }) => {
                         </div>
                     )}
 
+                    {sortedBlockRecords.length > 0 && (
+                        <div className="mt-3 mb-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                <p className="text-xs font-semibold uppercase tracking-wider text-red-700">
+                                    Blocked times
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                    {sortedBlockRecords.map((block) => (
+                                        <span
+                                            key={block.id}
+                                            className="rounded-md border border-red-200 bg-white px-2.5 py-1 text-xs font-medium text-red-700"
+                                        >
+                                            {hhmm(block.start_time)} - {hhmm(block.end_time)}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Legend */}
                     <div className="flex flex-wrap items-center gap-4 mb-4 mt-3 text-xs text-gray-500">
                         <div className="flex items-center gap-1.5">
@@ -806,7 +1281,7 @@ const BlockTime = ({ price, packageOptions = [] }) => {
                     ) : displaySlots.length > 0 ? (
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
                             {displaySlots.map((timeStr, index) => {
-                                const status    = resolveWindowStatus(timeStr, rawSlots, activePrice?.duration);
+                                const status    = resolveWindowStatus(timeStr, rawSlots, blockRecords, activePrice?.duration);
                                 const clickable = status === "available" || status === "blocked";
                                 return (
                                     <div
@@ -844,6 +1319,7 @@ const BlockTime = ({ price, packageOptions = [] }) => {
                     )}
                 </div>
 
+            </div>
             </div>
         </Wrapper>
     );

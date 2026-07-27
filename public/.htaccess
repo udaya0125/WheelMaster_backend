@@ -23,3 +23,9 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
 </IfModule>
+
+# ─── Block sensitive files ───────────────────────────────────────
+<FilesMatch "^\.env|\.env\..*|composer\.(json|lock)|package\.json|artisan|webpack\.mix\.js">
+    Order allow,deny
+    Deny from all
+</FilesMatch>

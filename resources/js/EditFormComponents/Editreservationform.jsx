@@ -1026,6 +1026,7 @@ const EditReservationForm = ({
         try {
             const submitData = {
                 user_name: formData.user_name,
+                email: reservationToEdit.email,
                 phone: formData.phone,
                 address: formData.address,
                 package_type: packageDescription,
@@ -1054,9 +1055,26 @@ const EditReservationForm = ({
         } catch (err) {
             console.error("Error updating reservation:", err);
             if (err.response?.data) {
-                const { message: msg, errors: errs } = err.response.data;
+                const { message: msg, errors: errs, conflict } =
+                    err.response.data;
                 if (errs && Array.isArray(errs)) {
                     alert(`❌ Validation Error:\n${errs.join("\n")}`);
+                } else if (conflict) {
+                    const formatTime = (time) =>
+                        time?.slice(0, 5) || "unknown";
+                    const reason =
+                        conflict.type === "direct_overlap"
+                            ? "The lesson times directly overlap."
+                            : "The change would leave less than the required 20-minute driving buffer.";
+
+                    alert(
+                        `${msg}\n\n` +
+                            `Conflicting booking #${conflict.reservation_id}: ` +
+                            `${formatTime(conflict.start_time)}–${formatTime(conflict.end_time)}\n` +
+                            `Its buffered end: ${formatTime(conflict.buffered_end_time)}\n` +
+                            `Your requested buffered end: ${formatTime(conflict.requested_buffered_end_time)}\n\n` +
+                            reason,
+                    );
                 } else if (msg?.toLowerCase().includes("blocked")) {
                     alert(
                         "❌ This time slot is already BLOCKED by administrator.\n\nPlease select a different time.",

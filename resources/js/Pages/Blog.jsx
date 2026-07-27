@@ -241,7 +241,7 @@ const BlogList = () => {
                 </div>
             )}
 
-            <div className="bg-gray-50 min-h-screen">
+            <div className=" min-h-screen">
                 {/* Featured Posts */}
                 <section className="px-2 sm:px-6 lg:px-8 py-6 lg:py-8">
                     <div className="flex justify-end items-start px-4 mb-12">

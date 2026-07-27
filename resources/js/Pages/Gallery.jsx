@@ -218,7 +218,7 @@ const Gallery = () => {
                 </div>
             )}
 
-            <section className="relative py-12 overflow-hidden">
+            <section className="relative py-12 lg:py-0 overflow-hidden">
                 <div className="px-2 sm:px-6 lg:px-8 py-6 lg:py-8">
                     <div className="flex justify-end items-start px-4 mb-12">
                         <div className="flex flex-col items-end gap-4">

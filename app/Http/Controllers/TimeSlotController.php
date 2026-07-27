@@ -3,12 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\BlockReservation;
+use App\Models\Price;
+use App\Models\SlotHold;
 use App\Models\TimeSlot;
 use App\Models\UserReservation;
+use App\Services\SlotHoldService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class TimeSlotController extends Controller
 {
@@ -69,8 +73,13 @@ class TimeSlotController extends Controller
      */
     public function getSlotsForDate(Request $request)
     {
-        $date    = $request->get('date', Carbon::now()->format('Y-m-d'));
-        $priceId = $request->get('price_id');
+        $validated = $request->validate([
+            'date' => 'nullable|date',
+            'price_id' => 'nullable|exists:prices,id',
+            'duration_minutes' => 'nullable|integer|in:60,120',
+        ]);
+        $date = $validated['date'] ?? Carbon::now()->format('Y-m-d');
+        $priceId = $validated['price_id'] ?? null;
 
         TimeSlot::initializeForDateRange($date, $date);
 
@@ -83,7 +92,11 @@ class TimeSlotController extends Controller
             ->get();
 
         $blocks          = BlockReservation::where('date', $date)->get();
-        $durationMinutes = $this->getDurationMinutesForPrice($priceId);
+        $activeHolds     = SlotHold::active()->forDate($date)->get();
+        $durationMinutes = $this->getDurationMinutesForPrice(
+            $priceId,
+            $validated['duration_minutes'] ?? null
+        );
 
         $defaultSlots      = TimeSlot::generateDefaultSlotsForDate($date);
         $defaultStartTimes = collect($defaultSlots)->pluck('start_time')->toArray();
@@ -91,6 +104,7 @@ class TimeSlotController extends Controller
         $formattedSlots = $slots->map(function ($slot) use (
             $reservations,
             $blocks,
+            $activeHolds,
             $defaultStartTimes,
             $date,
             $priceId,
@@ -108,6 +122,18 @@ class TimeSlotController extends Controller
                 if ($slotStart < $resEnd && $slotEnd > $resStart) {
                     $status = 'reserved';
                     break;
+                }
+            }
+
+            if ($status !== 'reserved') {
+                foreach ($activeHolds as $hold) {
+                    $holdStart = Carbon::parse($hold->segment_start);
+                    $holdEnd = $holdStart->copy()->addMinutes(self::SLOT_MINUTES);
+
+                    if ($slotStart < $holdEnd && $slotEnd > $holdStart) {
+                        $status = 'reserved';
+                        break;
+                    }
                 }
             }
 
@@ -154,10 +180,18 @@ class TimeSlotController extends Controller
             ];
         })->values();
 
+        $formattedBlocks = $blocks->map(fn ($block) => [
+            'id'         => $block->id,
+            'start_time' => substr($block->start_time, 0, 5),
+            'end_time'   => substr($block->end_time, 0, 5),
+            'reason'     => $block->reason,
+        ])->values();
+
         return response()->json([
             'success'       => true,
             'date'          => $date,
             'slots'         => $formattedSlots,
+            'blocks'        => $formattedBlocks,
             'current_start' => optional($slots->first())->start_time
                 ? substr($slots->first()->start_time, 0, 5)
                 : substr(self::DEFAULT_START_TIME, 0, 5),
@@ -167,15 +201,192 @@ class TimeSlotController extends Controller
         ]);
     }
 
-    private function getDurationMinutesForPrice($priceId)
+    public function getBlockSummary(Request $request)
+    {
+        $validated = $request->validate([
+            'start_date' => 'required|date',
+            'end_date'   => 'required|date|after_or_equal:start_date',
+        ]);
+
+        $startDate = Carbon::parse($validated['start_date'])->startOfDay();
+        $endDate   = Carbon::parse($validated['end_date'])->startOfDay();
+
+        if ($startDate->diffInDays($endDate) > 365) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Date range cannot exceed 365 days.',
+            ], 422);
+        }
+
+        $startKey = $startDate->toDateString();
+        $endKey   = $endDate->toDateString();
+
+        $scheduleBounds = TimeSlot::query()
+            ->select(
+                'date',
+                DB::raw('MIN(start_time) as schedule_start'),
+                DB::raw('MAX(end_time) as schedule_end')
+            )
+            ->whereBetween('date', [$startKey, $endKey])
+            ->groupBy('date')
+            ->get()
+            ->keyBy(fn ($row) => Carbon::parse($row->date)->toDateString());
+
+        $blocksByDate = BlockReservation::whereBetween('date', [$startKey, $endKey])
+            ->orderBy('start_time')
+            ->get()
+            ->groupBy(fn ($block) => Carbon::parse($block->date)->toDateString());
+
+        $holdsByDate = SlotHold::active()
+            ->whereBetween('reservation_date', [$startKey, $endKey])
+            ->orderBy('segment_start')
+            ->get()
+            ->groupBy(fn ($hold) => Carbon::parse($hold->reservation_date)->toDateString());
+
+        $summary = [];
+        $current = $startDate->copy();
+
+        while ($current->lte($endDate)) {
+            $dateKey = $current->toDateString();
+            $bounds = $scheduleBounds->get($dateKey);
+            $scheduleStart = $bounds?->schedule_start ?: self::DEFAULT_START_TIME;
+            $scheduleEnd = $bounds?->schedule_end ?: self::DEFAULT_END_TIME;
+
+            $summary[$dateKey] = $this->blocksCoverTimeRange(
+                $blocksByDate->get($dateKey, collect()),
+                $scheduleStart,
+                $scheduleEnd
+            ) ? 'blocked' : 'available';
+
+            $current->addDay();
+        }
+
+        return response()->json([
+            'success' => true,
+            'start_date' => $startKey,
+            'end_date' => $endKey,
+            'data' => $summary,
+        ]);
+    }
+
+    public function getAvailabilitySummary(Request $request)
+    {
+        $validated = $request->validate([
+            'start_date' => 'required|date',
+            'end_date'   => 'required|date|after_or_equal:start_date',
+            'price_id'   => 'required|exists:prices,id',
+            'duration_minutes' => 'nullable|integer|in:60,120',
+        ]);
+
+        $startDate = Carbon::parse($validated['start_date'])->startOfDay();
+        $endDate   = Carbon::parse($validated['end_date'])->startOfDay();
+
+        if ($startDate->diffInDays($endDate) > 365) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Date range cannot exceed 365 days.',
+            ], 422);
+        }
+
+        $startKey = $startDate->toDateString();
+        $endKey   = $endDate->toDateString();
+        $durationMinutes = $this->getDurationMinutesForPrice(
+            $validated['price_id'],
+            $validated['duration_minutes'] ?? null
+        );
+
+        $slotsByDate = TimeSlot::whereBetween('date', [$startKey, $endKey])
+            ->orderBy('start_time')
+            ->get()
+            ->groupBy(fn ($slot) => Carbon::parse($slot->date)->toDateString());
+
+        $reservationsByDate = UserReservation::whereBetween('reservation_date', [$startKey, $endKey])
+            ->where('status', '!=', 'Rejected')
+            ->get()
+            ->groupBy(fn ($reservation) => Carbon::parse($reservation->reservation_date)->toDateString());
+
+        $blocksByDate = BlockReservation::whereBetween('date', [$startKey, $endKey])
+            ->orderBy('start_time')
+            ->get()
+            ->groupBy(fn ($block) => Carbon::parse($block->date)->toDateString());
+
+        $holdsByDate = SlotHold::active()
+            ->whereBetween('reservation_date', [$startKey, $endKey])
+            ->orderBy('segment_start')
+            ->get()
+            ->groupBy(fn ($hold) => Carbon::parse($hold->reservation_date)->toDateString());
+
+        $summary = [];
+        $current = $startDate->copy();
+
+        while ($current->lte($endDate)) {
+            $dateKey = $current->toDateString();
+            $slots = $slotsByDate->get($dateKey);
+
+            if (! $slots || $slots->isEmpty()) {
+                $slots = collect(TimeSlot::generateDefaultSlotsForDate($dateKey))
+                    ->map(fn ($slot) => (object) $slot);
+            }
+
+            $availableSlots = $this->getBookableStartTimesForSummary(
+                $dateKey,
+                $slots,
+                $reservationsByDate->get($dateKey, collect()),
+                $blocksByDate->get($dateKey, collect()),
+                $holdsByDate->get($dateKey, collect()),
+                $durationMinutes
+            );
+
+            $summary[$dateKey] = [
+                'status' => count($availableSlots) > 0 ? 'available' : 'unavailable',
+                'available_slots' => $availableSlots,
+                'current_end' => $this->formatTimeForResponse(
+                    optional($slots->sortBy('end_time')->last())->end_time ?: self::DEFAULT_END_TIME
+                ),
+            ];
+
+            $current->addDay();
+        }
+
+        return response()->json([
+            'success' => true,
+            'start_date' => $startKey,
+            'end_date' => $endKey,
+            'data' => $summary,
+        ]);
+    }
+
+    private function getDurationMinutesForPrice($priceId, ?int $requestedDurationMinutes = null)
     {
         if (! $priceId) {
+            if ($requestedDurationMinutes !== null) {
+                throw ValidationException::withMessages([
+                    'duration_minutes' => 'A package is required when selecting a lesson duration.',
+                ]);
+            }
+
             return 20;
         }
 
-        $price = \App\Models\Price::find($priceId);
+        $price = Price::find($priceId);
 
-        return $this->parseDurationToMinutes($price?->duration);
+        if (! $price) {
+            return 60;
+        }
+
+        if ($requestedDurationMinutes !== null && ! $price->isFiveHourLessonBundle()) {
+            throw ValidationException::withMessages([
+                'duration_minutes' => 'A custom lesson duration is only available for the 5 hour lesson bundle.',
+            ]);
+        }
+
+        try {
+            return $price->lessonBookingDurationMinutes($requestedDurationMinutes);
+        } catch (\InvalidArgumentException $exception) {
+            throw ValidationException::withMessages([
+                'duration_minutes' => $exception->getMessage(),
+            ]);
+        }
     }
 
     private function parseDurationToMinutes($duration)
@@ -213,16 +424,17 @@ class TimeSlotController extends Controller
             return false;
         }
 
-        $hasBlock = BlockReservation::where('date', $date)
-            ->get()
-            ->contains(function ($block) use ($startTime, $bufferEnd) {
-                $blockStart = Carbon::parse($block->start_time);
-                $blockEnd   = Carbon::parse($block->end_time);
-
-                return $blockStart < $bufferEnd && $blockEnd > $startTime;
-            });
+        $hasBlock = BlockReservation::overlapsDrivingWindow(
+            $date,
+            $startTime,
+            $bufferEnd
+        );
 
         if ($hasBlock) {
+            return false;
+        }
+
+        if ((new SlotHoldService())->activeHoldExists($date, $startTime, $bufferEnd)) {
             return false;
         }
 
@@ -237,6 +449,116 @@ class TimeSlotController extends Controller
             });
     }
 
+    private function getBookableStartTimesForSummary($date, $slots, $reservations, $blocks, $activeHolds, int $durationMinutes): array
+    {
+        $scheduleEnd = Carbon::parse(
+            optional($slots->sortBy('end_time')->last())->end_time ?: self::DEFAULT_END_TIME
+        );
+
+        return $slots
+            ->sortBy('start_time')
+            ->filter(function ($slot) use ($date, $reservations, $blocks, $activeHolds, $durationMinutes, $scheduleEnd) {
+                if (($slot->status ?? 'available') !== 'available') {
+                    return false;
+                }
+
+                $slotStart = Carbon::parse($slot->start_time);
+                $slotEnd = Carbon::parse($slot->end_time);
+
+                foreach ($reservations as $reservation) {
+                    $reservationStart = Carbon::parse($reservation->start_time);
+                    $reservationEnd = Carbon::parse($reservation->end_time);
+
+                    if ($slotStart < $reservationEnd && $slotEnd > $reservationStart) {
+                        return false;
+                    }
+                }
+
+                foreach ($blocks as $block) {
+                    $blockStart = Carbon::parse($block->start_time);
+                    $blockEnd = Carbon::parse($block->end_time);
+
+                    if ($slotStart < $blockEnd && $slotEnd > $blockStart) {
+                        return false;
+                    }
+                }
+
+                foreach ($activeHolds as $hold) {
+                    $holdStart = Carbon::parse($hold->segment_start);
+                    $holdEnd = $holdStart->copy()->addMinutes(self::SLOT_MINUTES);
+
+                    if ($slotStart < $holdEnd && $slotEnd > $holdStart) {
+                        return false;
+                    }
+                }
+
+                return $this->isBookableForDurationFromCollections(
+                    $date,
+                    $slotStart,
+                    $durationMinutes,
+                    $scheduleEnd,
+                    $reservations,
+                    $blocks,
+                    $activeHolds
+                );
+            })
+            ->map(fn ($slot) => $this->formatTimeForResponse($slot->start_time))
+            ->values()
+            ->all();
+    }
+
+    private function isBookableForDurationFromCollections(
+        $date,
+        Carbon $startTime,
+        int $durationMinutes,
+        Carbon $scheduleEnd,
+        $reservations,
+        $blocks,
+        $activeHolds
+    ): bool {
+        $bufferEnd = $startTime->copy()
+            ->addMinutes($durationMinutes)
+            ->addMinutes(self::SLOT_MINUTES);
+
+        if ($bufferEnd > $scheduleEnd) {
+            return false;
+        }
+
+        foreach ($blocks as $block) {
+            $blockStart = Carbon::parse($block->start_time);
+            $blockEnd = Carbon::parse($block->end_time)->addMinutes(BlockReservation::DRIVER_GAP_MINUTES);
+
+            if ($blockStart < $bufferEnd && $blockEnd > $startTime) {
+                return false;
+            }
+        }
+
+        foreach ($reservations as $reservation) {
+            $reservationStart = Carbon::parse($reservation->start_time);
+            $reservationBufferEnd = Carbon::parse($reservation->end_time)->addMinutes(self::SLOT_MINUTES);
+
+            if ($reservationStart < $bufferEnd && $reservationBufferEnd > $startTime) {
+                return false;
+            }
+        }
+
+        foreach ($activeHolds as $hold) {
+            $holdStart = Carbon::parse($hold->segment_start);
+            $holdEnd = $holdStart->copy()->addMinutes(self::SLOT_MINUTES);
+
+            if ($holdStart < $bufferEnd && $holdEnd > $startTime) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function formatTimeForResponse($time): string
+    {
+        return substr((string) $time, 0, 5);
+    }
+
     private function getScheduleEndForDate($date)
     {
         $lastEndTime = TimeSlot::where('date', $date)
@@ -244,6 +566,39 @@ class TimeSlotController extends Controller
             ->value('end_time');
 
         return Carbon::parse($lastEndTime ?: self::DEFAULT_END_TIME);
+    }
+
+    private function blocksCoverTimeRange($blocks, $startTime, $endTime): bool
+    {
+        $rangeStart = Carbon::parse($startTime);
+        $rangeEnd   = Carbon::parse($endTime);
+
+        if ($rangeStart >= $rangeEnd) {
+            return false;
+        }
+
+        $coveredUntil = $rangeStart->copy();
+
+        foreach ($blocks->sortBy('start_time') as $block) {
+            $blockStart = Carbon::parse($block->start_time);
+            $blockEnd   = Carbon::parse($block->end_time);
+
+            if ($blockEnd <= $coveredUntil) {
+                continue;
+            }
+
+            if ($blockStart > $coveredUntil) {
+                return false;
+            }
+
+            $coveredUntil = $blockEnd->copy();
+
+            if ($coveredUntil >= $rangeEnd) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -259,8 +614,9 @@ class TimeSlotController extends Controller
             ->get();
 
         $blocks = BlockReservation::where('date', $date)->get();
+        $activeHolds = SlotHold::active()->forDate($date)->get();
 
-        return $updatedSlots->map(function ($slot) use ($reservations, $blocks, $defaultStartTimes) {
+        return $updatedSlots->map(function ($slot) use ($reservations, $blocks, $activeHolds, $defaultStartTimes) {
             $status    = $slot->status;
             $slotStart = Carbon::parse($slot->start_time);
             $slotEnd   = Carbon::parse($slot->end_time);
@@ -276,6 +632,18 @@ class TimeSlotController extends Controller
                 ) {
                     $status = 'reserved';
                     break;
+                }
+            }
+
+            if ($status !== 'reserved') {
+                foreach ($activeHolds as $hold) {
+                    $holdStart = Carbon::parse($hold->segment_start);
+                    $holdEnd = $holdStart->copy()->addMinutes(self::SLOT_MINUTES);
+
+                    if ($slotStart < $holdEnd && $slotEnd > $holdStart) {
+                        $status = 'reserved';
+                        break;
+                    }
                 }
             }
 
@@ -687,13 +1055,6 @@ class TimeSlotController extends Controller
         $scheduleStart   = Carbon::parse($request->start_time);
         $scheduleEnd     = Carbon::parse($request->end_time);
         $scheduleMinutes = (int) $scheduleStart->diffInMinutes($scheduleEnd, false);
-
-        if ($scheduleStart < Carbon::parse(self::DEFAULT_START_TIME)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Start time cannot be earlier than 7:00 AM.',
-            ], 422);
-        }
 
         if ($scheduleMinutes < self::SLOT_MINUTES) {
             return response()->json([

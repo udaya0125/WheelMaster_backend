@@ -283,7 +283,7 @@ const Testimonial = () => {
                 </div>
             </section> */}
 
-            <section className="relative py-12  overflow-hidden">
+            <section className="relative py-12 lg:py-2  overflow-hidden">
                 {/* <div className="absolute top-0 left-0 w-full h-full opacity-10">
                     <div className="absolute top-20 left-10 w-40 h-40 bg-blue-400 rounded-full mix-blend-multiply filter blur-xl"></div>
                     <div className="absolute bottom-10 right-10 w-40 h-40 bg-indigo-400 rounded-full mix-blend-multiply filter blur-xl"></div>

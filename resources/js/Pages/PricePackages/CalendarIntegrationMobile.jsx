@@ -1765,11 +1765,24 @@ import {
     Home,
     MapPin as MapPinIcon,
     ChevronLeft,
+    ShoppingCart,
+    Trash2,
 } from "lucide-react";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
-import { Link } from "@inertiajs/react";
+import { Link, usePage } from "@inertiajs/react";
 import PackageSelector from "./PackageSelector";
+import { useLessonCart } from "./useLessonCart";
+import {
+    FIVE_HOUR_BUNDLE_TOTAL_MINUTES,
+    findOverlappingCartItem,
+    getBundleItemDurationMinutes,
+    getFiveHourBundleItems,
+    getFiveHourBundleSelectedMinutes,
+    getLessonBookingDuration,
+    hasIncompleteFiveHourBundle,
+    isFiveHourLessonBundle,
+} from "./packageRules";
 
 const MEETPOINT_AREA = "meetpoint-mandurah-dot";
 const MEETPOINT_LOCATION = {
@@ -2006,8 +2019,12 @@ const LocationAutocomplete = ({
 };
 
 const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
+    const { payment } = usePage().props;
+    const useOnlinePay = payment?.bookingMode === "onlinepay";
+    const [activePrice, setActivePrice] = useState(price);
     const [selectedDate, setSelectedDate] = useState("");
     const [selectedTime, setSelectedTime] = useState("");
+    const [bundleDurationMinutes, setBundleDurationMinutes] = useState(60);
 
     const [formData, setFormData] = useState({
         user_name: "",
@@ -2037,10 +2054,63 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
     const timeSlotsRef = useRef({});
     const loadingDateKeyRef = useRef("");
     const availabilityLoadingRef = useRef(false);
+    const detailsFormRef = useRef(null);
+    const cartSectionRef = useRef(null);
+    const lessonCart = useLessonCart();
+    const isCartCheckout = lessonCart.count > 0;
+    const isActiveFiveHourBundle = isFiveHourLessonBundle(activePrice);
+    const bundleCartItems = getFiveHourBundleItems(lessonCart.items);
+    const activeBundleSelectedMinutes = getFiveHourBundleSelectedMinutes(
+        lessonCart.items,
+        activePrice?.id,
+    );
+    const hasIncompleteBundleCart = hasIncompleteFiveHourBundle(lessonCart.items);
+    const selectedDuration = getLessonBookingDuration(
+        activePrice,
+        bundleDurationMinutes,
+    );
+    const bundleDurationWouldExceedTotal =
+        isActiveFiveHourBundle &&
+        activeBundleSelectedMinutes + bundleDurationMinutes >
+            FIVE_HOUR_BUNDLE_TOTAL_MINUTES;
 
     useEffect(() => {
         timeSlotsRef.current = timeSlots;
     }, [timeSlots]);
+
+    useEffect(() => {
+        setActivePrice(price);
+    }, [price]);
+
+    const handlePackageChange = useCallback((nextPackage) => {
+        setActivePrice(nextPackage);
+        setSelectedTime("");
+        setShowNextAvailability(false);
+        setNextAvailableDates([]);
+        timeSlotsRef.current = {};
+        loadingDateKeyRef.current = "";
+        setTimeSlots({});
+        setScheduleEnds({});
+        setBundleDurationMinutes(60);
+    }, []);
+
+    const handleBundleDurationChange = (durationMinutes) => {
+        setBundleDurationMinutes(durationMinutes);
+        setSelectedTime("");
+        setShowNextAvailability(false);
+        setNextAvailableDates([]);
+        timeSlotsRef.current = {};
+        loadingDateKeyRef.current = "";
+        setTimeSlots({});
+        setScheduleEnds({});
+    };
+
+    const handleCartShortcutClick = useCallback(() => {
+        cartSectionRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+        });
+    }, []);
 
     // ── derived: is meetpoint selected ──────────────────────────────────────
     const isMeetpoint = formData.address === MEETPOINT_AREA;
@@ -2128,10 +2198,10 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                 ...prev,
                 dropoff_location: "",
             }));
-            toast.success("Dropoff location set to pickup location");
+            toast.success("Dropoff address set to pickup address");
         } else {
             toast.error(
-                "Please select a pickup location from the suggestions first",
+                "Please select a pickup address from the suggestions first",
             );
         }
     };
@@ -2140,7 +2210,7 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
 
     const getNonOverlappingSlots = (slots, dateKey) => {
         if (!slots || slots.length === 0) return [];
-        const durationMinutes = parseDuration(price?.duration);
+        const durationMinutes = parseDuration(selectedDuration);
         const bookingStepMinutes = durationMinutes + 20;
         const timeToMinutes = (timeStr) => {
             const [h, m] = timeStr.split(":").map(Number);
@@ -2196,7 +2266,7 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
             const parts = startTimeStr.split(":");
             startTimeStr = `${parts[0]}:${parts[1]}`;
         }
-        const endTimeStr = calculateEndTime(startTimeStr, price?.duration);
+        const endTimeStr = calculateEndTime(startTimeStr, selectedDuration);
         const formatTo12Hour = (time) => {
             const [hours, minutes] = time.split(":");
             const h = parseInt(hours);
@@ -2268,9 +2338,53 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
         [],
     );
 
+    const applyAvailabilitySummary = useCallback((summary = {}) => {
+        const nextSlots = {};
+        const nextEnds = {};
+
+        Object.entries(summary).forEach(([dateKey, day]) => {
+            nextSlots[dateKey] = day.available_slots || [];
+            if (day.current_end) nextEnds[dateKey] = day.current_end;
+        });
+
+        timeSlotsRef.current = {
+            ...timeSlotsRef.current,
+            ...nextSlots,
+        };
+        setTimeSlots((prev) => ({ ...prev, ...nextSlots }));
+        setScheduleEnds((prev) => ({ ...prev, ...nextEnds }));
+    }, []);
+
+    const fetchAvailabilitySummary = useCallback(
+        async (startDate, endDate) => {
+            if (!activePrice?.id || !startDate || !endDate) return {};
+
+            const response = await axios.get(
+                route("ourtimeslots.availability-summary"),
+                {
+                    params: {
+                        start_date: formatDateKey(startDate),
+                        end_date: formatDateKey(endDate),
+                        price_id: activePrice.id,
+                        ...(isActiveFiveHourBundle && {
+                            duration_minutes: bundleDurationMinutes,
+                        }),
+                    },
+                },
+            );
+
+            if (!response.data.success) return {};
+
+            const summary = response.data.data || {};
+            applyAvailabilitySummary(summary);
+            return summary;
+        },
+        [activePrice?.id, applyAvailabilitySummary, bundleDurationMinutes, isActiveFiveHourBundle],
+    );
+
     const fetchDropdownAvailability = useCallback(async () => {
         if (
-            !price?.id ||
+            !activePrice?.id ||
             allDates.length === 0 ||
             availabilityLoadingRef.current
         )
@@ -2286,61 +2400,15 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
         availabilityLoadingRef.current = true;
         setAvailabilityLoading(true);
         try {
-            const batchSize = 7;
-            for (let i = 0; i < datesToFetch.length; i += batchSize) {
-                const batch = datesToFetch.slice(i, i + batchSize);
-                const results = await Promise.all(
-                    batch.map(async (date) => {
-                        try {
-                            const response = await axios.get(
-                                route("ourtimeslots.get"),
-                                {
-                                    params: {
-                                        date: date.value,
-                                        price_id: price.id,
-                                    },
-                                },
-                            );
-                            return [
-                                date.value,
-                                response.data.success
-                                    ? mapAvailableSlots(
-                                          response.data.slots || [],
-                                      )
-                                    : [],
-                                response.data.success
-                                    ? response.data.current_end
-                                    : null,
-                            ];
-                        } catch (err) {
-                            console.error(
-                                `Error fetching slots for ${date.value}:`,
-                                err,
-                            );
-                            return [date.value, [], null];
-                        }
-                    }),
-                );
-                const nextSlots = Object.fromEntries(
-                    results.map(([dateKey, slots]) => [dateKey, slots]),
-                );
-                const nextEnds = Object.fromEntries(
-                    results
-                        .filter(([, , endTime]) => endTime)
-                        .map(([dateKey, , endTime]) => [dateKey, endTime]),
-                );
-                timeSlotsRef.current = {
-                    ...timeSlotsRef.current,
-                    ...nextSlots,
-                };
-                setTimeSlots((prev) => ({ ...prev, ...nextSlots }));
-                setScheduleEnds((prev) => ({ ...prev, ...nextEnds }));
-            }
+            await fetchAvailabilitySummary(
+                datesToFetch[0].value,
+                datesToFetch[datesToFetch.length - 1].value,
+            );
         } finally {
             availabilityLoadingRef.current = false;
             setAvailabilityLoading(false);
         }
-    }, [allDates, mapAvailableSlots, price?.id]);
+    }, [activePrice?.id, allDates, fetchAvailabilitySummary]);
 
     useEffect(() => {
         fetchDropdownAvailability();
@@ -2348,7 +2416,7 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
 
     const fetchSlotsForDate = useCallback(
         async (dateKey, force = false) => {
-            if (!dateKey || !price?.id || isPastDate(dateKey)) return;
+            if (!dateKey || !activePrice?.id || isPastDate(dateKey)) return;
             const alreadyFetched = timeSlotsRef.current[dateKey] !== undefined;
             const alreadyLoading = loadingDateKeyRef.current === dateKey;
             if (!force && (alreadyFetched || alreadyLoading)) return;
@@ -2356,7 +2424,13 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                 loadingDateKeyRef.current = dateKey;
                 setLoading(true);
                 const response = await axios.get(route("ourtimeslots.get"), {
-                    params: { date: dateKey, price_id: price.id },
+                    params: {
+                        date: dateKey,
+                        price_id: activePrice.id,
+                        ...(isActiveFiveHourBundle && {
+                            duration_minutes: bundleDurationMinutes,
+                        }),
+                    },
                 });
                 const availableSlots = response.data.success
                     ? mapAvailableSlots(response.data.slots || [])
@@ -2389,17 +2463,17 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                 }
             }
         },
-        [mapAvailableSlots, price?.id],
+        [activePrice?.id, bundleDurationMinutes, isActiveFiveHourBundle, mapAvailableSlots],
     );
 
     useEffect(() => {
         const fetchTimeSlotsForSelected = async () => {
-            if (!selectedDate || !price?.id) return;
-            await fetchSlotsForDate(selectedDate, true);
+            if (!selectedDate || !activePrice?.id) return;
+            await fetchSlotsForDate(selectedDate);
             setSelectedTime("");
         };
         fetchTimeSlotsForSelected();
-    }, [selectedDate, price?.id, fetchSlotsForDate]);
+    }, [activePrice?.id, selectedDate, fetchSlotsForDate]);
 
     const getTimeSlotsForDate = (date) => {
         if (!date) return [];
@@ -2460,57 +2534,38 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
 
     const findNextAvailableDates = async () => {
         try {
-            const availableDates = [];
             const today = new Date();
+            const rangeDates = [];
+
             for (let i = 1; i <= 30; i++) {
                 const nextDate = new Date(today);
                 nextDate.setDate(today.getDate() + i);
-                const dateKey = formatDateKey(nextDate);
-                let availableSlots = timeSlots[dateKey];
-                if (!availableSlots) {
-                    try {
-                        const response = await axios.get(
-                            route("ourtimeslots.get"),
-                            {
-                                params: { date: dateKey, price_id: price.id },
-                            },
-                        );
-                        if (response.data.success) {
-                            availableSlots = response.data.slots
-                                .filter((slot) => slot.status === "available")
-                                .map((slot) => {
-                                    const startTime = slot.start_time;
-                                    if (
-                                        typeof startTime === "string" &&
-                                        startTime.includes(":")
-                                    ) {
-                                        const parts = startTime.split(":");
-                                        return `${parts[0]}:${parts[1]}`;
-                                    }
-                                    return startTime;
-                                });
-                            setTimeSlots((prev) => ({
-                                ...prev,
-                                [dateKey]: availableSlots,
-                            }));
-                            setScheduleEnds((prev) => ({
-                                ...prev,
-                                [dateKey]: response.data.current_end,
-                            }));
-                        }
-                    } catch (err) {
-                        console.error(
-                            `Error fetching slots for ${dateKey}:`,
-                            err,
-                        );
-                        continue;
-                    }
-                }
-                if (availableSlots && availableSlots.length > 0)
-                    availableDates.push(nextDate);
-                if (availableDates.length >= 3) break;
+                rangeDates.push(nextDate);
             }
-            return availableDates;
+
+            const cachedAvailableDates = rangeDates.filter((date) => {
+                const dateKey = formatDateKey(date);
+                return (timeSlotsRef.current[dateKey] || []).length > 0;
+            });
+
+            if (cachedAvailableDates.length >= 3) {
+                return cachedAvailableDates.slice(0, 3);
+            }
+
+            const summary = await fetchAvailabilitySummary(
+                rangeDates[0],
+                rangeDates[rangeDates.length - 1],
+            );
+
+            return rangeDates
+                .filter((date) => {
+                    const dateKey = formatDateKey(date);
+                    const summarySlots =
+                        summary[dateKey]?.available_slots || [];
+                    const cachedSlots = timeSlotsRef.current[dateKey] || [];
+                    return summarySlots.length > 0 || cachedSlots.length > 0;
+                })
+                .slice(0, 3);
         } catch (error) {
             console.error("Error finding next available dates:", error);
             return [];
@@ -2625,8 +2680,8 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
     const validateSelectedLocations = () => {
         const locationErrors = {};
         [
-            ["pickup_location", "pickup location"],
-            ["dropoff_location", "dropoff location"],
+            ["pickup_location", "pickup address"],
+            ["dropoff_location", "dropoff address"],
         ].forEach(([field, label]) => {
             if (!formData[field]?.trim()) {
                 locationErrors[field] = `Please enter a ${label}.`;
@@ -2647,6 +2702,86 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
     };
 
     // ── submission ───────────────────────────────────────────────────────────
+
+    const handleAddToCart = () => {
+        if (!selectedDate) {
+            toast.error("Please select a date");
+            return;
+        }
+
+        if (!selectedTime) {
+            toast.error("Please select a time slot");
+            return;
+        }
+
+        if (bundleDurationWouldExceedTotal) {
+            toast.error("That lesson would exceed the 5-hour bundle total.");
+            return;
+        }
+
+        const candidateItem = {
+            price_id: activePrice.id,
+            reservation_date: selectedDate,
+            start_time: selectedTime,
+            ...(isActiveFiveHourBundle && {
+                duration_minutes: bundleDurationMinutes,
+            }),
+            price: {
+                id: activePrice.id,
+                description: activePrice.description,
+                duration: activePrice.duration,
+                price: activePrice.price,
+                category: activePrice.category,
+            },
+        };
+
+        if (findOverlappingCartItem(lessonCart.items, candidateItem)) {
+            toast.error(
+                "This lesson overlaps another lesson in your cart or its required 20-minute buffer. Please choose a different time.",
+            );
+            return;
+        }
+
+        const added = lessonCart.addItem(candidateItem);
+
+        if (added) {
+            toast.success("Lesson added to cart");
+            setSelectedTime("");
+        } else {
+            toast.error("That lesson is already in your cart");
+        }
+    };
+
+    const handleCartCheckoutSuccess = async () => {
+        lessonCart.clearCart();
+        setSelectedTime("");
+        timeSlotsRef.current = {};
+        setTimeSlots({});
+        setScheduleEnds({});
+        await fetchDropdownAvailability();
+        if (selectedDate) {
+            await fetchSlotsForDate(selectedDate, true);
+        }
+    };
+
+    const handleCartItemsUnavailable = async (itemErrors) => {
+        const keysToRemove = Object.keys(itemErrors || {})
+            .map((index) => lessonCart.items[Number(index)]?.key)
+            .filter(Boolean);
+
+        if (keysToRemove.length > 0) {
+            lessonCart.removeItems(keysToRemove);
+            toast.error("Unavailable lessons were removed from your cart.");
+        }
+
+        timeSlotsRef.current = {};
+        setTimeSlots({});
+        setScheduleEnds({});
+        await fetchDropdownAvailability();
+        if (selectedDate) {
+            await fetchSlotsForDate(selectedDate, true);
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -2669,12 +2804,30 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
             newErrors.email = "Please enter a valid email address";
         }
 
-        if (!selectedDate) {
+        if (isCartCheckout && lessonCart.count === 0) {
+            toast.error("Your cart is empty");
+            return;
+        }
+
+        if (isCartCheckout && hasIncompleteBundleCart) {
+            toast.error(
+                "Please select 1- and 2-hour lessons totaling exactly 5 hours for the bundle.",
+            );
+            return;
+        }
+
+        if (!isCartCheckout && !selectedDate) {
             toast.error("Please select a date");
             return;
         }
-        if (!selectedTime) {
+
+        if (!isCartCheckout && !selectedTime) {
             toast.error("Please select a time slot");
+            return;
+        }
+
+        if (!isCartCheckout && isActiveFiveHourBundle) {
+            toast.error("Please add 1-hour and 2-hour lessons totaling 5 hours to the cart for this bundle.");
             return;
         }
 
@@ -2701,41 +2854,76 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
         setSubmitting(true);
 
         try {
-            const durationMinutes = parseDuration(price.duration);
-
-            const extractPackageName = (description) => {
-                if (!description) return "";
-                if (description.includes(":"))
-                    return description.split(":").pop().trim();
-                return description.trim();
-            };
-
             const bookingData = {
                 user_name: formData.user_name,
                 email: formData.email,
                 phone: formData.phone,
                 address: formData.address,
-                reservation_date: selectedDate,
-                price_id: price.id,
-                duration_minutes: durationMinutes,
-                start_time: selectedTime,
-                end_time: calculateEndTime(selectedTime, price.duration),
-                package_type: extractPackageName(price.description),
-                package_price: price.price,
                 pickup_location: formData.pickup_location,
                 dropoff_location: formData.dropoff_location,
                 accepted_terms: acceptTerms,
                 comment: formData.comment,
             };
 
+            let routeName = "ourreservations.store";
+            let bookingType = "lesson";
+
+            if (isCartCheckout) {
+                routeName = "ourreservations.cart";
+                bookingType = "cart";
+                bookingData.items = lessonCart.items.map((item) => ({
+                    price_id: item.price_id,
+                    reservation_date: item.reservation_date,
+                    start_time: item.start_time,
+                    ...(item.duration_minutes && {
+                        duration_minutes: item.duration_minutes,
+                    }),
+                }));
+            } else {
+                const durationMinutes = parseDuration(selectedDuration);
+
+                const extractPackageName = (description) => {
+                    if (!description) return "";
+                    if (description.includes(":"))
+                        return description.split(":").pop().trim();
+                    return description.trim();
+                };
+
+                Object.assign(bookingData, {
+                    reservation_date: selectedDate,
+                    price_id: activePrice.id,
+                    duration_minutes: durationMinutes,
+                    start_time: selectedTime,
+                    end_time: calculateEndTime(selectedTime, selectedDuration),
+                    package_type: extractPackageName(activePrice?.description),
+                    package_price: activePrice?.price,
+                });
+            }
+
             const response = await axios.post(
-                route("ourreservations.store"),
-                bookingData,
+                route(useOnlinePay ? "payments.onlinepay.checkout" : routeName),
+                {
+                    ...bookingData,
+                    booking_type: bookingType,
+                },
             );
+
+            if (useOnlinePay) {
+                if (response.data.checkout_url) {
+                    toast.success("Redirecting to secure payment...");
+                    window.location.assign(response.data.checkout_url);
+                    return;
+                }
+
+                toast.error("Secure payment could not be started. Please try again.");
+                return;
+            }
 
             if (response.data.success || response.data.message) {
                 toast.success(
-                    "Booking confirmed successfully! Please check your Spam email for booking details.",
+                    isCartCheckout
+                        ? "Cart booked successfully! Please check your Spam email for booking details."
+                        : "Booking confirmed successfully! Please check your Spam email for booking details.",
                 );
 
                 setFormData({
@@ -2754,6 +2942,9 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                 setSelectedDate("");
                 setSelectedTime("");
                 setAcceptTerms(false);
+                if (isCartCheckout) {
+                    await handleCartCheckoutSuccess();
+                }
 
                 setTimeout(() => {
                     window.location.reload();
@@ -2761,7 +2952,14 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
             }
         } catch (error) {
             console.error("Booking error:", error);
-            if (error.response?.data?.errors) {
+            const cartItemErrors = error.response?.data?.errors?.items;
+            if (isCartCheckout && cartItemErrors) {
+                await handleCartItemsUnavailable(cartItemErrors);
+                setErrors({ items: cartItemErrors });
+                toast.error(
+                    "Some lessons in your cart are no longer available.",
+                );
+            } else if (error.response?.data?.errors) {
                 setErrors(error.response.data.errors);
                 toast.error("Please fix the errors in the form");
             } else if (error.response?.data?.message) {
@@ -2813,10 +3011,21 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
 
                 {/* Page Header */}
                 <div className="mb-8">
-                    <div className="flex items-center gap-3 mb-1">
-                        <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 ml-6">
+                    <div className="flex items-center justify-between gap-3 mb-1 pl-6">
+                        <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">
                             Book your lessons
                         </h1>
+                        <button
+                            type="button"
+                            onClick={handleCartShortcutClick}
+                            className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-indigo-100 bg-white text-indigo-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                            aria-label={`View cart with ${lessonCart.count} lessons`}
+                        >
+                            <ShoppingCart size={20} />
+                            <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-indigo-600 px-1.5 text-[11px] font-bold leading-none text-white">
+                                {lessonCart.count}
+                            </span>
+                        </button>
                     </div>
                     <p className="text-gray-500 text-sm lg:text-base ml-6">
                         Fill in your details to confirm the booking
@@ -2826,29 +3035,67 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                 {/* Main Booking Form */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 lg:p-8">
                     {/* Service Details Summary */}
-                    {price && (
+                    {activePrice && (
                         <div className="mb-6 p-4 bg-blue-50 rounded-xl">
                             <PackageSelector
                                 price={price}
+                                activePrice={activePrice}
                                 packageOptions={packageOptions}
+                                onPackageChange={handlePackageChange}
                                 className="mb-4"
                             />
+                            {isActiveFiveHourBundle && (
+                                <div className="mb-4 rounded-xl border border-indigo-100 bg-white p-3">
+                                    <p className="mb-2 text-sm font-semibold text-gray-900">
+                                        Lesson length
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {[60, 120].map((durationMinutes) => (
+                                            <button
+                                                key={durationMinutes}
+                                                type="button"
+                                                onClick={() =>
+                                                    handleBundleDurationChange(
+                                                        durationMinutes,
+                                                    )
+                                                }
+                                                className={`rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                                                    bundleDurationMinutes === durationMinutes
+                                                        ? "border-indigo-600 bg-indigo-600 text-white"
+                                                        : "border-indigo-200 bg-indigo-50 text-indigo-700"
+                                                }`}
+                                            >
+                                                {durationMinutes / 60} Hour
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <p className="mt-2 text-xs text-indigo-800">
+                                        {activeBundleSelectedMinutes / 60} of 5 hours selected;{" "}
+                                        {(FIVE_HOUR_BUNDLE_TOTAL_MINUTES -
+                                            activeBundleSelectedMinutes) /
+                                            60}{" "}
+                                        hours remaining.
+                                    </p>
+                                </div>
+                            )}
                             <h3 className="font-semibold text-gray-900 mb-2 capitalize">
-                                {price.category || "Driving Lessons"}
+                                {activePrice?.category || "Driving Lessons"}
                             </h3>
                             <p className="text-sm text-gray-600 mb-2">
-                                {price.description}
+                                {activePrice?.description}
                             </p>
                             <div className="flex justify-between text-sm">
                                 <span className="text-gray-600">Duration:</span>
                                 <span className="font-medium text-gray-900">
-                                    {formatDurationDisplay(price.duration)}
+                                    {isActiveFiveHourBundle
+                                        ? "5 hours of 1- or 2-hour lessons"
+                                        : formatDurationDisplay(activePrice?.duration)}
                                 </span>
                             </div>
                             <div className="flex justify-between text-sm">
                                 <span className="text-gray-600">Price:</span>
                                 <span className="font-medium text-gray-900">
-                                    ${price.price}
+                                    ${activePrice?.price}
                                 </span>
                             </div>
                         </div>
@@ -2859,7 +3106,9 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Available Date{" "}
-                                <span className="text-red-500">*</span>
+                                {!isCartCheckout && (
+                                    <span className="text-red-500">*</span>
+                                )}
                             </label>
                             <div className="relative">
                                 <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
@@ -2874,7 +3123,7 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                         setShowNextAvailability(false);
                                     }}
                                     className="w-full appearance-none bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 p-3 pl-10 transition"
-                                    required
+                                    required={!isCartCheckout}
                                 >
                                     <option value="">Select a date</option>
                                     {Object.entries(groupedDates).map(
@@ -2941,7 +3190,9 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Available Time{" "}
-                                <span className="text-red-500">*</span>
+                                {!isCartCheckout && (
+                                    <span className="text-red-500">*</span>
+                                )}
                             </label>
                             <div className="relative">
                                 <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
@@ -2952,7 +3203,7 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                     }
                                     disabled={!selectedDate || loading}
                                     className="w-full appearance-none bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 p-3 pl-10 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                                    required
+                                    required={!isCartCheckout}
                                 >
                                     <option value="">
                                         {loading
@@ -2978,6 +3229,114 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                         Please select another date.
                                     </p>
                                 )}
+                        </div>
+
+                        <div
+                            ref={cartSectionRef}
+                            className="scroll-mt-4 rounded-xl border border-indigo-100 bg-indigo-50 p-4"
+                        >
+                            <button
+                                type="button"
+                                onClick={handleAddToCart}
+                                disabled={
+                                    !selectedDate ||
+                                    !selectedTime ||
+                                    (isActiveFiveHourBundle &&
+                                        bundleDurationWouldExceedTotal)
+                                }
+                                className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                            >
+                                <ShoppingCart size={18} />
+                                {isActiveFiveHourBundle
+                                    ? `Add ${bundleDurationMinutes / 60}-Hour Lesson (${activeBundleSelectedMinutes / 60}/5 hours selected)`
+                                    : "Add Selected Lesson to Cart"}
+                            </button>
+
+                            <div className="mt-4 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <ShoppingCart size={18} className="text-indigo-700" />
+                                    <span className="font-semibold text-gray-900">
+                                        Cart
+                                    </span>
+                                </div>
+                                <span className="text-sm text-gray-600">
+                                    {lessonCart.count} lessons
+                                </span>
+                            </div>
+
+                            {lessonCart.count === 0 ? (
+                                <p className="mt-2 text-sm text-gray-600">
+                                    {isActiveFiveHourBundle
+                                        ? "Add 1- or 2-hour lessons totaling 5 hours, then checkout once."
+                                        : "Add multiple lessons, then checkout once."}
+                                </p>
+                            ) : (
+                                <div className="mt-3 space-y-3">
+                                    {hasIncompleteBundleCart && (
+                                        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                                            Bundle selections must total exactly 5 hours before checkout. Currently selected: {getFiveHourBundleSelectedMinutes(bundleCartItems) / 60} hours.
+                                        </p>
+                                    )}
+                                    <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
+                                        {lessonCart.items.map((item) => (
+                                            <div
+                                                key={item.key}
+                                                className="flex items-start justify-between gap-3 rounded-lg border border-indigo-100 bg-white p-3"
+                                            >
+                                                <div className="min-w-0">
+                                                    <p className="truncate text-sm font-medium text-gray-900">
+                                                        {item.price.description}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500">
+                                                        {item.reservation_date} at {item.start_time}
+                                                    </p>
+                                                    {isFiveHourLessonBundle(item.price) && (
+                                                        <p className="text-xs text-indigo-700">
+                                                            {getBundleItemDurationMinutes(item) / 60}-hour lesson
+                                                        </p>
+                                                    )}
+                                                    <p className="text-xs font-medium text-gray-700">
+                                                        ${item.price.price}
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        lessonCart.removeItem(item.key)
+                                                    }
+                                                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-500 hover:bg-gray-50 hover:text-red-600"
+                                                    aria-label="Remove lesson from cart"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="flex items-center justify-between text-sm font-semibold text-gray-900">
+                                        <span>Total</span>
+                                        <span>${lessonCart.subtotal.toFixed(2)}</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (hasIncompleteBundleCart) {
+                                                toast.error(
+                                                    "Please select 1- and 2-hour lessons totaling exactly 5 hours for the bundle.",
+                                                );
+                                                return;
+                                            }
+                                            detailsFormRef.current?.scrollIntoView({
+                                                behavior: "smooth",
+                                                block: "start",
+                                            });
+                                        }}
+                                        disabled={hasIncompleteBundleCart}
+                                        className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                                    >
+                                        Continue to Details
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         {/* Next Availability */}
@@ -3042,7 +3401,14 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                             )}
 
                         {/* ── Personal Details ─────────────────────────────── */}
-                        <div>
+                        {isCartCheckout && (
+                            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+                                Fill in your details below to book all{" "}
+                                {lessonCart.count} lessons in your cart.
+                            </div>
+                        )}
+
+                        <div ref={detailsFormRef}>
                             <label
                                 htmlFor="user_name"
                                 className="block text-sm font-medium text-gray-700 mb-2"
@@ -3200,7 +3566,7 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                             name="pickup_location"
                             label={
                                 <>
-                                    Pickup Location{" "}
+                                    Pickup Address{" "}
                                     <span className="text-red-500">*</span>
                                 </>
                             }
@@ -3221,7 +3587,7 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                             name="dropoff_location"
                             label={
                                 <>
-                                    Dropoff Location{" "}
+                                    Dropoff Address{" "}
                                     <span className="text-red-500">*</span>
                                 </>
                             }
@@ -3241,7 +3607,7 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                         onClick={setDropoffSameAsPickup}
                                         className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
                                     >
-                                        Same as pickup location
+                                        Same as pickup address
                                     </button>
                                 ) : null
                             }
@@ -3321,8 +3687,12 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                             type="submit"
                             disabled={
                                 submitting ||
-                                !selectedDate ||
-                                !selectedTime ||
+                                (!isCartCheckout &&
+                                    (!selectedDate ||
+                                        !selectedTime ||
+                                        isActiveFiveHourBundle)) ||
+                                (isCartCheckout && lessonCart.count === 0) ||
+                                (isCartCheckout && hasIncompleteBundleCart) ||
                                 !acceptTerms
                             }
                             className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-4 px-4 rounded-xl transition duration-200 text-base"
@@ -3332,14 +3702,24 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                                     Processing...
                                 </div>
+                            ) : useOnlinePay ? (
+                                "Continue to secure payment"
+                            ) : isCartCheckout ? (
+                                `Book Cart (${lessonCart.count} lessons)`
                             ) : (
                                 "Confirm Booking"
                             )}
                         </button>
 
                         <p className="text-xs text-center text-gray-500 mt-4">
-                            By clicking Confirm Booking, you agree to our terms
-                            and conditions and privacy policy
+                            By clicking{" "}
+                            {useOnlinePay
+                                ? "Continue to secure payment,"
+                                : isCartCheckout
+                                ? `Book Cart (${lessonCart.count} lessons),`
+                                : "Confirm Booking,"}
+                            you agree to our terms and conditions and privacy
+                            policy
                         </p>
                     </form>
                 </div>

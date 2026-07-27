@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { router } from "@inertiajs/react";
 import { ChevronDown, Package } from "lucide-react";
+import { getPackageDurationLabel } from "./packageRules";
 
 const getPackageHref = (packageOption) => {
     const category = (packageOption?.category || "").toLowerCase();
@@ -21,13 +22,20 @@ const getPackageHref = (packageOption) => {
 // };
 
 const getPackageLabel = (packageOption) => {
-    const duration = packageOption.duration;
+    const duration = getPackageDurationLabel(packageOption);
     if (!duration) return "Lesson";
+    if (duration.toLowerCase().includes("lesson")) return duration;
     const isPlural = !duration.startsWith("1 ");
     return `${duration} ${isPlural ? "Lesson" : "Lesson"}`;
 };
 
-const PackageSelector = ({ price, packageOptions = [], className = "" }) => {
+const PackageSelector = ({
+    price,
+    activePrice = price,
+    packageOptions = [],
+    className = "",
+    onPackageChange,
+}) => {
     const [isChanging, setIsChanging] = useState(false);
 
     const packages = useMemo(() => {
@@ -59,7 +67,12 @@ const PackageSelector = ({ price, packageOptions = [], className = "" }) => {
             (packageOption) => packageOption.id === selectedId,
         );
 
-        if (!nextPackage || nextPackage.id === price?.id) return;
+        if (!nextPackage || nextPackage.id === activePrice?.id) return;
+
+        if (onPackageChange) {
+            onPackageChange(nextPackage);
+            return;
+        }
 
         setIsChanging(true);
         router.visit(getPackageHref(nextPackage), {
@@ -83,7 +96,7 @@ const PackageSelector = ({ price, packageOptions = [], className = "" }) => {
                 <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
                 <select
                     id="package-selector"
-                    value={price?.id || ""}
+                    value={activePrice?.id || ""}
                     onChange={handlePackageChange}
                     disabled={isChanging}
                     className="w-full appearance-none bg-white border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-3 pl-10 pr-10 transition disabled:opacity-60 disabled:cursor-wait"

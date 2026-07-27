@@ -17,6 +17,7 @@ import {
 } from "react-icons/md";
 import { FaRegCalendarTimes } from "react-icons/fa";
 import { PiTimer } from "react-icons/pi";
+import logo from '../../../public/images/logo.png'
 
 const SideBar = ({
     isMobileOpen,
@@ -59,25 +60,26 @@ const SideBar = ({
 
             <div
                 className={`
-                    fixed left-0 top-0 h-screen z-50 flex flex-col transition-all duration-300 ease-in-out
+                    fixed left-0 top-0 h-screen z-50 flex flex-col transition-all duration-300 ease-in-out bg-white
                     ${isCollapsed ? "w-[68px]" : "w-64"}
                     ${isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
                 `}
-                style={{
-                    background: "#ffffff",
-                    borderRight: "1px solid #e5e7eb",
-                    boxShadow: "2px 0 12px rgba(0,0,0,0.05)",
-                }}
+                // style={{
+                //     background: "#ffffff",
+                //     borderRight: "1px solid #e5e7eb",
+                //     boxShadow: "2px 0 12px rgba(0,0,0,0.05)",
+                // }}
             >
                 {/* Header */}
                 <div
                     className={`flex items-center h-16 px-4 flex-shrink-0 ${isCollapsed ? "justify-center" : "justify-between"}`}
-                    style={{ borderBottom: "1px solid #f3f4f6" }}
+                    // style={{ borderBottom: "1px solid #f3f4f6" }}
                 >
                     {!isCollapsed && (
                         <div className="flex justify-center items-center w-full py-2">
                             <Link href="/">
-                                <span className="text-lg font-bold text-gray-800">Wheel Master</span>
+                                {/* <span className="text-lg font-bold text-gray-800">Wheel Master</span> */}
+                                <img src={logo} className="w-40"/>
                             </Link>
                         </div>
                     )}
@@ -137,8 +139,8 @@ const SideBar = ({
                                     ${isCollapsed ? "p-2.5 justify-center" : "p-2.5"}
                                     ${
                                         active
-                                            ? "bg-gray-200 border border-gray-300"
-                                            : "hover:bg-gray-100/80 text-gray-700 hover:text-gray-800 hover:border hover:border-gray-200 border border-transparent"
+                                            ? "bg-[#2f2e7f] border border-gray-300 text-white"
+                                            : "hover:bg-indigo-300/80 text-gray-700 hover:text-gray-800 hover:border hover:border-gray-200 border border-transparent"
                                     }
                                 `}
                             >

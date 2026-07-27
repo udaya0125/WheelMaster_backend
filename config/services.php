@@ -39,4 +39,19 @@ return [
         'property_id' => env('ANALYTICS_PROPERTY_ID'),
     ],
 
+    'onlinepay' => [
+        'payment_mode' => env('BOOKING_PAYMENT_MODE', 'manual'),
+        'base_url' => env('ONLINEPAY_BASE_URL', 'https://au.gsc.verifone.cloud'),
+        'user_id' => env('ONLINEPAY_USER_ID'),
+        'api_key' => env('ONLINEPAY_API_KEY'),
+        'entity_id' => env('ONLINEPAY_ENTITY_ID'),
+        'ppc_id' => env('ONLINEPAY_PPC_ID'),
+        'threeds_id' => env('ONLINEPAY_3DS_ID'),
+        'currency' => env('ONLINEPAY_CURRENCY', 'AUD'),
+        'interaction_type' => env('ONLINEPAY_INTERACTION_TYPE', 'HPP'),
+        'hold_minutes' => (int) env('ONLINEPAY_HOLD_MINUTES', 30),
+        'timeout' => (int) env('ONLINEPAY_TIMEOUT', 15),
+        'admin_email' => env('ADMIN_EMAIL', 'Wheelmasterdriving@gmail.com'),
+    ],
+
 ];

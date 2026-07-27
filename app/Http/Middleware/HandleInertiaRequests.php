@@ -34,6 +34,9 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            'payment' => [
+                'bookingMode' => config('services.onlinepay.payment_mode'),
+            ],
         ];
     }
 }

@@ -84,6 +84,13 @@ class PriceController extends Controller
     }
 }
 
+    public function timeManagement()
+    {
+        return Inertia::render('TimeManagement', [
+            'packageOptions' => $this->bookablePackageOptions(),
+        ]);
+    }
+
     /**
      * Store a new price package.
      */
@@ -151,12 +158,7 @@ class PriceController extends Controller
     {
         return Price::all(['id', 'description', 'price', 'duration', 'category', 'slug'])
             ->filter(function ($price) {
-                $category = strtolower($price->category ?? '');
-                $description = strtolower($price->description ?? '');
-
-                return ! str_contains($category, 'test')
-                    && ! str_contains($category, 'package bundles')
-                    && ! str_contains($description, 'test only');
+                return $price->isCartBookableLessonPackage();
             })
             ->values();
     }
