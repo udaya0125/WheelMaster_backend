@@ -1,1758 +1,3 @@
-// import React, { useState, useEffect, useCallback, useRef } from "react";
-// import {
-//     ChevronDown,
-//     MapPin,
-//     Calendar as CalendarIcon,
-//     Clock,
-//     User,
-//     Mail,
-//     Phone,
-//     Home,
-//     MapPin as MapPinIcon,
-//     ChevronLeft,
-// } from "lucide-react";
-// import axios from "axios";
-// import toast, { Toaster } from "react-hot-toast";
-// import { Link } from "@inertiajs/react";
-// import PackageSelector from "./PackageSelector";
-
-// const MEETPOINT_AREA = "meetpoint-mandurah-dot";
-// const MEETPOINT_LOCATION = {
-//     label: "Mandurah, Western Australia 6210",
-//     name: "Mandurah",
-//     street: "Mandurah",
-//     housenumber: null,
-//     postcode: "6210",
-//     city: "Mandurah",
-//     district: null,
-//     state: "Western Australia",
-//     source: "fixed",
-// };
-// const MEETPOINT_HOME_ADDRESS = "Ranceby Avenue";
-
-// const normaliseAddressText = (text = "") => {
-//     const ordinals = {
-//         "1st": "first",
-//         "2nd": "second",
-//         "3rd": "third",
-//         "4th": "fourth",
-//         "5th": "fifth",
-//         "6th": "sixth",
-//         "7th": "seventh",
-//         "8th": "eighth",
-//         "9th": "ninth",
-//         "10th": "tenth",
-//         "11th": "eleventh",
-//         "12th": "twelfth",
-//         "13th": "thirteenth",
-//         "14th": "fourteenth",
-//         "15th": "fifteenth",
-//         "16th": "sixteenth",
-//         "17th": "seventeenth",
-//         "18th": "eighteenth",
-//         "19th": "nineteenth",
-//         "20th": "twentieth",
-//     };
-//     return text
-//         .toLowerCase()
-//         .replace(
-//             /\b([0-9]{1,2}(?:st|nd|rd|th))\b/g,
-//             (match) => ordinals[match] || match,
-//         )
-//         .replace(/\bav\b|\bave\b/g, "avenue")
-//         .replace(/\brd\b/g, "road")
-//         .replace(/\bst\b/g, "street")
-//         .replace(/\bdr\b/g, "drive")
-//         .replace(/\bct\b/g, "court")
-//         .replace(/\bpde\b/g, "parade")
-//         .replace(/[^a-z0-9]+/g, " ")
-//         .replace(/\s+/g, " ")
-//         .trim();
-// };
-
-// const locationMatchesTypedAddress = (location, typedAddress) => {
-//     if (!location || !typedAddress?.trim()) return false;
-//     const typed = normaliseAddressText(typedAddress);
-//     const streetAnchor = normaliseAddressText(
-//         location.street || location.name || "",
-//     );
-//     const suburbAnchors = [location.city, location.district, location.postcode]
-//         .filter(Boolean)
-//         .map(normaliseAddressText);
-//     if (streetAnchor && typed.includes(streetAnchor)) return true;
-//     return suburbAnchors.some((anchor) => anchor && typed.includes(anchor));
-// };
-
-// const LocationAutocomplete = ({
-//     id,
-//     name,
-//     label,
-//     value,
-//     error,
-//     selectedLocation,
-//     placeholder,
-//     onInputChange,
-//     onLocationSelect,
-//     action,
-//     disabled,
-// }) => {
-//     const [suggestions, setSuggestions] = useState([]);
-//     const [loading, setLoading] = useState(false);
-//     const [searchError, setSearchError] = useState("");
-//     const [isOpen, setIsOpen] = useState(false);
-//     const blurTimeout = useRef(null);
-
-//     useEffect(() => {
-//         if (disabled) {
-//             setSuggestions([]);
-//             setIsOpen(false);
-//             return undefined;
-//         }
-//         const query = value.trim();
-//         if (
-//             query.length < 3 ||
-//             locationMatchesTypedAddress(selectedLocation, query)
-//         ) {
-//             setSuggestions([]);
-//             setSearchError("");
-//             setLoading(false);
-//             return undefined;
-//         }
-//         const controller = new AbortController();
-//         const timeout = setTimeout(async () => {
-//             try {
-//                 setLoading(true);
-//                 setSearchError("");
-//                 const response = await axios.get(route("locations.search"), {
-//                     params: { q: query },
-//                     signal: controller.signal,
-//                 });
-//                 setSuggestions(response.data.suggestions || []);
-//                 setIsOpen(true);
-//             } catch (error) {
-//                 if (error.code !== "ERR_CANCELED") {
-//                     setSuggestions([]);
-//                     setSearchError(
-//                         "Address search is unavailable. Please try again.",
-//                     );
-//                 }
-//             } finally {
-//                 setLoading(false);
-//             }
-//         }, 350);
-//         return () => {
-//             clearTimeout(timeout);
-//             controller.abort();
-//         };
-//     }, [value, selectedLocation, disabled]);
-
-//     useEffect(() => {
-//         return () => {
-//             if (blurTimeout.current) clearTimeout(blurTimeout.current);
-//         };
-//     }, []);
-
-//     const handleBlur = () => {
-//         blurTimeout.current = setTimeout(() => setIsOpen(false), 150);
-//     };
-
-//     const shouldShowSuggestions =
-//         !disabled &&
-//         isOpen &&
-//         value.trim().length >= 3 &&
-//         !locationMatchesTypedAddress(selectedLocation, value);
-
-//     return (
-//         <div>
-//             <div className="flex justify-between items-center mb-2 gap-3">
-//                 <label
-//                     htmlFor={id}
-//                     className="block text-sm font-medium text-gray-700"
-//                 >
-//                     {label}
-//                 </label>
-//                 {action}
-//             </div>
-//             <div className="relative">
-//                 <MapPinIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-//                 <input
-//                     type="text"
-//                     id={id}
-//                     name={name}
-//                     value={value}
-//                     onChange={(event) =>
-//                         !disabled && onInputChange(name, event.target.value)
-//                     }
-//                     onFocus={() => !disabled && setIsOpen(true)}
-//                     onBlur={handleBlur}
-//                     required
-//                     autoComplete="off"
-//                     readOnly={disabled}
-//                     className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${
-//                         error ? "border-red-500" : "border-gray-300"
-//                     } ${disabled ? "bg-gray-100 cursor-not-allowed text-gray-500" : ""}`}
-//                     placeholder={placeholder}
-//                 />
-//                 {shouldShowSuggestions && (
-//                     <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
-//                         {loading && (
-//                             <div className="px-4 py-3 text-sm text-gray-500">
-//                                 Searching service area...
-//                             </div>
-//                         )}
-//                         {!loading &&
-//                             suggestions.map((suggestion) => (
-//                                 <button
-//                                     key={`${suggestion.source}-${suggestion.label}`}
-//                                     type="button"
-//                                     onMouseDown={(event) => {
-//                                         event.preventDefault();
-//                                         onLocationSelect(name, suggestion);
-//                                         setIsOpen(false);
-//                                     }}
-//                                     className="block w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-indigo-50 focus:bg-indigo-50 focus:outline-none"
-//                                 >
-//                                     <span className="block font-medium">
-//                                         {suggestion.label}
-//                                     </span>
-//                                     {suggestion.postcode && (
-//                                         <span className="block text-xs text-gray-500">
-//                                             Postcode {suggestion.postcode}
-//                                         </span>
-//                                     )}
-//                                 </button>
-//                             ))}
-//                         {!loading &&
-//                             suggestions.length === 0 &&
-//                             !searchError && (
-//                                 <div className="px-4 py-3 text-sm text-gray-500">
-//                                     No service-area address found.
-//                                 </div>
-//                             )}
-//                         {!loading && searchError && (
-//                             <div className="px-4 py-3 text-sm text-red-600">
-//                                 {searchError}
-//                             </div>
-//                         )}
-//                     </div>
-//                 )}
-//             </div>
-//             {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
-//             {!error && !disabled && (
-//                 <p className="mt-1 text-xs text-gray-500">
-//                     Choose a service-area suggestion, then add house number,
-//                     unit.
-//                 </p>
-//             )}
-//             {!error && disabled && (
-//                 <p className="mt-1 text-xs text-gray-500">
-//                     Auto-filled for Meetpoint Mandurah Dot.
-//                 </p>
-//             )}
-//         </div>
-//     );
-// };
-
-// // ─── HomeAddressField ────────────────────────────────────────────────────────
-// const HomeAddressField = ({ value, onChange, error, id, label, disabled }) => (
-//     <div className="flex-1 min-w-0">
-//         <label
-//             htmlFor={id}
-//             className="block text-sm font-medium text-gray-700 mb-2"
-//         >
-//             {label} <span className="text-red-500">*</span>
-//         </label>
-//         <div className="relative">
-//             <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-//             <input
-//                 type="text"
-//                 id={id}
-//                 value={value}
-//                 onChange={(e) => !disabled && onChange(e.target.value)}
-//                 required={!disabled}
-//                 readOnly={disabled}
-//                 autoComplete={disabled ? "off" : "street-address"}
-//                 className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${
-//                     error ? "border-red-500" : "border-gray-300"
-//                 } ${disabled ? "bg-gray-100 cursor-not-allowed text-gray-500" : ""}`}
-//                 placeholder="e.g. 12 Ocean Drive, Mandurah"
-//             />
-//         </div>
-//         {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
-//         {!error && !disabled && (
-//             <p className="mt-1 text-xs text-gray-500">
-//                 Enter the full street address including house/unit number.
-//             </p>
-//         )}
-//         {!error && disabled && (
-//             <p className="mt-1 text-xs text-gray-500">
-//                 Auto-filled for Meetpoint Mandurah Dot.
-//             </p>
-//         )}
-//     </div>
-// );
-
-// const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
-//     const [selectedDate, setSelectedDate] = useState("");
-//     const [selectedTime, setSelectedTime] = useState("");
-
-//     const [formData, setFormData] = useState({
-//         user_name: "",
-//         email: "",
-//         phone: "",
-//         address: "",
-//         pickup_location: "",
-//         dropoff_location: "",
-//         pickup_home_address: "",
-//         dropoff_home_address: "",
-//         comment: "",
-//     });
-
-//     const [errors, setErrors] = useState({});
-//     const [loading, setLoading] = useState(false);
-//     const [submitting, setSubmitting] = useState(false);
-//     const [selectedLocations, setSelectedLocations] = useState({
-//         pickup_location: null,
-//         dropoff_location: null,
-//     });
-//     const [acceptTerms, setAcceptTerms] = useState(false);
-
-//     const [timeSlots, setTimeSlots] = useState({});
-//     const [scheduleEnds, setScheduleEnds] = useState({});
-//     const [availabilityLoading, setAvailabilityLoading] = useState(false);
-//     const [showNextAvailability, setShowNextAvailability] = useState(false);
-//     const [nextAvailableDates, setNextAvailableDates] = useState([]);
-//     const [allDates, setAllDates] = useState([]);
-//     const timeSlotsRef = useRef({});
-//     const loadingDateKeyRef = useRef("");
-//     const availabilityLoadingRef = useRef(false);
-
-//     useEffect(() => {
-//         timeSlotsRef.current = timeSlots;
-//     }, [timeSlots]);
-
-//     // ── derived: is meetpoint selected ──────────────────────────────────────
-//     const isMeetpoint = formData.address === MEETPOINT_AREA;
-
-//     // ── helpers ──────────────────────────────────────────────────────────────
-
-//     const formatDateKey = (date) => {
-//         if (!date) return "";
-//         const d = new Date(date);
-//         const year = d.getFullYear();
-//         const month = String(d.getMonth() + 1).padStart(2, "0");
-//         const day = String(d.getDate()).padStart(2, "0");
-//         return `${year}-${month}-${day}`;
-//     };
-
-//     const parseDuration = (durationString) => {
-//         if (!durationString) return 60;
-//         const cleanString = durationString.trim().toLowerCase();
-//         const hourMatch = cleanString.match(
-//             /(\d+(?:\.\d+)?)\s*(?:hrs|hr|hour|hours)/,
-//         );
-//         const minuteMatch = cleanString.match(
-//             /(\d+)\s*(?:min|mins|minute|minutes)/,
-//         );
-//         let totalMinutes = 0;
-//         if (hourMatch) totalMinutes += parseFloat(hourMatch[1]) * 60;
-//         if (minuteMatch) totalMinutes += parseInt(minuteMatch[1]);
-//         if (totalMinutes === 0) {
-//             const numberMatch = cleanString.match(/(\d+(?:\.\d+)?)/);
-//             if (numberMatch) {
-//                 const num = parseFloat(numberMatch[1]);
-//                 totalMinutes =
-//                     num < 10 ? Math.round(num * 60) : Math.round(num);
-//             }
-//         }
-//         return totalMinutes || 60;
-//     };
-
-//     const calculateEndTime = (startTime, durationString) => {
-//         const durationMinutes = parseDuration(durationString);
-//         let cleanStartTime = startTime;
-//         if (
-//             typeof cleanStartTime === "string" &&
-//             cleanStartTime.includes(":")
-//         ) {
-//             const parts = cleanStartTime.split(":");
-//             if (parts.length >= 2) cleanStartTime = `${parts[0]}:${parts[1]}`;
-//         }
-//         const [hours, minutes] = cleanStartTime.split(":").map(Number);
-//         const totalMinutes = hours * 60 + minutes + durationMinutes;
-//         const endHours = Math.floor(totalMinutes / 60);
-//         const endMinutes = totalMinutes % 60;
-//         return `${String(endHours).padStart(2, "0")}:${String(endMinutes).padStart(2, "0")}`;
-//     };
-
-//     const formatDurationDisplay = (durationString) => {
-//         const minutes = parseDuration(durationString);
-//         const hours = Math.floor(minutes / 60);
-//         const mins = minutes % 60;
-//         if (hours > 0 && mins > 0)
-//             return `${hours} ${hours === 1 ? "hour" : "hours"} ${mins} minutes`;
-//         if (hours > 0) return `${hours} ${hours === 1 ? "hour" : "hours"}`;
-//         return `${mins} minutes`;
-//     };
-
-//     // ── "same as pickup" ─────────────────────────────────────────────────────
-
-//     const setDropoffSameAsPickup = () => {
-//         if (
-//             formData.pickup_location &&
-//             locationMatchesTypedAddress(
-//                 selectedLocations.pickup_location,
-//                 formData.pickup_location,
-//             )
-//         ) {
-//             setFormData((prev) => ({
-//                 ...prev,
-//                 dropoff_location: prev.pickup_location,
-//                 dropoff_home_address: prev.pickup_home_address,
-//             }));
-//             setSelectedLocations((prev) => ({
-//                 ...prev,
-//                 dropoff_location: prev.pickup_location,
-//             }));
-//             setErrors((prev) => ({
-//                 ...prev,
-//                 dropoff_location: "",
-//                 dropoff_home_address: "",
-//             }));
-//             toast.success("Dropoff location set to pickup location");
-//         } else {
-//             toast.error(
-//                 "Please select a pickup location from the suggestions first",
-//             );
-//         }
-//     };
-
-//     // ── slot helpers ─────────────────────────────────────────────────────────
-
-//     const getNonOverlappingSlots = (slots, dateKey) => {
-//         if (!slots || slots.length === 0) return [];
-//         const durationMinutes = parseDuration(price?.duration);
-//         const bookingStepMinutes = durationMinutes + 20;
-//         const timeToMinutes = (timeStr) => {
-//             const [h, m] = timeStr.split(":").map(Number);
-//             return h * 60 + m;
-//         };
-//         const minutesToTime = (minutes) => {
-//             const hours = Math.floor(minutes / 60);
-//             const mins = minutes % 60;
-//             return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
-//         };
-//         const sortedSlotMinutes = [...slots]
-//             .map((slot) => {
-//                 let startTime =
-//                     typeof slot === "string" ? slot : slot?.start_time;
-//                 if (startTime?.includes(":")) {
-//                     const parts = startTime.split(":");
-//                     startTime = `${parts[0]}:${parts[1]}`;
-//                 }
-//                 return timeToMinutes(startTime);
-//             })
-//             .filter(Number.isFinite)
-//             .sort((a, b) => a - b);
-//         if (sortedSlotMinutes.length === 0) return [];
-//         const scheduleEndMinutes = scheduleEnds[dateKey]
-//             ? timeToMinutes(scheduleEnds[dateKey])
-//             : sortedSlotMinutes[sortedSlotMinutes.length - 1] +
-//               bookingStepMinutes;
-//         const latestStartMinutes = scheduleEndMinutes - bookingStepMinutes;
-//         const displaySlots = [];
-//         let candidateMinutes = sortedSlotMinutes[0];
-//         while (candidateMinutes <= latestStartMinutes) {
-//             displaySlots.push(minutesToTime(candidateMinutes));
-//             candidateMinutes += bookingStepMinutes;
-//             const hasNearbyAvailableSlot = sortedSlotMinutes.some(
-//                 (slotMinutes) =>
-//                     slotMinutes >= candidateMinutes &&
-//                     slotMinutes < candidateMinutes + 20,
-//             );
-//             if (!hasNearbyAvailableSlot) {
-//                 const nextAvailableSlot = sortedSlotMinutes.find(
-//                     (slotMinutes) => slotMinutes >= candidateMinutes,
-//                 );
-//                 if (nextAvailableSlot === undefined) break;
-//                 candidateMinutes = nextAvailableSlot;
-//             }
-//         }
-//         return displaySlots;
-//     };
-
-//     const getTimeSlotDisplay = (slot) => {
-//         let startTimeStr = typeof slot === "string" ? slot : slot?.start_time;
-//         if (startTimeStr?.includes(":")) {
-//             const parts = startTimeStr.split(":");
-//             startTimeStr = `${parts[0]}:${parts[1]}`;
-//         }
-//         const endTimeStr = calculateEndTime(startTimeStr, price?.duration);
-//         const formatTo12Hour = (time) => {
-//             const [hours, minutes] = time.split(":");
-//             const h = parseInt(hours);
-//             const period = h >= 12 ? "PM" : "AM";
-//             const h12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
-//             return `${h12}:${minutes} ${period}`;
-//         };
-//         return `${formatTo12Hour(startTimeStr)} - ${formatTo12Hour(endTimeStr)}`;
-//     };
-
-//     const isPastDate = (dateString) => {
-//         const today = new Date();
-//         today.setHours(0, 0, 0, 0);
-//         const compareDate = new Date(dateString);
-//         compareDate.setHours(0, 0, 0, 0);
-//         return compareDate < today;
-//     };
-
-//     // ── generate 365 days ────────────────────────────────────────────────────
-
-//     useEffect(() => {
-//         const dates = [];
-//         const today = new Date();
-//         for (let i = 0; i < 365; i++) {
-//             const date = new Date(today);
-//             date.setDate(today.getDate() + i);
-//             const monthYear = date.toLocaleDateString("en-AU", {
-//                 month: "long",
-//                 year: "numeric",
-//             });
-//             const formatted = date.toLocaleDateString("en-AU", {
-//                 weekday: "short",
-//                 day: "2-digit",
-//                 month: "short",
-//                 year: "numeric",
-//             });
-//             dates.push({
-//                 display: formatted,
-//                 value: date.toISOString().split("T")[0],
-//                 date,
-//                 monthYear,
-//             });
-//         }
-//         setAllDates(dates);
-//     }, []);
-
-//     const groupedDates = allDates.reduce((groups, date) => {
-//         const key = date.monthYear;
-//         if (!groups[key]) groups[key] = [];
-//         groups[key].push(date);
-//         return groups;
-//     }, {});
-
-//     const mapAvailableSlots = useCallback(
-//         (slots = []) =>
-//             slots
-//                 .filter((slot) => slot.status === "available")
-//                 .map((slot) => {
-//                     const startTime = slot.start_time;
-//                     if (
-//                         typeof startTime === "string" &&
-//                         startTime.includes(":")
-//                     ) {
-//                         const parts = startTime.split(":");
-//                         return `${parts[0]}:${parts[1]}`;
-//                     }
-//                     return startTime;
-//                 }),
-//         [],
-//     );
-
-//     const fetchDropdownAvailability = useCallback(async () => {
-//         if (
-//             !price?.id ||
-//             allDates.length === 0 ||
-//             availabilityLoadingRef.current
-//         )
-//             return;
-//         const datesToFetch = allDates
-//             .slice(0, 60)
-//             .filter(
-//                 (date) =>
-//                     !isPastDate(date.value) &&
-//                     timeSlotsRef.current[date.value] === undefined,
-//             );
-//         if (datesToFetch.length === 0) return;
-//         availabilityLoadingRef.current = true;
-//         setAvailabilityLoading(true);
-//         try {
-//             const batchSize = 7;
-//             for (let i = 0; i < datesToFetch.length; i += batchSize) {
-//                 const batch = datesToFetch.slice(i, i + batchSize);
-//                 const results = await Promise.all(
-//                     batch.map(async (date) => {
-//                         try {
-//                             const response = await axios.get(
-//                                 route("ourtimeslots.get"),
-//                                 {
-//                                     params: {
-//                                         date: date.value,
-//                                         price_id: price.id,
-//                                     },
-//                                 },
-//                             );
-//                             return [
-//                                 date.value,
-//                                 response.data.success
-//                                     ? mapAvailableSlots(
-//                                           response.data.slots || [],
-//                                       )
-//                                     : [],
-//                                 response.data.success
-//                                     ? response.data.current_end
-//                                     : null,
-//                             ];
-//                         } catch (err) {
-//                             console.error(
-//                                 `Error fetching slots for ${date.value}:`,
-//                                 err,
-//                             );
-//                             return [date.value, [], null];
-//                         }
-//                     }),
-//                 );
-//                 const nextSlots = Object.fromEntries(
-//                     results.map(([dateKey, slots]) => [dateKey, slots]),
-//                 );
-//                 const nextEnds = Object.fromEntries(
-//                     results
-//                         .filter(([, , endTime]) => endTime)
-//                         .map(([dateKey, , endTime]) => [dateKey, endTime]),
-//                 );
-//                 timeSlotsRef.current = {
-//                     ...timeSlotsRef.current,
-//                     ...nextSlots,
-//                 };
-//                 setTimeSlots((prev) => ({ ...prev, ...nextSlots }));
-//                 setScheduleEnds((prev) => ({ ...prev, ...nextEnds }));
-//             }
-//         } finally {
-//             availabilityLoadingRef.current = false;
-//             setAvailabilityLoading(false);
-//         }
-//     }, [allDates, mapAvailableSlots, price?.id]);
-
-//     useEffect(() => {
-//         fetchDropdownAvailability();
-//     }, [fetchDropdownAvailability]);
-
-//     const fetchSlotsForDate = useCallback(
-//         async (dateKey, force = false) => {
-//             if (!dateKey || !price?.id || isPastDate(dateKey)) return;
-//             const alreadyFetched = timeSlotsRef.current[dateKey] !== undefined;
-//             const alreadyLoading = loadingDateKeyRef.current === dateKey;
-//             if (!force && (alreadyFetched || alreadyLoading)) return;
-//             try {
-//                 loadingDateKeyRef.current = dateKey;
-//                 setLoading(true);
-//                 const response = await axios.get(route("ourtimeslots.get"), {
-//                     params: { date: dateKey, price_id: price.id },
-//                 });
-//                 const availableSlots = response.data.success
-//                     ? mapAvailableSlots(response.data.slots || [])
-//                     : [];
-//                 timeSlotsRef.current = {
-//                     ...timeSlotsRef.current,
-//                     [dateKey]: availableSlots,
-//                 };
-//                 setTimeSlots((prev) => ({
-//                     ...prev,
-//                     [dateKey]: availableSlots,
-//                 }));
-//                 if (response.data.success) {
-//                     setScheduleEnds((prev) => ({
-//                         ...prev,
-//                         [dateKey]: response.data.current_end,
-//                     }));
-//                 }
-//             } catch (err) {
-//                 console.error(`Error fetching slots for ${dateKey}:`, err);
-//                 timeSlotsRef.current = {
-//                     ...timeSlotsRef.current,
-//                     [dateKey]: [],
-//                 };
-//                 setTimeSlots((prev) => ({ ...prev, [dateKey]: [] }));
-//             } finally {
-//                 if (loadingDateKeyRef.current === dateKey) {
-//                     loadingDateKeyRef.current = "";
-//                     setLoading(false);
-//                 }
-//             }
-//         },
-//         [mapAvailableSlots, price?.id],
-//     );
-
-//     useEffect(() => {
-//         const fetchTimeSlotsForSelected = async () => {
-//             if (!selectedDate || !price?.id) return;
-//             await fetchSlotsForDate(selectedDate, true);
-//             setSelectedTime("");
-//         };
-//         fetchTimeSlotsForSelected();
-//     }, [selectedDate, price?.id, fetchSlotsForDate]);
-
-//     const getTimeSlotsForDate = (date) => {
-//         if (!date) return [];
-//         return timeSlots[date] || [];
-//     };
-
-//     const getDateAvailabilityStatus = (dateValue) => {
-//         if (!dateValue) return null;
-//         if (isPastDate(dateValue))
-//             return {
-//                 label: "Past date",
-//                 className: "border-gray-200 bg-gray-50 text-gray-500",
-//             };
-//         if (loading && selectedDate === dateValue)
-//             return {
-//                 label: "Checking availability...",
-//                 className: "border-amber-200 bg-amber-50 text-amber-700",
-//             };
-//         if (timeSlots[dateValue] === undefined)
-//             return {
-//                 label: availabilityLoading
-//                     ? "Checking availability..."
-//                     : "Choose a time after selecting a date",
-//                 className: availabilityLoading
-//                     ? "border-amber-200 bg-amber-50 text-amber-700"
-//                     : "border-gray-200 bg-gray-50 text-gray-600",
-//             };
-//         if (timeSlots[dateValue].length > 0)
-//             return {
-//                 label: "Available",
-//                 className: "border-emerald-200 bg-emerald-50 text-emerald-700",
-//             };
-//         return {
-//             label: "Fully booked",
-//             className: "border-red-200 bg-red-50 text-red-700",
-//         };
-//     };
-
-//     const getDateOptionLabel = (date) => {
-//         if (isPastDate(date.value)) return `${date.display} (Past date)`;
-//         const slots = timeSlots[date.value];
-//         if (slots === undefined)
-//             return availabilityLoading
-//                 ? `${date.display} (Checking...)`
-//                 : date.display;
-//         return slots.length > 0
-//             ? `${date.display} \u2713 Available`
-//             : `${date.display} \u2715 Fully booked`;
-//     };
-
-//     const getDateOptionClassName = (dateValue) => {
-//         if (isPastDate(dateValue)) return "py-1 text-gray-400";
-//         if (timeSlots[dateValue] === undefined) return "py-1 text-gray-900";
-//         return timeSlots[dateValue].length > 0
-//             ? "py-1 text-emerald-700"
-//             : "py-1 text-red-600";
-//     };
-
-//     const findNextAvailableDates = async () => {
-//         try {
-//             const availableDates = [];
-//             const today = new Date();
-//             for (let i = 1; i <= 30; i++) {
-//                 const nextDate = new Date(today);
-//                 nextDate.setDate(today.getDate() + i);
-//                 const dateKey = formatDateKey(nextDate);
-//                 let availableSlots = timeSlots[dateKey];
-//                 if (!availableSlots) {
-//                     try {
-//                         const response = await axios.get(
-//                             route("ourtimeslots.get"),
-//                             {
-//                                 params: { date: dateKey, price_id: price.id },
-//                             },
-//                         );
-//                         if (response.data.success) {
-//                             availableSlots = response.data.slots
-//                                 .filter((slot) => slot.status === "available")
-//                                 .map((slot) => {
-//                                     const startTime = slot.start_time;
-//                                     if (
-//                                         typeof startTime === "string" &&
-//                                         startTime.includes(":")
-//                                     ) {
-//                                         const parts = startTime.split(":");
-//                                         return `${parts[0]}:${parts[1]}`;
-//                                     }
-//                                     return startTime;
-//                                 });
-//                             setTimeSlots((prev) => ({
-//                                 ...prev,
-//                                 [dateKey]: availableSlots,
-//                             }));
-//                             setScheduleEnds((prev) => ({
-//                                 ...prev,
-//                                 [dateKey]: response.data.current_end,
-//                             }));
-//                         }
-//                     } catch (err) {
-//                         console.error(
-//                             `Error fetching slots for ${dateKey}:`,
-//                             err,
-//                         );
-//                         continue;
-//                     }
-//                 }
-//                 if (availableSlots && availableSlots.length > 0)
-//                     availableDates.push(nextDate);
-//                 if (availableDates.length >= 3) break;
-//             }
-//             return availableDates;
-//         } catch (error) {
-//             console.error("Error finding next available dates:", error);
-//             return [];
-//         }
-//     };
-
-//     const handleNextAvailabilityClick = async () => {
-//         setShowNextAvailability(true);
-//         const loadingToast = toast.loading("Checking next available dates...");
-//         const availableDates = await findNextAvailableDates();
-//         setNextAvailableDates(availableDates);
-//         toast.dismiss(loadingToast);
-//         if (availableDates.length === 0) {
-//             toast.error("No available dates found in the next 30 days.");
-//         } else {
-//             toast.success(`Found ${availableDates.length} available dates`);
-//         }
-//     };
-
-//     const handleSelectNextAvailableDate = (date) => {
-//         const formattedDate = date.toLocaleDateString("en-AU", {
-//             weekday: "short",
-//             day: "2-digit",
-//             month: "short",
-//             year: "numeric",
-//         });
-//         setSelectedDate(formatDateKey(date));
-//         setSelectedTime("");
-//         setShowNextAvailability(false);
-//         toast.success(`Selected date: ${formattedDate}`);
-//     };
-
-//     // ── form change handlers ─────────────────────────────────────────────────
-
-//     const handleChange = (e) => {
-//         const { name, value } = e.target;
-
-//         const isSelectingMeetpoint =
-//             name === "address" && value === MEETPOINT_AREA;
-//         const isLeavingMeetpoint =
-//             name === "address" &&
-//             value !== MEETPOINT_AREA &&
-//             formData.address === MEETPOINT_AREA;
-
-//         setFormData((prev) => ({
-//             ...prev,
-//             [name]: value,
-//             ...(isSelectingMeetpoint
-//                 ? {
-//                       pickup_location: MEETPOINT_LOCATION.label,
-//                       dropoff_location: MEETPOINT_LOCATION.label,
-//                       pickup_home_address: MEETPOINT_HOME_ADDRESS,
-//                       dropoff_home_address: MEETPOINT_HOME_ADDRESS,
-//                   }
-//                 : {}),
-//             ...(isLeavingMeetpoint
-//                 ? {
-//                       pickup_location: "",
-//                       dropoff_location: "",
-//                       pickup_home_address: "",
-//                       dropoff_home_address: "",
-//                   }
-//                 : {}),
-//         }));
-
-//         if (isSelectingMeetpoint) {
-//             setSelectedLocations({
-//                 pickup_location: MEETPOINT_LOCATION,
-//                 dropoff_location: MEETPOINT_LOCATION,
-//             });
-//         }
-//         if (isLeavingMeetpoint) {
-//             setSelectedLocations({
-//                 pickup_location: null,
-//                 dropoff_location: null,
-//             });
-//         }
-
-//         if (
-//             errors[name] ||
-//             ((isSelectingMeetpoint || isLeavingMeetpoint) &&
-//                 (errors.pickup_location || errors.dropoff_location))
-//         ) {
-//             setErrors((prev) => ({
-//                 ...prev,
-//                 [name]: "",
-//                 ...(isSelectingMeetpoint || isLeavingMeetpoint
-//                     ? {
-//                           pickup_location: "",
-//                           dropoff_location: "",
-//                           pickup_home_address: "",
-//                           dropoff_home_address: "",
-//                       }
-//                     : {}),
-//             }));
-//         }
-//     };
-
-//     const handleLocationInputChange = (name, value) => {
-//         setFormData((prev) => ({ ...prev, [name]: value }));
-//         setSelectedLocations((prev) => ({
-//             ...prev,
-//             [name]: locationMatchesTypedAddress(prev[name], value)
-//                 ? prev[name]
-//                 : null,
-//         }));
-//         if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
-//     };
-
-//     const handleLocationSelect = (name, location) => {
-//         setFormData((prev) => ({ ...prev, [name]: location.label }));
-//         setSelectedLocations((prev) => ({ ...prev, [name]: location }));
-//         if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
-//     };
-
-//     // ── validation ───────────────────────────────────────────────────────────
-
-//     const validateSelectedLocations = () => {
-//         const locationErrors = {};
-//         [
-//             ["pickup_location", "pickup location"],
-//             ["dropoff_location", "dropoff location"],
-//         ].forEach(([field, label]) => {
-//             if (!formData[field]?.trim()) {
-//                 locationErrors[field] = `Please enter a ${label}.`;
-//                 return;
-//             }
-//             if (
-//                 !selectedLocations[field] ||
-//                 !locationMatchesTypedAddress(
-//                     selectedLocations[field],
-//                     formData[field],
-//                 )
-//             ) {
-//                 locationErrors[field] =
-//                     `Please choose a service-area suggestion for the ${label}, then add house/unit details if needed.`;
-//             }
-//         });
-//         return locationErrors;
-//     };
-
-//     // ── submission ───────────────────────────────────────────────────────────
-
-//     const handleSubmit = async (e) => {
-//         e.preventDefault();
-
-//         const newErrors = {};
-
-//         [
-//             "user_name",
-//             "email",
-//             "phone",
-//             "address",
-//             "pickup_location",
-//             "dropoff_location",
-//         ].forEach((field) => {
-//             if (!formData[field]?.trim())
-//                 newErrors[field] = `${field.replace("_", " ")} is required`;
-//         });
-
-//         if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
-//             newErrors.email = "Please enter a valid email address";
-//         }
-
-//         // Home address validation – skip when meetpoint (auto-filled)
-//         if (
-//             !isMeetpoint &&
-//             selectedLocations.pickup_location &&
-//             locationMatchesTypedAddress(
-//                 selectedLocations.pickup_location,
-//                 formData.pickup_location,
-//             ) &&
-//             !formData.pickup_home_address?.trim()
-//         ) {
-//             newErrors.pickup_home_address =
-//                 "Please enter your home address for the pickup location.";
-//         }
-
-//         if (
-//             !isMeetpoint &&
-//             selectedLocations.dropoff_location &&
-//             locationMatchesTypedAddress(
-//                 selectedLocations.dropoff_location,
-//                 formData.dropoff_location,
-//             ) &&
-//             !formData.dropoff_home_address?.trim()
-//         ) {
-//             newErrors.dropoff_home_address =
-//                 "Please enter your home address for the dropoff location.";
-//         }
-
-//         if (!selectedDate) {
-//             toast.error("Please select a date");
-//             return;
-//         }
-//         if (!selectedTime) {
-//             toast.error("Please select a time slot");
-//             return;
-//         }
-
-//         if (!acceptTerms) {
-//             setErrors((prev) => ({
-//                 ...prev,
-//                 terms: "Please accept the Terms & Conditions and Privacy Policy",
-//             }));
-//             toast.error(
-//                 "Please accept the Terms & Conditions and Privacy Policy",
-//             );
-//             return;
-//         }
-
-//         const locationErrors = validateSelectedLocations();
-//         Object.assign(newErrors, locationErrors);
-
-//         if (Object.keys(newErrors).length > 0) {
-//             setErrors(newErrors);
-//             toast.error("Please fill in all required fields correctly");
-//             return;
-//         }
-
-//         setSubmitting(true);
-
-//         try {
-//             const durationMinutes = parseDuration(price.duration);
-
-//             const extractPackageName = (description) => {
-//                 if (!description) return "";
-//                 if (description.includes(":"))
-//                     return description.split(":").pop().trim();
-//                 return description.trim();
-//             };
-
-//             const buildLocationWithHome = (location, homeAddress) =>
-//                 homeAddress?.trim()
-//                     ? `${homeAddress.trim()}, ${location}`
-//                     : location;
-
-//             const bookingData = {
-//                 user_name: formData.user_name,
-//                 email: formData.email,
-//                 phone: formData.phone,
-//                 address: formData.address,
-//                 reservation_date: selectedDate,
-//                 price_id: price.id,
-//                 duration_minutes: durationMinutes,
-//                 start_time: selectedTime,
-//                 end_time: calculateEndTime(selectedTime, price.duration),
-//                 package_type: extractPackageName(price.description),
-//                 package_price: price.price,
-//                 pickup_location: buildLocationWithHome(
-//                     formData.pickup_location,
-//                     formData.pickup_home_address,
-//                 ),
-//                 dropoff_location: buildLocationWithHome(
-//                     formData.dropoff_location,
-//                     formData.dropoff_home_address,
-//                 ),
-//                 accepted_terms: acceptTerms,
-//                 comment: formData.comment,
-//             };
-
-//             const response = await axios.post(
-//                 route("ourreservations.store"),
-//                 bookingData,
-//             );
-
-//             if (response.data.success || response.data.message) {
-//                 toast.success(
-//                     "Booking confirmed successfully! Please check your Spam email for booking details.",
-//                 );
-
-//                 setFormData({
-//                     user_name: "",
-//                     email: "",
-//                     phone: "",
-//                     address: "",
-//                     pickup_location: "",
-//                     dropoff_location: "",
-//                     pickup_home_address: "",
-//                     dropoff_home_address: "",
-//                     comment: "",
-//                 });
-//                 setSelectedLocations({
-//                     pickup_location: null,
-//                     dropoff_location: null,
-//                 });
-//                 setSelectedDate("");
-//                 setSelectedTime("");
-//                 setAcceptTerms(false);
-
-//                 setTimeout(() => {
-//                     window.location.reload();
-//                 }, 2000);
-//             }
-//         } catch (error) {
-//             console.error("Booking error:", error);
-//             if (error.response?.data?.errors) {
-//                 setErrors(error.response.data.errors);
-//                 toast.error("Please fix the errors in the form");
-//             } else if (error.response?.data?.message) {
-//                 toast.error(error.response.data.message);
-//             } else {
-//                 toast.error("Error confirming booking. Please try again.");
-//             }
-//         } finally {
-//             setSubmitting(false);
-//         }
-//     };
-
-//     // ── derived state ────────────────────────────────────────────────────────
-
-//     const currentTimeSlots = getTimeSlotsForDate(selectedDate);
-//     const nonOverlappingSlots = getNonOverlappingSlots(
-//         currentTimeSlots,
-//         selectedDate,
-//     );
-
-//     const pickupConfirmed =
-//         !!formData.pickup_location &&
-//         locationMatchesTypedAddress(
-//             selectedLocations.pickup_location,
-//             formData.pickup_location,
-//         );
-
-//     const dropoffConfirmed =
-//         !!formData.dropoff_location &&
-//         locationMatchesTypedAddress(
-//             selectedLocations.dropoff_location,
-//             formData.dropoff_location,
-//         );
-
-//     // ── render ───────────────────────────────────────────────────────────────
-
-//     return (
-//         <div className="min-h-screen bg-gray-100 py-6 px-4 lg:py-12">
-//             <Toaster
-//                 position="top-right"
-//                 toastOptions={{
-//                     duration: 4000,
-//                     style: { background: "#363636", color: "#fff" },
-//                     success: {
-//                         duration: 3000,
-//                         style: { background: "#10b981", color: "#fff" },
-//                     },
-//                     error: {
-//                         duration: 4000,
-//                         style: { background: "#ef4444", color: "#fff" },
-//                     },
-//                 }}
-//             />
-
-//             <div className="max-w-3xl mx-auto">
-//                 <Link
-//                     href={"/"}
-//                     className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
-//                 >
-//                     <ChevronLeft size={20} />
-//                     <span className="font-medium">Back</span>
-//                 </Link>
-
-//                 {/* Page Header */}
-//                 <div className="mb-8">
-//                     <div className="flex items-center gap-3 mb-1">
-//                         <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 ml-6">
-//                             Book your lessons
-//                         </h1>
-//                     </div>
-//                     <p className="text-gray-500 text-sm lg:text-base ml-6">
-//                         Fill in your details to confirm the booking
-//                     </p>
-//                 </div>
-
-//                 {/* Main Booking Form */}
-//                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 lg:p-8">
-//                     {/* Service Details Summary */}
-//                     {price && (
-//                         <div className="mb-6 p-4 bg-blue-50 rounded-xl">
-//                             <PackageSelector
-//                                 price={price}
-//                                 packageOptions={packageOptions}
-//                                 className="mb-4"
-//                             />
-//                             <h3 className="font-semibold text-gray-900 mb-2 capitalize">
-//                                 {price.category || "Driving Lessons"}
-//                             </h3>
-//                             <p className="text-sm text-gray-600 mb-2">
-//                                 {price.description}
-//                             </p>
-//                             <div className="flex justify-between text-sm">
-//                                 <span className="text-gray-600">Duration:</span>
-//                                 <span className="font-medium text-gray-900">
-//                                     {formatDurationDisplay(price.duration)}
-//                                 </span>
-//                             </div>
-//                             <div className="flex justify-between text-sm">
-//                                 <span className="text-gray-600">Price:</span>
-//                                 <span className="font-medium text-gray-900">
-//                                     ${price.price}
-//                                 </span>
-//                             </div>
-//                         </div>
-//                     )}
-
-//                     <form onSubmit={handleSubmit} className="space-y-6">
-//                         {/* ── Date Selection ───────────────────────────────── */}
-//                         <div>
-//                             <label className="block text-sm font-medium text-gray-700 mb-2">
-//                                 Available Date{" "}
-//                                 <span className="text-red-500">*</span>
-//                             </label>
-//                             <div className="relative">
-//                                 <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
-//                                 <select
-//                                     value={selectedDate}
-//                                     onFocus={fetchDropdownAvailability}
-//                                     onMouseDown={fetchDropdownAvailability}
-//                                     onTouchStart={fetchDropdownAvailability}
-//                                     onChange={(e) => {
-//                                         setSelectedDate(e.target.value);
-//                                         setSelectedTime("");
-//                                         setShowNextAvailability(false);
-//                                     }}
-//                                     className="w-full appearance-none bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 p-3 pl-10 transition"
-//                                     required
-//                                 >
-//                                     <option value="">Select a date</option>
-//                                     {Object.entries(groupedDates).map(
-//                                         ([monthYear, dates]) => (
-//                                             <optgroup
-//                                                 key={monthYear}
-//                                                 label={`-- ${monthYear} --`}
-//                                                 className="font-semibold text-gray-700"
-//                                             >
-//                                                 {dates.map((date, i) => (
-//                                                     <option
-//                                                         key={i}
-//                                                         value={date.value}
-//                                                         disabled={isPastDate(
-//                                                             date.value,
-//                                                         )}
-//                                                         className={getDateOptionClassName(
-//                                                             date.value,
-//                                                         )}
-//                                                     >
-//                                                         {getDateOptionLabel(
-//                                                             date,
-//                                                         )}
-//                                                     </option>
-//                                                 ))}
-//                                             </optgroup>
-//                                         ),
-//                                     )}
-//                                 </select>
-//                                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
-//                             </div>
-//                             {selectedDate && (
-//                                 <p
-//                                     className={`mt-2 rounded-lg border px-3 py-2 text-xs font-semibold ${getDateAvailabilityStatus(selectedDate).className}`}
-//                                 >
-//                                     {
-//                                         getDateAvailabilityStatus(selectedDate)
-//                                             .label
-//                                     }
-//                                 </p>
-//                             )}
-//                         </div>
-
-//                         {/* Legend */}
-//                         <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
-//                             <div className="flex items-center gap-1">
-//                                 <span className="text-green-500 text-sm">
-//                                     {" "}
-//                                     ✓
-//                                 </span>
-//                                 <span className="text-gray-600">
-//                                     Has available slots
-//                                 </span>
-//                             </div>
-//                             <div className="flex items-center gap-1">
-//                                 <span className="text-red-500 text-sm"> ✗</span>
-//                                 <span className="text-gray-600">
-//                                     No available slots
-//                                 </span>
-//                             </div>
-//                         </div>
-
-//                         {/* ── Time Selection ───────────────────────────────── */}
-//                         <div>
-//                             <label className="block text-sm font-medium text-gray-700 mb-2">
-//                                 Available Time{" "}
-//                                 <span className="text-red-500">*</span>
-//                             </label>
-//                             <div className="relative">
-//                                 <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
-//                                 <select
-//                                     value={selectedTime}
-//                                     onChange={(e) =>
-//                                         setSelectedTime(e.target.value)
-//                                     }
-//                                     disabled={!selectedDate || loading}
-//                                     className="w-full appearance-none bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 p-3 pl-10 transition disabled:opacity-50 disabled:cursor-not-allowed"
-//                                     required
-//                                 >
-//                                     <option value="">
-//                                         {loading
-//                                             ? "Loading..."
-//                                             : !selectedDate
-//                                               ? "Select a date first"
-//                                               : "Select a time"}
-//                                     </option>
-//                                     {nonOverlappingSlots.map((time, i) => (
-//                                         <option key={i} value={time}>
-//                                             {getTimeSlotDisplay(time)}
-//                                         </option>
-//                                     ))}
-//                                 </select>
-//                                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
-//                             </div>
-//                             {selectedDate &&
-//                                 nonOverlappingSlots.length === 0 &&
-//                                 !loading &&
-//                                 timeSlots[selectedDate] !== undefined && (
-//                                     <p className="mt-1 text-sm text-red-600">
-//                                         No available time slots for this date.
-//                                         Please select another date.
-//                                     </p>
-//                                 )}
-//                         </div>
-
-//                         {/* Next Availability */}
-//                         {selectedDate &&
-//                             nonOverlappingSlots.length === 0 &&
-//                             !loading &&
-//                             !showNextAvailability && (
-//                                 <button
-//                                     type="button"
-//                                     onClick={handleNextAvailabilityClick}
-//                                     className="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors duration-200 text-sm"
-//                                 >
-//                                     Check Next Availability
-//                                 </button>
-//                             )}
-
-//                         {showNextAvailability &&
-//                             nextAvailableDates.length > 0 && (
-//                                 <div className="p-4 bg-gray-50 rounded-xl">
-//                                     <h3 className="text-sm font-semibold text-gray-900 mb-3">
-//                                         Next available dates:
-//                                     </h3>
-//                                     <div className="space-y-2">
-//                                         {nextAvailableDates.map(
-//                                             (date, index) => (
-//                                                 <button
-//                                                     key={index}
-//                                                     type="button"
-//                                                     onClick={() =>
-//                                                         handleSelectNextAvailableDate(
-//                                                             date,
-//                                                         )
-//                                                     }
-//                                                     className="w-full py-2 px-3 text-left bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors duration-200"
-//                                                 >
-//                                                     <div className="text-sm font-medium text-gray-900">
-//                                                         {date.toLocaleDateString(
-//                                                             "en-US",
-//                                                             {
-//                                                                 weekday:
-//                                                                     "short",
-//                                                                 month: "short",
-//                                                                 day: "numeric",
-//                                                             },
-//                                                         )}
-//                                                     </div>
-//                                                     <div className="text-xs text-gray-600">
-//                                                         {
-//                                                             getTimeSlotsForDate(
-//                                                                 formatDateKey(
-//                                                                     date,
-//                                                                 ),
-//                                                             ).length
-//                                                         }{" "}
-//                                                         time slots available
-//                                                     </div>
-//                                                 </button>
-//                                             ),
-//                                         )}
-//                                     </div>
-//                                 </div>
-//                             )}
-
-//                         {/* ── Personal Details ─────────────────────────────── */}
-//                         <div>
-//                             <label
-//                                 htmlFor="user_name"
-//                                 className="block text-sm font-medium text-gray-700 mb-2"
-//                             >
-//                                 Full Name{" "}
-//                                 <span className="text-red-500">*</span>
-//                             </label>
-//                             <div className="relative">
-//                                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-//                                 <input
-//                                     type="text"
-//                                     id="user_name"
-//                                     name="user_name"
-//                                     value={formData.user_name}
-//                                     onChange={handleChange}
-//                                     className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${errors.user_name ? "border-red-500" : "border-gray-300"}`}
-//                                     placeholder="John Doe"
-//                                     required
-//                                 />
-//                             </div>
-//                             {errors.user_name && (
-//                                 <p className="mt-1 text-sm text-red-600">
-//                                     {errors.user_name}
-//                                 </p>
-//                             )}
-//                         </div>
-
-//                         <div>
-//                             <label
-//                                 htmlFor="email"
-//                                 className="block text-sm font-medium text-gray-700 mb-2"
-//                             >
-//                                 Email Address{" "}
-//                                 <span className="text-red-500">*</span>
-//                             </label>
-//                             <div className="relative">
-//                                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-//                                 <input
-//                                     type="email"
-//                                     id="email"
-//                                     name="email"
-//                                     value={formData.email}
-//                                     onChange={handleChange}
-//                                     className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${errors.email ? "border-red-500" : "border-gray-300"}`}
-//                                     placeholder="john@example.com"
-//                                     required
-//                                 />
-//                             </div>
-//                             {errors.email && (
-//                                 <p className="mt-1 text-sm text-red-600">
-//                                     {errors.email}
-//                                 </p>
-//                             )}
-//                         </div>
-
-//                         <div>
-//                             <label
-//                                 htmlFor="phone"
-//                                 className="block text-sm font-medium text-gray-700 mb-2"
-//                             >
-//                                 Phone Number{" "}
-//                                 <span className="text-red-500">*</span>
-//                             </label>
-//                             <div className="relative">
-//                                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-//                                 <input
-//                                     type="tel"
-//                                     id="phone"
-//                                     name="phone"
-//                                     value={formData.phone}
-//                                     onChange={handleChange}
-//                                     className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${errors.phone ? "border-red-500" : "border-gray-300"}`}
-//                                     placeholder="0400 000 000"
-//                                     required
-//                                 />
-//                             </div>
-//                             {errors.phone && (
-//                                 <p className="mt-1 text-sm text-red-600">
-//                                     {errors.phone}
-//                                 </p>
-//                             )}
-//                         </div>
-
-//                         {/* ── Area ─────────────────────────────────────────── */}
-//                         <div>
-//                             <label
-//                                 htmlFor="address"
-//                                 className="block text-sm font-medium text-gray-700 mb-2"
-//                             >
-//                                 Area <span className="text-red-500">*</span>
-//                             </label>
-//                             <div className="relative">
-//                                 <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
-//                                 <select
-//                                     id="address"
-//                                     name="address"
-//                                     value={formData.address}
-//                                     onChange={handleChange}
-//                                     required
-//                                     className={`w-full appearance-none pl-10 pr-10 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition bg-white ${errors.address ? "border-red-500" : "border-gray-300"}`}
-//                                 >
-//                                     <option value="">Select your Area</option>
-//                                     <option value="mandurah">Mandurah</option>
-//                                     <option value="meadow-springs">
-//                                         Meadow Springs
-//                                     </option>
-//                                     <option value="silver-sands">
-//                                         Silver Sands
-//                                     </option>
-//                                     <option value="lakelands">Lakelands</option>
-//                                     <option value="dudley-park">
-//                                         Dudley Park
-//                                     </option>
-//                                     <option value="halls-head">
-//                                         Halls Head
-//                                     </option>
-//                                     <option value="madora-bay">
-//                                         Madora Bay
-//                                     </option>
-//                                     <option value="greenfields">
-//                                         Greenfields
-//                                     </option>
-//                                     <option value="erskine">Erskine</option>
-//                                     <option value="singleton">Singleton</option>
-//                                     <option value="parklands">Parklands</option>
-//                                     <option value="stake-hill">
-//                                         Stake Hill
-//                                     </option>
-//                                     <option value="san-remo">San Remo</option>
-//                                     <option value="meetpoint-mandurah-dot">
-//                                         Meetpoint Mandurah Dot
-//                                     </option>
-//                                 </select>
-//                                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
-//                             </div>
-//                             {errors.address && (
-//                                 <p className="mt-1 text-sm text-red-600">
-//                                     {errors.address}
-//                                 </p>
-//                             )}
-//                         </div>
-//                         <p className="mt-1 text-sm text-gray-500">
-//                             Currently serving only these areas with postcode
-//                             6210, 6180, or 6175.
-//                             <span className="block">
-//                                 If your address is not available, please select
-//                                 "Meetpoint Mandurah Dot" where you will be
-//                                 meeting instructor.
-//                             </span>
-//                         </p>
-
-//                         {/* ── Pickup Location + Home Address ───────────────── */}
-//                         <div className="space-y-4">
-//                             {pickupConfirmed && (
-//                                 <div className="flex flex-col sm:flex-row gap-4 items-start rounded-xl">
-//                                     <HomeAddressField
-//                                         id="pickup_home_address"
-//                                         label="Home Address"
-//                                         value={formData.pickup_home_address}
-//                                         error={errors.pickup_home_address}
-//                                         disabled={isMeetpoint}
-//                                         onChange={(val) => {
-//                                             setFormData((prev) => ({
-//                                                 ...prev,
-//                                                 pickup_home_address: val,
-//                                             }));
-//                                             if (errors.pickup_home_address) {
-//                                                 setErrors((prev) => ({
-//                                                     ...prev,
-//                                                     pickup_home_address: "",
-//                                                 }));
-//                                             }
-//                                         }}
-//                                     />
-//                                 </div>
-//                             )}
-//                             <LocationAutocomplete
-//                                 id="pickup_location"
-//                                 name="pickup_location"
-//                                 label={
-//                                     <>
-//                                         Pickup Location{" "}
-//                                         <span className="text-red-500">*</span>
-//                                     </>
-//                                 }
-//                                 value={formData.pickup_location}
-//                                 selectedLocation={
-//                                     selectedLocations.pickup_location
-//                                 }
-//                                 error={errors.pickup_location}
-//                                 placeholder="Start typing pickup address"
-//                                 onInputChange={handleLocationInputChange}
-//                                 onLocationSelect={handleLocationSelect}
-//                                 disabled={isMeetpoint}
-//                             />
-//                         </div>
-
-//                         {/* ── Dropoff Location + Home Address ─────────────── */}
-//                         <div className="space-y-4">
-//                             {dropoffConfirmed && (
-//                                 <div className="flex flex-col sm:flex-row gap-4 items-start rounded-xl">
-//                                     <HomeAddressField
-//                                         id="dropoff_home_address"
-//                                         label="Home Address"
-//                                         value={formData.dropoff_home_address}
-//                                         error={errors.dropoff_home_address}
-//                                         disabled={isMeetpoint}
-//                                         onChange={(val) => {
-//                                             setFormData((prev) => ({
-//                                                 ...prev,
-//                                                 dropoff_home_address: val,
-//                                             }));
-//                                             if (errors.dropoff_home_address) {
-//                                                 setErrors((prev) => ({
-//                                                     ...prev,
-//                                                     dropoff_home_address: "",
-//                                                 }));
-//                                             }
-//                                         }}
-//                                     />
-//                                 </div>
-//                             )}
-//                             <LocationAutocomplete
-//                                 id="dropoff_location"
-//                                 name="dropoff_location"
-//                                 label={
-//                                     <>
-//                                         Dropoff Location{" "}
-//                                         <span className="text-red-500">*</span>
-//                                     </>
-//                                 }
-//                                 value={formData.dropoff_location}
-//                                 selectedLocation={
-//                                     selectedLocations.dropoff_location
-//                                 }
-//                                 error={errors.dropoff_location}
-//                                 placeholder="Start typing dropoff address"
-//                                 onInputChange={handleLocationInputChange}
-//                                 onLocationSelect={handleLocationSelect}
-//                                 disabled={isMeetpoint}
-//                                 action={
-//                                     !isMeetpoint ? (
-//                                         <button
-//                                             type="button"
-//                                             onClick={setDropoffSameAsPickup}
-//                                             className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
-//                                         >
-//                                             Same as pickup location
-//                                         </button>
-//                                     ) : null
-//                                 }
-//                             />
-//                         </div>
-
-//                         {/* ── Comment ──────────────────────────────────────── */}
-//                         <div>
-//                             <label
-//                                 htmlFor="comment"
-//                                 className="block text-sm font-medium text-gray-700 mb-2"
-//                             >
-//                                 Comment
-//                             </label>
-//                             <textarea
-//                                 id="comment"
-//                                 name="comment"
-//                                 value={formData.comment}
-//                                 onChange={handleChange}
-//                                 rows={3}
-//                                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition resize-none"
-//                                 placeholder="Any special requests, notes for your instructor, etc."
-//                             />
-//                         </div>
-
-//                         {/* ── Terms ────────────────────────────────────────── */}
-//                         <div className="border-t border-gray-200 pt-4">
-//                             <div className="flex items-start gap-3">
-//                                 <input
-//                                     type="checkbox"
-//                                     id="acceptTerms"
-//                                     checked={acceptTerms}
-//                                     onChange={(e) => {
-//                                         setAcceptTerms(e.target.checked);
-//                                         if (errors.terms)
-//                                             setErrors((prev) => ({
-//                                                 ...prev,
-//                                                 terms: "",
-//                                             }));
-//                                     }}
-//                                     className="mt-1 h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-//                                     required
-//                                 />
-//                                 <label
-//                                     htmlFor="acceptTerms"
-//                                     className="text-sm text-gray-700"
-//                                 >
-//                                     I agree to the{" "}
-//                                     <a
-//                                         href="https://wheelmasterdriving.com.au/terms"
-//                                         target="_blank"
-//                                         rel="noopener noreferrer"
-//                                         className="text-indigo-600 hover:text-indigo-800 underline font-medium"
-//                                     >
-//                                         Terms & Conditions
-//                                     </a>{" "}
-//                                     and{" "}
-//                                     <a
-//                                         href="https://wheelmasterdriving.com.au/policy"
-//                                         target="_blank"
-//                                         rel="noopener noreferrer"
-//                                         className="text-indigo-600 hover:text-indigo-800 underline font-medium"
-//                                     >
-//                                         Privacy Policy
-//                                     </a>{" "}
-//                                    <span className="text-red-500">*</span>
-//                                 </label>
-//                             </div>
-//                             {errors.terms && (
-//                                 <p className="mt-1 text-sm text-red-600">
-//                                     {errors.terms}
-//                                 </p>
-//                             )}
-//                         </div>
-
-//                         {/* ── Submit ───────────────────────────────────────── */}
-//                         <button
-//                             type="submit"
-//                             disabled={
-//                                 submitting ||
-//                                 !selectedDate ||
-//                                 !selectedTime ||
-//                                 !acceptTerms
-//                             }
-//                             className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-4 px-4 rounded-xl transition duration-200 text-base"
-//                         >
-//                             {submitting ? (
-//                                 <div className="flex items-center justify-center gap-2">
-//                                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-//                                     Processing...
-//                                 </div>
-//                             ) : (
-//                                 "Confirm Booking"
-//                             )}
-//                         </button>
-
-//                         <p className="text-xs text-center text-gray-500 mt-4">
-//                             By clicking Confirm Booking, you agree to our terms
-//                             and conditions and privacy policy
-//                         </p>
-//                     </form>
-//                 </div>
-//             </div>
-//         </div>
-//     );
-// };
-
-// export default CalendarIntegrationMobile;
-
-
-
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
     ChevronDown,
@@ -1767,10 +12,11 @@ import {
     ChevronLeft,
     ShoppingCart,
     Trash2,
+    UserRound,
 } from "lucide-react";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
-import { Link, usePage } from "@inertiajs/react";
+import { Link, router, usePage } from "@inertiajs/react";
 import PackageSelector from "./PackageSelector";
 import { useLessonCart } from "./useLessonCart";
 import {
@@ -2019,7 +265,8 @@ const LocationAutocomplete = ({
 };
 
 const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
-    const { payment } = usePage().props;
+    const { payment, auth } = usePage().props;
+    const isAuthenticated = Boolean(auth?.user);
     const useOnlinePay = payment?.bookingMode === "onlinepay";
     const [activePrice, setActivePrice] = useState(price);
     const [selectedDate, setSelectedDate] = useState("");
@@ -2051,6 +298,8 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
     const [showNextAvailability, setShowNextAvailability] = useState(false);
     const [nextAvailableDates, setNextAvailableDates] = useState([]);
     const [allDates, setAllDates] = useState([]);
+    const [formUnlocked, setFormUnlocked] = useState(false);
+    const [showCheckoutOptions, setShowCheckoutOptions] = useState(false);
     const timeSlotsRef = useRef({});
     const loadingDateKeyRef = useRef("");
     const availabilityLoadingRef = useRef(false);
@@ -2092,6 +341,7 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
         setTimeSlots({});
         setScheduleEnds({});
         setBundleDurationMinutes(60);
+        setFormUnlocked(false);
     }, []);
 
     const handleBundleDurationChange = (durationMinutes) => {
@@ -2758,6 +1008,7 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
         timeSlotsRef.current = {};
         setTimeSlots({});
         setScheduleEnds({});
+        setFormUnlocked(false);
         await fetchDropdownAvailability();
         if (selectedDate) {
             await fetchSlotsForDate(selectedDate, true);
@@ -2781,6 +1032,70 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
         if (selectedDate) {
             await fetchSlotsForDate(selectedDate, true);
         }
+    };
+
+    // ── Continue-to-details gate (Guest vs. User checkout) ──────────────────
+    // The personal-details portion of the form stays hidden until the person
+    // clicks "Continue to Details" and picks a checkout method. Guest
+    // checkout unlocks the form immediately. User checkout unlocks it only
+    // for an already-authenticated session; otherwise it redirects to login.
+
+    const handleContinueToDetailsClick = () => {
+        if (isCartCheckout && hasIncompleteBundleCart) {
+            toast.error(
+                "Please select 1- and 2-hour lessons totaling exactly 5 hours for the bundle.",
+            );
+            return;
+        }
+
+        if (!isCartCheckout) {
+            if (!selectedDate) {
+                toast.error("Please select a date");
+                return;
+            }
+            if (!selectedTime) {
+                toast.error("Please select a time slot");
+                return;
+            }
+            if (isActiveFiveHourBundle) {
+                toast.error(
+                    "Please add 1-hour and 2-hour lessons totaling 5 hours to the cart for this bundle.",
+                );
+                return;
+            }
+        }
+
+        setShowCheckoutOptions(true);
+    };
+
+    const scrollToDetailsForm = () => {
+        setTimeout(() => {
+            detailsFormRef.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+            });
+        }, 100);
+    };
+
+    const handleGuestCheckout = () => {
+        setShowCheckoutOptions(false);
+        setFormUnlocked(true);
+        scrollToDetailsForm();
+    };
+
+    const handleUserCheckout = () => {
+        setShowCheckoutOptions(false);
+
+        if (isAuthenticated) {
+            setFormUnlocked(true);
+            scrollToDetailsForm();
+            return;
+        }
+
+        toast("Please log in to continue as a returning customer.", {
+            icon: "🔒",
+        });
+        router.visit(route("login"));
     };
 
     const handleSubmit = async (e) => {
@@ -2942,6 +1257,7 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                 setSelectedDate("");
                 setSelectedTime("");
                 setAcceptTerms(false);
+                setFormUnlocked(false);
                 if (isCartCheckout) {
                     await handleCartCheckoutSuccess();
                 }
@@ -3121,6 +1437,7 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                         setSelectedDate(e.target.value);
                                         setSelectedTime("");
                                         setShowNextAvailability(false);
+                                        setFormUnlocked(false);
                                     }}
                                     className="w-full appearance-none bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 p-3 pl-10 transition"
                                     required={!isCartCheckout}
@@ -3198,9 +1515,10 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                 <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
                                 <select
                                     value={selectedTime}
-                                    onChange={(e) =>
-                                        setSelectedTime(e.target.value)
-                                    }
+                                    onChange={(e) => {
+                                        setSelectedTime(e.target.value);
+                                        setFormUnlocked(false);
+                                    }}
                                     disabled={!selectedDate || loading}
                                     className="w-full appearance-none bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 p-3 pl-10 transition disabled:opacity-50 disabled:cursor-not-allowed"
                                     required={!isCartCheckout}
@@ -3230,6 +1548,22 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                     </p>
                                 )}
                         </div>
+
+                        {/* Solo (non-cart) flow: proceed straight to the checkout choice */}
+                        {!isCartCheckout && !formUnlocked && (
+                            <button
+                                type="button"
+                                onClick={handleContinueToDetailsClick}
+                                disabled={
+                                    !selectedDate ||
+                                    !selectedTime ||
+                                    isActiveFiveHourBundle
+                                }
+                                className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                            >
+                                Continue to Details
+                            </button>
+                        )}
 
                         <div
                             ref={cartSectionRef}
@@ -3318,18 +1652,7 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                     </div>
                                     <button
                                         type="button"
-                                        onClick={() => {
-                                            if (hasIncompleteBundleCart) {
-                                                toast.error(
-                                                    "Please select 1- and 2-hour lessons totaling exactly 5 hours for the bundle.",
-                                                );
-                                                return;
-                                            }
-                                            detailsFormRef.current?.scrollIntoView({
-                                                behavior: "smooth",
-                                                block: "start",
-                                            });
-                                        }}
+                                        onClick={handleContinueToDetailsClick}
                                         disabled={hasIncompleteBundleCart}
                                         className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
                                     >
@@ -3400,335 +1723,450 @@ const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
                                 </div>
                             )}
 
-                        {/* ── Personal Details ─────────────────────────────── */}
-                        {isCartCheckout && (
-                            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-                                Fill in your details below to book all{" "}
-                                {lessonCart.count} lessons in your cart.
+                        {/* ── Personal Details (hidden until checkout method is chosen) ── */}
+                        {formUnlocked && (
+                            <div ref={detailsFormRef} className="space-y-6">
+                                {isCartCheckout && (
+                                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+                                        Fill in your details below to book all{" "}
+                                        {lessonCart.count} lessons in your
+                                        cart.
+                                    </div>
+                                )}
+
+                                <div>
+                                    <label
+                                        htmlFor="user_name"
+                                        className="block text-sm font-medium text-gray-700 mb-2"
+                                    >
+                                        Full Name{" "}
+                                        <span className="text-red-500">
+                                            *
+                                        </span>
+                                    </label>
+                                    <div className="relative">
+                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                                        <input
+                                            type="text"
+                                            id="user_name"
+                                            name="user_name"
+                                            value={formData.user_name}
+                                            onChange={handleChange}
+                                            className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${errors.user_name ? "border-red-500" : "border-gray-300"}`}
+                                            placeholder="John Doe"
+                                            required
+                                        />
+                                    </div>
+                                    {errors.user_name && (
+                                        <p className="mt-1 text-sm text-red-600">
+                                            {errors.user_name}
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label
+                                        htmlFor="email"
+                                        className="block text-sm font-medium text-gray-700 mb-2"
+                                    >
+                                        Email Address{" "}
+                                        <span className="text-red-500">
+                                            *
+                                        </span>
+                                    </label>
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                                        <input
+                                            type="email"
+                                            id="email"
+                                            name="email"
+                                            value={formData.email}
+                                            onChange={handleChange}
+                                            className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${errors.email ? "border-red-500" : "border-gray-300"}`}
+                                            placeholder="john@example.com"
+                                            required
+                                        />
+                                    </div>
+                                    {errors.email && (
+                                        <p className="mt-1 text-sm text-red-600">
+                                            {errors.email}
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label
+                                        htmlFor="phone"
+                                        className="block text-sm font-medium text-gray-700 mb-2"
+                                    >
+                                        Phone Number{" "}
+                                        <span className="text-red-500">
+                                            *
+                                        </span>
+                                    </label>
+                                    <div className="relative">
+                                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                                        <input
+                                            type="tel"
+                                            id="phone"
+                                            name="phone"
+                                            value={formData.phone}
+                                            onChange={handleChange}
+                                            className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${errors.phone ? "border-red-500" : "border-gray-300"}`}
+                                            placeholder="0400 000 000"
+                                            required
+                                        />
+                                    </div>
+                                    {errors.phone && (
+                                        <p className="mt-1 text-sm text-red-600">
+                                            {errors.phone}
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* ── Area ─────────────────────────────────── */}
+                                <div>
+                                    <label
+                                        htmlFor="address"
+                                        className="block text-sm font-medium text-gray-700 mb-2"
+                                    >
+                                        Area{" "}
+                                        <span className="text-red-500">
+                                            *
+                                        </span>
+                                    </label>
+                                    <div className="relative">
+                                        <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
+                                        <select
+                                            id="address"
+                                            name="address"
+                                            value={formData.address}
+                                            onChange={handleChange}
+                                            required
+                                            className={`w-full appearance-none pl-10 pr-10 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition bg-white ${errors.address ? "border-red-500" : "border-gray-300"}`}
+                                        >
+                                            <option value="">
+                                                Select your Area
+                                            </option>
+                                            <option value="mandurah">
+                                                Mandurah
+                                            </option>
+                                            <option value="meadow-springs">
+                                                Meadow Springs
+                                            </option>
+                                            <option value="silver-sands">
+                                                Silver Sands
+                                            </option>
+                                            <option value="lakelands">
+                                                Lakelands
+                                            </option>
+                                            <option value="dudley-park">
+                                                Dudley Park
+                                            </option>
+                                            <option value="halls-head">
+                                                Halls Head
+                                            </option>
+                                            <option value="madora-bay">
+                                                Madora Bay
+                                            </option>
+                                            <option value="greenfields">
+                                                Greenfields
+                                            </option>
+                                            <option value="erskine">
+                                                Erskine
+                                            </option>
+                                            <option value="singleton">
+                                                Singleton
+                                            </option>
+                                            <option value="parklands">
+                                                Parklands
+                                            </option>
+                                            <option value="stake-hill">
+                                                Stake Hill
+                                            </option>
+                                            <option value="san-remo">
+                                                San Remo
+                                            </option>
+                                            <option value="meetpoint-mandurah-dot">
+                                                Meetpoint Mandurah Dot
+                                            </option>
+                                        </select>
+                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
+                                    </div>
+                                    {errors.address && (
+                                        <p className="mt-1 text-sm text-red-600">
+                                            {errors.address}
+                                        </p>
+                                    )}
+                                </div>
+                                <p className="mt-1 text-sm text-gray-500">
+                                    Currently serving only these areas with
+                                    postcode 6210, 6180, or 6175.
+                                    <span className="block">
+                                        If your address is not available,
+                                        please select "Meetpoint Mandurah Dot"
+                                        where you will be meeting instructor.
+                                    </span>
+                                </p>
+
+                                {/* ── Pickup Location ───────────────── */}
+                                <LocationAutocomplete
+                                    id="pickup_location"
+                                    name="pickup_location"
+                                    label={
+                                        <>
+                                            Pickup Address{" "}
+                                            <span className="text-red-500">
+                                                *
+                                            </span>
+                                        </>
+                                    }
+                                    value={formData.pickup_location}
+                                    selectedLocation={
+                                        selectedLocations.pickup_location
+                                    }
+                                    error={errors.pickup_location}
+                                    placeholder="Start typing pickup address"
+                                    onInputChange={handleLocationInputChange}
+                                    onLocationSelect={handleLocationSelect}
+                                    disabled={isMeetpoint}
+                                />
+
+                                {/* ── Dropoff Location ─────────────── */}
+                                <LocationAutocomplete
+                                    id="dropoff_location"
+                                    name="dropoff_location"
+                                    label={
+                                        <>
+                                            Dropoff Address{" "}
+                                            <span className="text-red-500">
+                                                *
+                                            </span>
+                                        </>
+                                    }
+                                    value={formData.dropoff_location}
+                                    selectedLocation={
+                                        selectedLocations.dropoff_location
+                                    }
+                                    error={errors.dropoff_location}
+                                    placeholder="Start typing dropoff address"
+                                    onInputChange={handleLocationInputChange}
+                                    onLocationSelect={handleLocationSelect}
+                                    disabled={isMeetpoint}
+                                    action={
+                                        !isMeetpoint ? (
+                                            <button
+                                                type="button"
+                                                onClick={
+                                                    setDropoffSameAsPickup
+                                                }
+                                                className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
+                                            >
+                                                Same as pickup address
+                                            </button>
+                                        ) : null
+                                    }
+                                />
+
+                                {/* ── Comment ──────────────────────────────── */}
+                                <div>
+                                    <label
+                                        htmlFor="comment"
+                                        className="block text-sm font-medium text-gray-700 mb-2"
+                                    >
+                                        Comment
+                                    </label>
+                                    <textarea
+                                        id="comment"
+                                        name="comment"
+                                        value={formData.comment}
+                                        onChange={handleChange}
+                                        rows={3}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition resize-none"
+                                        placeholder="Any special requests, notes for your instructor, etc."
+                                    />
+                                </div>
+
+                                {/* ── Terms ────────────────────────────────── */}
+                                <div className="border-t border-gray-200 pt-4">
+                                    <div className="flex items-start gap-3">
+                                        <input
+                                            type="checkbox"
+                                            id="acceptTerms"
+                                            checked={acceptTerms}
+                                            onChange={(e) => {
+                                                setAcceptTerms(
+                                                    e.target.checked,
+                                                );
+                                                if (errors.terms)
+                                                    setErrors((prev) => ({
+                                                        ...prev,
+                                                        terms: "",
+                                                    }));
+                                            }}
+                                            className="mt-1 h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                                            required
+                                        />
+                                        <label
+                                            htmlFor="acceptTerms"
+                                            className="text-sm text-gray-700"
+                                        >
+                                            I agree to the{" "}
+                                            <a
+                                                href="https://wheelmasterdriving.com.au/terms"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-indigo-600 hover:text-indigo-800 underline font-medium"
+                                            >
+                                                Terms & Conditions
+                                            </a>{" "}
+                                            and{" "}
+                                            <a
+                                                href="https://wheelmasterdriving.com.au/policy"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-indigo-600 hover:text-indigo-800 underline font-medium"
+                                            >
+                                                Privacy Policy
+                                            </a>{" "}
+                                            <span className="text-red-500">
+                                                *
+                                            </span>
+                                        </label>
+                                    </div>
+                                    {errors.terms && (
+                                        <p className="mt-1 text-sm text-red-600">
+                                            {errors.terms}
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* ── Submit ───────────────────────────────── */}
+                                <button
+                                    type="submit"
+                                    disabled={
+                                        submitting ||
+                                        (!isCartCheckout &&
+                                            (!selectedDate ||
+                                                !selectedTime ||
+                                                isActiveFiveHourBundle)) ||
+                                        (isCartCheckout &&
+                                            lessonCart.count === 0) ||
+                                        (isCartCheckout &&
+                                            hasIncompleteBundleCart) ||
+                                        !acceptTerms
+                                    }
+                                    className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-4 px-4 rounded-xl transition duration-200 text-base"
+                                >
+                                    {submitting ? (
+                                        <div className="flex items-center justify-center gap-2">
+                                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                            Processing...
+                                        </div>
+                                    ) : useOnlinePay ? (
+                                        "Continue to secure payment"
+                                    ) : isCartCheckout ? (
+                                        `Book Cart (${lessonCart.count} lessons)`
+                                    ) : (
+                                        "Confirm Booking"
+                                    )}
+                                </button>
+
+                                <p className="text-xs text-center text-gray-500 mt-4">
+                                    By clicking{" "}
+                                    {useOnlinePay
+                                        ? "Continue to secure payment,"
+                                        : isCartCheckout
+                                          ? `Book Cart (${lessonCart.count} lessons),`
+                                          : "Confirm Booking,"}
+                                    you agree to our terms and conditions and
+                                    privacy policy
+                                </p>
                             </div>
                         )}
-
-                        <div ref={detailsFormRef}>
-                            <label
-                                htmlFor="user_name"
-                                className="block text-sm font-medium text-gray-700 mb-2"
-                            >
-                                Full Name{" "}
-                                <span className="text-red-500">*</span>
-                            </label>
-                            <div className="relative">
-                                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                                <input
-                                    type="text"
-                                    id="user_name"
-                                    name="user_name"
-                                    value={formData.user_name}
-                                    onChange={handleChange}
-                                    className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${errors.user_name ? "border-red-500" : "border-gray-300"}`}
-                                    placeholder="John Doe"
-                                    required
-                                />
-                            </div>
-                            {errors.user_name && (
-                                <p className="mt-1 text-sm text-red-600">
-                                    {errors.user_name}
-                                </p>
-                            )}
-                        </div>
-
-                        <div>
-                            <label
-                                htmlFor="email"
-                                className="block text-sm font-medium text-gray-700 mb-2"
-                            >
-                                Email Address{" "}
-                                <span className="text-red-500">*</span>
-                            </label>
-                            <div className="relative">
-                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                                <input
-                                    type="email"
-                                    id="email"
-                                    name="email"
-                                    value={formData.email}
-                                    onChange={handleChange}
-                                    className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${errors.email ? "border-red-500" : "border-gray-300"}`}
-                                    placeholder="john@example.com"
-                                    required
-                                />
-                            </div>
-                            {errors.email && (
-                                <p className="mt-1 text-sm text-red-600">
-                                    {errors.email}
-                                </p>
-                            )}
-                        </div>
-
-                        <div>
-                            <label
-                                htmlFor="phone"
-                                className="block text-sm font-medium text-gray-700 mb-2"
-                            >
-                                Phone Number{" "}
-                                <span className="text-red-500">*</span>
-                            </label>
-                            <div className="relative">
-                                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                                <input
-                                    type="tel"
-                                    id="phone"
-                                    name="phone"
-                                    value={formData.phone}
-                                    onChange={handleChange}
-                                    className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${errors.phone ? "border-red-500" : "border-gray-300"}`}
-                                    placeholder="0400 000 000"
-                                    required
-                                />
-                            </div>
-                            {errors.phone && (
-                                <p className="mt-1 text-sm text-red-600">
-                                    {errors.phone}
-                                </p>
-                            )}
-                        </div>
-
-                        {/* ── Area ─────────────────────────────────────────── */}
-                        <div>
-                            <label
-                                htmlFor="address"
-                                className="block text-sm font-medium text-gray-700 mb-2"
-                            >
-                                Area <span className="text-red-500">*</span>
-                            </label>
-                            <div className="relative">
-                                <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
-                                <select
-                                    id="address"
-                                    name="address"
-                                    value={formData.address}
-                                    onChange={handleChange}
-                                    required
-                                    className={`w-full appearance-none pl-10 pr-10 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition bg-white ${errors.address ? "border-red-500" : "border-gray-300"}`}
-                                >
-                                    <option value="">Select your Area</option>
-                                    <option value="mandurah">Mandurah</option>
-                                    <option value="meadow-springs">
-                                        Meadow Springs
-                                    </option>
-                                    <option value="silver-sands">
-                                        Silver Sands
-                                    </option>
-                                    <option value="lakelands">Lakelands</option>
-                                    <option value="dudley-park">
-                                        Dudley Park
-                                    </option>
-                                    <option value="halls-head">
-                                        Halls Head
-                                    </option>
-                                    <option value="madora-bay">
-                                        Madora Bay
-                                    </option>
-                                    <option value="greenfields">
-                                        Greenfields
-                                    </option>
-                                    <option value="erskine">Erskine</option>
-                                    <option value="singleton">Singleton</option>
-                                    <option value="parklands">Parklands</option>
-                                    <option value="stake-hill">
-                                        Stake Hill
-                                    </option>
-                                    <option value="san-remo">San Remo</option>
-                                    <option value="meetpoint-mandurah-dot">
-                                        Meetpoint Mandurah Dot
-                                    </option>
-                                </select>
-                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
-                            </div>
-                            {errors.address && (
-                                <p className="mt-1 text-sm text-red-600">
-                                    {errors.address}
-                                </p>
-                            )}
-                        </div>
-                        <p className="mt-1 text-sm text-gray-500">
-                            Currently serving only these areas with postcode
-                            6210, 6180, or 6175.
-                            <span className="block">
-                                If your address is not available, please select
-                                "Meetpoint Mandurah Dot" where you will be
-                                meeting instructor.
-                            </span>
-                        </p>
-
-                        {/* ── Pickup Location ───────────────── */}
-                        <LocationAutocomplete
-                            id="pickup_location"
-                            name="pickup_location"
-                            label={
-                                <>
-                                    Pickup Address{" "}
-                                    <span className="text-red-500">*</span>
-                                </>
-                            }
-                            value={formData.pickup_location}
-                            selectedLocation={
-                                selectedLocations.pickup_location
-                            }
-                            error={errors.pickup_location}
-                            placeholder="Start typing pickup address"
-                            onInputChange={handleLocationInputChange}
-                            onLocationSelect={handleLocationSelect}
-                            disabled={isMeetpoint}
-                        />
-
-                        {/* ── Dropoff Location ─────────────── */}
-                        <LocationAutocomplete
-                            id="dropoff_location"
-                            name="dropoff_location"
-                            label={
-                                <>
-                                    Dropoff Address{" "}
-                                    <span className="text-red-500">*</span>
-                                </>
-                            }
-                            value={formData.dropoff_location}
-                            selectedLocation={
-                                selectedLocations.dropoff_location
-                            }
-                            error={errors.dropoff_location}
-                            placeholder="Start typing dropoff address"
-                            onInputChange={handleLocationInputChange}
-                            onLocationSelect={handleLocationSelect}
-                            disabled={isMeetpoint}
-                            action={
-                                !isMeetpoint ? (
-                                    <button
-                                        type="button"
-                                        onClick={setDropoffSameAsPickup}
-                                        className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
-                                    >
-                                        Same as pickup address
-                                    </button>
-                                ) : null
-                            }
-                        />
-
-                        {/* ── Comment ──────────────────────────────────────── */}
-                        <div>
-                            <label
-                                htmlFor="comment"
-                                className="block text-sm font-medium text-gray-700 mb-2"
-                            >
-                                Comment
-                            </label>
-                            <textarea
-                                id="comment"
-                                name="comment"
-                                value={formData.comment}
-                                onChange={handleChange}
-                                rows={3}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition resize-none"
-                                placeholder="Any special requests, notes for your instructor, etc."
-                            />
-                        </div>
-
-                        {/* ── Terms ────────────────────────────────────────── */}
-                        <div className="border-t border-gray-200 pt-4">
-                            <div className="flex items-start gap-3">
-                                <input
-                                    type="checkbox"
-                                    id="acceptTerms"
-                                    checked={acceptTerms}
-                                    onChange={(e) => {
-                                        setAcceptTerms(e.target.checked);
-                                        if (errors.terms)
-                                            setErrors((prev) => ({
-                                                ...prev,
-                                                terms: "",
-                                            }));
-                                    }}
-                                    className="mt-1 h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                                    required
-                                />
-                                <label
-                                    htmlFor="acceptTerms"
-                                    className="text-sm text-gray-700"
-                                >
-                                    I agree to the{" "}
-                                    <a
-                                        href="https://wheelmasterdriving.com.au/terms"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-indigo-600 hover:text-indigo-800 underline font-medium"
-                                    >
-                                        Terms & Conditions
-                                    </a>{" "}
-                                    and{" "}
-                                    <a
-                                        href="https://wheelmasterdriving.com.au/policy"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-indigo-600 hover:text-indigo-800 underline font-medium"
-                                    >
-                                        Privacy Policy
-                                    </a>{" "}
-                                    <span className="text-red-500">*</span>
-                                </label>
-                            </div>
-                            {errors.terms && (
-                                <p className="mt-1 text-sm text-red-600">
-                                    {errors.terms}
-                                </p>
-                            )}
-                        </div>
-
-                        {/* ── Submit ───────────────────────────────────────── */}
-                        <button
-                            type="submit"
-                            disabled={
-                                submitting ||
-                                (!isCartCheckout &&
-                                    (!selectedDate ||
-                                        !selectedTime ||
-                                        isActiveFiveHourBundle)) ||
-                                (isCartCheckout && lessonCart.count === 0) ||
-                                (isCartCheckout && hasIncompleteBundleCart) ||
-                                !acceptTerms
-                            }
-                            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-4 px-4 rounded-xl transition duration-200 text-base"
-                        >
-                            {submitting ? (
-                                <div className="flex items-center justify-center gap-2">
-                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                                    Processing...
-                                </div>
-                            ) : useOnlinePay ? (
-                                "Continue to secure payment"
-                            ) : isCartCheckout ? (
-                                `Book Cart (${lessonCart.count} lessons)`
-                            ) : (
-                                "Confirm Booking"
-                            )}
-                        </button>
-
-                        <p className="text-xs text-center text-gray-500 mt-4">
-                            By clicking{" "}
-                            {useOnlinePay
-                                ? "Continue to secure payment,"
-                                : isCartCheckout
-                                ? `Book Cart (${lessonCart.count} lessons),`
-                                : "Confirm Booking,"}
-                            you agree to our terms and conditions and privacy
-                            policy
-                        </p>
                     </form>
                 </div>
             </div>
+
+            {/* ── Checkout method modal (Guest vs. User) ── */}
+            {showCheckoutOptions && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="checkout-options-heading"
+                    onClick={() => setShowCheckoutOptions(false)}
+                >
+                    <div
+                        className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <h3
+                            id="checkout-options-heading"
+                            className="text-lg font-semibold text-gray-900 mb-1"
+                        >
+                            How would you like to checkout?
+                        </h3>
+                        <p className="text-sm text-gray-500 mb-5">
+                            Choose guest checkout for a one-off booking, or
+                            checkout as a returning customer to use your
+                            saved details.
+                        </p>
+
+                        <div className="space-y-3">
+                            <button
+                                type="button"
+                                onClick={handleGuestCheckout}
+                                className="w-full flex items-center gap-3 rounded-lg border-2 border-gray-200 px-4 py-3 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-50"
+                            >
+                                <UserRound size={20} className="text-gray-500 shrink-0" />
+                                <span>
+                                    <span className="block text-sm font-semibold text-gray-900">
+                                        Guest Checkout
+                                    </span>
+                                    <span className="block text-xs text-gray-500">
+                                        Continue without an account
+                                    </span>
+                                </span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={handleUserCheckout}
+                                className="w-full flex items-center gap-3 rounded-lg border-2 border-gray-200 px-4 py-3 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-50"
+                            >
+                                <User size={20} className="text-gray-500 shrink-0" />
+                                <span>
+                                    <span className="block text-sm font-semibold text-gray-900">
+                                        User Checkout
+                                    </span>
+                                    <span className="block text-xs text-gray-500">
+                                        {isAuthenticated
+                                            ? "Checkout with your saved details"
+                                            : "Log in to your account to continue"}
+                                    </span>
+                                </span>
+                            </button>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() => setShowCheckoutOptions(false)}
+                            className="mt-5 w-full py-2 text-sm font-medium text-gray-500 hover:text-gray-700"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
 
 export default CalendarIntegrationMobile;
+
+
+
 
 // import React, { useState, useEffect, useCallback, useRef } from "react";
 // import {
@@ -3742,17 +2180,29 @@ export default CalendarIntegrationMobile;
 //     Home,
 //     MapPin as MapPinIcon,
 //     ChevronLeft,
+//     ShoppingCart,
+//     Trash2,
 // } from "lucide-react";
 // import axios from "axios";
 // import toast, { Toaster } from "react-hot-toast";
-// import { Link } from "@inertiajs/react";
+// import { Link, usePage } from "@inertiajs/react";
 // import PackageSelector from "./PackageSelector";
+// import { useLessonCart } from "./useLessonCart";
+// import {
+//     FIVE_HOUR_BUNDLE_TOTAL_MINUTES,
+//     findOverlappingCartItem,
+//     getBundleItemDurationMinutes,
+//     getFiveHourBundleItems,
+//     getFiveHourBundleSelectedMinutes,
+//     getLessonBookingDuration,
+//     hasIncompleteFiveHourBundle,
+//     isFiveHourLessonBundle,
+// } from "./packageRules";
 
 // const MEETPOINT_AREA = "meetpoint-mandurah-dot";
 // const MEETPOINT_LOCATION = {
 //     label: "Ranceby Avenue, Mandurah, Western Australia 6210",
-//     name: "Ranceby Avenue",
-//     street: "Ranceby Avenue",
+//     name: "Mandurah",
 //     housenumber: null,
 //     postcode: "6210",
 //     city: "Mandurah",
@@ -3784,12 +2234,12 @@ export default CalendarIntegrationMobile;
 //         "19th": "nineteenth",
 //         "20th": "twentieth",
 //     };
-
 //     return text
 //         .toLowerCase()
-//         .replace(/\b([0-9]{1,2}(?:st|nd|rd|th))\b/g, (match) => {
-//             return ordinals[match] || match;
-//         })
+//         .replace(
+//             /\b([0-9]{1,2}(?:st|nd|rd|th))\b/g,
+//             (match) => ordinals[match] || match,
+//         )
 //         .replace(/\bav\b|\bave\b/g, "avenue")
 //         .replace(/\brd\b/g, "road")
 //         .replace(/\bst\b/g, "street")
@@ -3803,7 +2253,6 @@ export default CalendarIntegrationMobile;
 
 // const locationMatchesTypedAddress = (location, typedAddress) => {
 //     if (!location || !typedAddress?.trim()) return false;
-
 //     const typed = normaliseAddressText(typedAddress);
 //     const streetAnchor = normaliseAddressText(
 //         location.street || location.name || "",
@@ -3811,11 +2260,7 @@ export default CalendarIntegrationMobile;
 //     const suburbAnchors = [location.city, location.district, location.postcode]
 //         .filter(Boolean)
 //         .map(normaliseAddressText);
-
-//     if (streetAnchor && typed.includes(streetAnchor)) {
-//         return true;
-//     }
-
+//     if (streetAnchor && typed.includes(streetAnchor)) return true;
 //     return suburbAnchors.some((anchor) => anchor && typed.includes(anchor));
 // };
 
@@ -3830,6 +2275,7 @@ export default CalendarIntegrationMobile;
 //     onInputChange,
 //     onLocationSelect,
 //     action,
+//     disabled,
 // }) => {
 //     const [suggestions, setSuggestions] = useState([]);
 //     const [loading, setLoading] = useState(false);
@@ -3838,8 +2284,12 @@ export default CalendarIntegrationMobile;
 //     const blurTimeout = useRef(null);
 
 //     useEffect(() => {
+//         if (disabled) {
+//             setSuggestions([]);
+//             setIsOpen(false);
+//             return undefined;
+//         }
 //         const query = value.trim();
-
 //         if (
 //             query.length < 3 ||
 //             locationMatchesTypedAddress(selectedLocation, query)
@@ -3849,18 +2299,15 @@ export default CalendarIntegrationMobile;
 //             setLoading(false);
 //             return undefined;
 //         }
-
 //         const controller = new AbortController();
 //         const timeout = setTimeout(async () => {
 //             try {
 //                 setLoading(true);
 //                 setSearchError("");
-
 //                 const response = await axios.get(route("locations.search"), {
 //                     params: { q: query },
 //                     signal: controller.signal,
 //                 });
-
 //                 setSuggestions(response.data.suggestions || []);
 //                 setIsOpen(true);
 //             } catch (error) {
@@ -3874,18 +2321,15 @@ export default CalendarIntegrationMobile;
 //                 setLoading(false);
 //             }
 //         }, 350);
-
 //         return () => {
 //             clearTimeout(timeout);
 //             controller.abort();
 //         };
-//     }, [value, selectedLocation]);
+//     }, [value, selectedLocation, disabled]);
 
 //     useEffect(() => {
 //         return () => {
-//             if (blurTimeout.current) {
-//                 clearTimeout(blurTimeout.current);
-//             }
+//             if (blurTimeout.current) clearTimeout(blurTimeout.current);
 //         };
 //     }, []);
 
@@ -3894,6 +2338,7 @@ export default CalendarIntegrationMobile;
 //     };
 
 //     const shouldShowSuggestions =
+//         !disabled &&
 //         isOpen &&
 //         value.trim().length >= 3 &&
 //         !locationMatchesTypedAddress(selectedLocation, value);
@@ -3917,18 +2362,18 @@ export default CalendarIntegrationMobile;
 //                     name={name}
 //                     value={value}
 //                     onChange={(event) =>
-//                         onInputChange(name, event.target.value)
+//                         !disabled && onInputChange(name, event.target.value)
 //                     }
-//                     onFocus={() => setIsOpen(true)}
+//                     onFocus={() => !disabled && setIsOpen(true)}
 //                     onBlur={handleBlur}
 //                     required
 //                     autoComplete="off"
+//                     readOnly={disabled}
 //                     className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${
 //                         error ? "border-red-500" : "border-gray-300"
-//                     }`}
+//                     } ${disabled ? "bg-gray-100 cursor-not-allowed text-gray-500" : ""}`}
 //                     placeholder={placeholder}
 //                 />
-
 //                 {shouldShowSuggestions && (
 //                     <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
 //                         {loading && (
@@ -3936,7 +2381,6 @@ export default CalendarIntegrationMobile;
 //                                 Searching service area...
 //                             </div>
 //                         )}
-
 //                         {!loading &&
 //                             suggestions.map((suggestion) => (
 //                                 <button
@@ -3959,7 +2403,6 @@ export default CalendarIntegrationMobile;
 //                                     )}
 //                                 </button>
 //                             ))}
-
 //                         {!loading &&
 //                             suggestions.length === 0 &&
 //                             !searchError && (
@@ -3967,7 +2410,6 @@ export default CalendarIntegrationMobile;
 //                                     No service-area address found.
 //                                 </div>
 //                             )}
-
 //                         {!loading && searchError && (
 //                             <div className="px-4 py-3 text-sm text-red-600">
 //                                 {searchError}
@@ -3977,10 +2419,14 @@ export default CalendarIntegrationMobile;
 //                 )}
 //             </div>
 //             {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
-//             {!error && (
+//             {!error && !disabled && (
 //                 <p className="mt-1 text-xs text-gray-500">
-//                     Choose a service-area suggestion, then add house number,
-//                     unit, or pickup notes if needed.
+//                     Choose a service-area suggestion
+//                 </p>
+//             )}
+//             {!error && disabled && (
+//                 <p className="mt-1 text-xs text-gray-500">
+//                     Auto-filled for Meetpoint Mandurah Dot.
 //                 </p>
 //             )}
 //         </div>
@@ -3988,10 +2434,13 @@ export default CalendarIntegrationMobile;
 // };
 
 // const CalendarIntegrationMobile = ({ price, packageOptions = [] }) => {
+//     const { payment } = usePage().props;
+//     const useOnlinePay = payment?.bookingMode === "onlinepay";
+//     const [activePrice, setActivePrice] = useState(price);
 //     const [selectedDate, setSelectedDate] = useState("");
 //     const [selectedTime, setSelectedTime] = useState("");
+//     const [bundleDurationMinutes, setBundleDurationMinutes] = useState(60);
 
-//     // Form fields
 //     const [formData, setFormData] = useState({
 //         user_name: "",
 //         email: "",
@@ -4009,11 +2458,8 @@ export default CalendarIntegrationMobile;
 //         pickup_location: null,
 //         dropoff_location: null,
 //     });
-
-//     // Terms and conditions acceptance
 //     const [acceptTerms, setAcceptTerms] = useState(false);
 
-//     // Time slots state
 //     const [timeSlots, setTimeSlots] = useState({});
 //     const [scheduleEnds, setScheduleEnds] = useState({});
 //     const [availabilityLoading, setAvailabilityLoading] = useState(false);
@@ -4023,12 +2469,69 @@ export default CalendarIntegrationMobile;
 //     const timeSlotsRef = useRef({});
 //     const loadingDateKeyRef = useRef("");
 //     const availabilityLoadingRef = useRef(false);
+//     const detailsFormRef = useRef(null);
+//     const cartSectionRef = useRef(null);
+//     const lessonCart = useLessonCart();
+//     const isCartCheckout = lessonCart.count > 0;
+//     const isActiveFiveHourBundle = isFiveHourLessonBundle(activePrice);
+//     const bundleCartItems = getFiveHourBundleItems(lessonCart.items);
+//     const activeBundleSelectedMinutes = getFiveHourBundleSelectedMinutes(
+//         lessonCart.items,
+//         activePrice?.id,
+//     );
+//     const hasIncompleteBundleCart = hasIncompleteFiveHourBundle(lessonCart.items);
+//     const selectedDuration = getLessonBookingDuration(
+//         activePrice,
+//         bundleDurationMinutes,
+//     );
+//     const bundleDurationWouldExceedTotal =
+//         isActiveFiveHourBundle &&
+//         activeBundleSelectedMinutes + bundleDurationMinutes >
+//             FIVE_HOUR_BUNDLE_TOTAL_MINUTES;
 
 //     useEffect(() => {
 //         timeSlotsRef.current = timeSlots;
 //     }, [timeSlots]);
 
-//     // Format date as YYYY-MM-DD for API calls
+//     useEffect(() => {
+//         setActivePrice(price);
+//     }, [price]);
+
+//     const handlePackageChange = useCallback((nextPackage) => {
+//         setActivePrice(nextPackage);
+//         setSelectedTime("");
+//         setShowNextAvailability(false);
+//         setNextAvailableDates([]);
+//         timeSlotsRef.current = {};
+//         loadingDateKeyRef.current = "";
+//         setTimeSlots({});
+//         setScheduleEnds({});
+//         setBundleDurationMinutes(60);
+//     }, []);
+
+//     const handleBundleDurationChange = (durationMinutes) => {
+//         setBundleDurationMinutes(durationMinutes);
+//         setSelectedTime("");
+//         setShowNextAvailability(false);
+//         setNextAvailableDates([]);
+//         timeSlotsRef.current = {};
+//         loadingDateKeyRef.current = "";
+//         setTimeSlots({});
+//         setScheduleEnds({});
+//     };
+
+//     const handleCartShortcutClick = useCallback(() => {
+//         cartSectionRef.current?.scrollIntoView({
+//             behavior: "smooth",
+//             block: "start",
+//         });
+//     }, []);
+
+//     // ── derived: is meetpoint selected ──────────────────────────────────────
+//     const isMeetpoint = formData.address === MEETPOINT_AREA;
+
+//     // ── helpers ──────────────────────────────────────────────────────────────
+
 //     const formatDateKey = (date) => {
 //         if (!date) return "";
 //         const d = new Date(date);
@@ -4038,28 +2541,18 @@ export default CalendarIntegrationMobile;
 //         return `${year}-${month}-${day}`;
 //     };
 
-//     // Parse duration from price
 //     const parseDuration = (durationString) => {
 //         if (!durationString) return 60;
-
 //         const cleanString = durationString.trim().toLowerCase();
-
 //         const hourMatch = cleanString.match(
 //             /(\d+(?:\.\d+)?)\s*(?:hrs|hr|hour|hours)/,
 //         );
 //         const minuteMatch = cleanString.match(
 //             /(\d+)\s*(?:min|mins|minute|minutes)/,
 //         );
-
 //         let totalMinutes = 0;
-
-//         if (hourMatch) {
-//             totalMinutes += parseFloat(hourMatch[1]) * 60;
-//         }
-//         if (minuteMatch) {
-//             totalMinutes += parseInt(minuteMatch[1]);
-//         }
-
+//         if (hourMatch) totalMinutes += parseFloat(hourMatch[1]) * 60;
+//         if (minuteMatch) totalMinutes += parseInt(minuteMatch[1]);
 //         if (totalMinutes === 0) {
 //             const numberMatch = cleanString.match(/(\d+(?:\.\d+)?)/);
 //             if (numberMatch) {
@@ -4068,51 +2561,38 @@ export default CalendarIntegrationMobile;
 //                     num < 10 ? Math.round(num * 60) : Math.round(num);
 //             }
 //         }
-
 //         return totalMinutes || 60;
 //     };
 
-//     // Calculate end time based on start time and duration
 //     const calculateEndTime = (startTime, durationString) => {
 //         const durationMinutes = parseDuration(durationString);
-
 //         let cleanStartTime = startTime;
 //         if (
 //             typeof cleanStartTime === "string" &&
 //             cleanStartTime.includes(":")
 //         ) {
 //             const parts = cleanStartTime.split(":");
-//             if (parts.length >= 2) {
-//                 cleanStartTime = `${parts[0]}:${parts[1]}`;
-//             }
+//             if (parts.length >= 2) cleanStartTime = `${parts[0]}:${parts[1]}`;
 //         }
-
 //         const [hours, minutes] = cleanStartTime.split(":").map(Number);
-
 //         const totalMinutes = hours * 60 + minutes + durationMinutes;
 //         const endHours = Math.floor(totalMinutes / 60);
 //         const endMinutes = totalMinutes % 60;
-
 //         return `${String(endHours).padStart(2, "0")}:${String(endMinutes).padStart(2, "0")}`;
 //     };
 
-//     // Format duration for display
 //     const formatDurationDisplay = (durationString) => {
 //         const minutes = parseDuration(durationString);
-
 //         const hours = Math.floor(minutes / 60);
 //         const mins = minutes % 60;
-
-//         if (hours > 0 && mins > 0) {
+//         if (hours > 0 && mins > 0)
 //             return `${hours} ${hours === 1 ? "hour" : "hours"} ${mins} minutes`;
-//         } else if (hours > 0) {
-//             return `${hours} ${hours === 1 ? "hour" : "hours"}`;
-//         } else {
-//             return `${mins} minutes`;
-//         }
+//         if (hours > 0) return `${hours} ${hours === 1 ? "hour" : "hours"}`;
+//         return `${mins} minutes`;
 //     };
 
-//     // Function to set dropoff location same as pickup location
+//     // ── "same as pickup" ─────────────────────────────────────────────────────
+
 //     const setDropoffSameAsPickup = () => {
 //         if (
 //             formData.pickup_location &&
@@ -4129,37 +2609,33 @@ export default CalendarIntegrationMobile;
 //                 ...prev,
 //                 dropoff_location: prev.pickup_location,
 //             }));
-//             if (errors.dropoff_location) {
-//                 setErrors((prev) => ({
-//                     ...prev,
-//                     dropoff_location: "",
-//                 }));
-//             }
-//             toast.success("Dropoff location set to pickup location");
+//             setErrors((prev) => ({
+//                 ...prev,
+//                 dropoff_location: "",
+//             }));
+//             toast.success("Dropoff address set to pickup address");
 //         } else {
 //             toast.error(
-//                 "Please select a pickup location from the suggestions first",
+//                 "Please select a pickup address from the suggestions first",
 //             );
 //         }
 //     };
 
-//     // The backend already filters slots by package duration, buffer, blocks, and reservations.
+//     // ── slot helpers ─────────────────────────────────────────────────────────
+
 //     const getNonOverlappingSlots = (slots, dateKey) => {
 //         if (!slots || slots.length === 0) return [];
-//         const durationMinutes = parseDuration(price?.duration);
+//         const durationMinutes = parseDuration(selectedDuration);
 //         const bookingStepMinutes = durationMinutes + 20;
-
 //         const timeToMinutes = (timeStr) => {
 //             const [h, m] = timeStr.split(":").map(Number);
 //             return h * 60 + m;
 //         };
-
 //         const minutesToTime = (minutes) => {
 //             const hours = Math.floor(minutes / 60);
 //             const mins = minutes % 60;
 //             return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
 //         };
-
 //         const sortedSlotMinutes = [...slots]
 //             .map((slot) => {
 //                 let startTime =
@@ -4172,9 +2648,7 @@ export default CalendarIntegrationMobile;
 //             })
 //             .filter(Number.isFinite)
 //             .sort((a, b) => a - b);
-
 //         if (sortedSlotMinutes.length === 0) return [];
-
 //         const scheduleEndMinutes = scheduleEnds[dateKey]
 //             ? timeToMinutes(scheduleEnds[dateKey])
 //             : sortedSlotMinutes[sortedSlotMinutes.length - 1] +
@@ -4182,41 +2656,32 @@ export default CalendarIntegrationMobile;
 //         const latestStartMinutes = scheduleEndMinutes - bookingStepMinutes;
 //         const displaySlots = [];
 //         let candidateMinutes = sortedSlotMinutes[0];
-
 //         while (candidateMinutes <= latestStartMinutes) {
 //             displaySlots.push(minutesToTime(candidateMinutes));
 //             candidateMinutes += bookingStepMinutes;
-
 //             const hasNearbyAvailableSlot = sortedSlotMinutes.some(
 //                 (slotMinutes) =>
 //                     slotMinutes >= candidateMinutes &&
 //                     slotMinutes < candidateMinutes + 20,
 //             );
-
 //             if (!hasNearbyAvailableSlot) {
 //                 const nextAvailableSlot = sortedSlotMinutes.find(
 //                     (slotMinutes) => slotMinutes >= candidateMinutes,
 //                 );
-
 //                 if (nextAvailableSlot === undefined) break;
-
 //                 candidateMinutes = nextAvailableSlot;
 //             }
 //         }
-
 //         return displaySlots;
 //     };
 
-//     // Format time slot for display
 //     const getTimeSlotDisplay = (slot) => {
 //         let startTimeStr = typeof slot === "string" ? slot : slot?.start_time;
 //         if (startTimeStr?.includes(":")) {
 //             const parts = startTimeStr.split(":");
 //             startTimeStr = `${parts[0]}:${parts[1]}`;
 //         }
-
-//         const endTimeStr = calculateEndTime(startTimeStr, price?.duration);
-
+//         const endTimeStr = calculateEndTime(startTimeStr, selectedDuration);
 //         const formatTo12Hour = (time) => {
 //             const [hours, minutes] = time.split(":");
 //             const h = parseInt(hours);
@@ -4224,58 +2689,48 @@ export default CalendarIntegrationMobile;
 //             const h12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
 //             return `${h12}:${minutes} ${period}`;
 //         };
-
 //         return `${formatTo12Hour(startTimeStr)} - ${formatTo12Hour(endTimeStr)}`;
 //     };
 
-//     // Check if date is in the past
 //     const isPastDate = (dateString) => {
 //         const today = new Date();
 //         today.setHours(0, 0, 0, 0);
-
 //         const compareDate = new Date(dateString);
 //         compareDate.setHours(0, 0, 0, 0);
-
 //         return compareDate < today;
 //     };
 
-//     // Generate available dates for the next 365 days
+//     // ── generate 365 days ────────────────────────────────────────────────────
+
 //     useEffect(() => {
 //         const dates = [];
 //         const today = new Date();
-
 //         for (let i = 0; i < 365; i++) {
 //             const date = new Date(today);
 //             date.setDate(today.getDate() + i);
-
 //             const monthYear = date.toLocaleDateString("en-AU", {
 //                 month: "long",
 //                 year: "numeric",
 //             });
-
 //             const formatted = date.toLocaleDateString("en-AU", {
 //                 weekday: "short",
 //                 day: "2-digit",
 //                 month: "short",
 //                 year: "numeric",
 //             });
-
 //             dates.push({
 //                 display: formatted,
 //                 value: date.toISOString().split("T")[0],
-//                 date: date,
-//                 monthYear: monthYear,
+//                 date,
+//                 monthYear,
 //             });
 //         }
 //         setAllDates(dates);
 //     }, []);
 
-//     // Group dates by monthYear
 //     const groupedDates = allDates.reduce((groups, date) => {
 //         const key = date.monthYear;
-//         if (!groups[key]) {
-//             groups[key] = [];
-//         }
+//         if (!groups[key]) groups[key] = [];
 //         groups[key].push(date);
 //         return groups;
 //     }, {});
@@ -4298,15 +2753,57 @@ export default CalendarIntegrationMobile;
 //         [],
 //     );
 
+//     const applyAvailabilitySummary = useCallback((summary = {}) => {
+//         const nextSlots = {};
+//         const nextEnds = {};
+
+//         Object.entries(summary).forEach(([dateKey, day]) => {
+//             nextSlots[dateKey] = day.available_slots || [];
+//             if (day.current_end) nextEnds[dateKey] = day.current_end;
+//         });
+
+//         timeSlotsRef.current = {
+//             ...timeSlotsRef.current,
+//             ...nextSlots,
+//         };
+//         setTimeSlots((prev) => ({ ...prev, ...nextSlots }));
+//         setScheduleEnds((prev) => ({ ...prev, ...nextEnds }));
+//     }, []);
+
+//     const fetchAvailabilitySummary = useCallback(
+//         async (startDate, endDate) => {
+//             if (!activePrice?.id || !startDate || !endDate) return {};
+
+//             const response = await axios.get(
+//                 route("ourtimeslots.availability-summary"),
+//                 {
+//                     params: {
+//                         start_date: formatDateKey(startDate),
+//                         end_date: formatDateKey(endDate),
+//                         price_id: activePrice.id,
+//                         ...(isActiveFiveHourBundle && {
+//                             duration_minutes: bundleDurationMinutes,
+//                         }),
+//                     },
+//                 },
+//             );
+
+//             if (!response.data.success) return {};
+
+//             const summary = response.data.data || {};
+//             applyAvailabilitySummary(summary);
+//             return summary;
+//         },
+//         [activePrice?.id, applyAvailabilitySummary, bundleDurationMinutes, isActiveFiveHourBundle],
+//     );
+
 //     const fetchDropdownAvailability = useCallback(async () => {
 //         if (
-//             !price?.id ||
+//             !activePrice?.id ||
 //             allDates.length === 0 ||
 //             availabilityLoadingRef.current
-//         ) {
+//         )
 //             return;
-//         }
-
 //         const datesToFetch = allDates
 //             .slice(0, 60)
 //             .filter(
@@ -4314,108 +2811,45 @@ export default CalendarIntegrationMobile;
 //                     !isPastDate(date.value) &&
 //                     timeSlotsRef.current[date.value] === undefined,
 //             );
-
 //         if (datesToFetch.length === 0) return;
-
 //         availabilityLoadingRef.current = true;
 //         setAvailabilityLoading(true);
-
 //         try {
-//             const batchSize = 7;
-
-//             for (let i = 0; i < datesToFetch.length; i += batchSize) {
-//                 const batch = datesToFetch.slice(i, i + batchSize);
-
-//                 const results = await Promise.all(
-//                     batch.map(async (date) => {
-//                         try {
-//                             const response = await axios.get(
-//                                 route("ourtimeslots.get"),
-//                                 {
-//                                     params: {
-//                                         date: date.value,
-//                                         price_id: price.id,
-//                                     },
-//                                 },
-//                             );
-
-//                             return [
-//                                 date.value,
-//                                 response.data.success
-//                                     ? mapAvailableSlots(
-//                                           response.data.slots || [],
-//                                       )
-//                                     : [],
-//                                 response.data.success
-//                                     ? response.data.current_end
-//                                     : null,
-//                             ];
-//                         } catch (err) {
-//                             console.error(
-//                                 `Error fetching slots for ${date.value}:`,
-//                                 err,
-//                             );
-//                             return [date.value, [], null];
-//                         }
-//                     }),
-//                 );
-
-//                 const nextSlots = Object.fromEntries(
-//                     results.map(([dateKey, slots]) => [dateKey, slots]),
-//                 );
-//                 const nextEnds = Object.fromEntries(
-//                     results
-//                         .filter(([, , endTime]) => endTime)
-//                         .map(([dateKey, , endTime]) => [dateKey, endTime]),
-//                 );
-//                 timeSlotsRef.current = {
-//                     ...timeSlotsRef.current,
-//                     ...nextSlots,
-//                 };
-//                 setTimeSlots((prev) => ({
-//                     ...prev,
-//                     ...nextSlots,
-//                 }));
-//                 setScheduleEnds((prev) => ({
-//                     ...prev,
-//                     ...nextEnds,
-//                 }));
-//             }
+//             await fetchAvailabilitySummary(
+//                 datesToFetch[0].value,
+//                 datesToFetch[datesToFetch.length - 1].value,
+//             );
 //         } finally {
 //             availabilityLoadingRef.current = false;
 //             setAvailabilityLoading(false);
 //         }
-//     }, [allDates, mapAvailableSlots, price?.id]);
+//     }, [activePrice?.id, allDates, fetchAvailabilitySummary]);
 
 //     useEffect(() => {
 //         fetchDropdownAvailability();
 //     }, [fetchDropdownAvailability]);
 
-//     // Fetch time slots for a specific date.
 //     const fetchSlotsForDate = useCallback(
 //         async (dateKey, force = false) => {
-//             if (!dateKey || !price?.id || isPastDate(dateKey)) return;
-
+//             if (!dateKey || !activePrice?.id || isPastDate(dateKey)) return;
 //             const alreadyFetched = timeSlotsRef.current[dateKey] !== undefined;
 //             const alreadyLoading = loadingDateKeyRef.current === dateKey;
-
 //             if (!force && (alreadyFetched || alreadyLoading)) return;
-
 //             try {
 //                 loadingDateKeyRef.current = dateKey;
 //                 setLoading(true);
-
 //                 const response = await axios.get(route("ourtimeslots.get"), {
 //                     params: {
 //                         date: dateKey,
-//                         price_id: price.id,
+//                         price_id: activePrice.id,
+//                         ...(isActiveFiveHourBundle && {
+//                             duration_minutes: bundleDurationMinutes,
+//                         }),
 //                     },
 //                 });
-
 //                 const availableSlots = response.data.success
 //                     ? mapAvailableSlots(response.data.slots || [])
 //                     : [];
-
 //                 timeSlotsRef.current = {
 //                     ...timeSlotsRef.current,
 //                     [dateKey]: availableSlots,
@@ -4436,10 +2870,7 @@ export default CalendarIntegrationMobile;
 //                     ...timeSlotsRef.current,
 //                     [dateKey]: [],
 //                 };
-//                 setTimeSlots((prev) => ({
-//                     ...prev,
-//                     [dateKey]: [],
-//                 }));
+//                 setTimeSlots((prev) => ({ ...prev, [dateKey]: [] }));
 //             } finally {
 //                 if (loadingDateKeyRef.current === dateKey) {
 //                     loadingDateKeyRef.current = "";
@@ -4447,23 +2878,18 @@ export default CalendarIntegrationMobile;
 //                 }
 //             }
 //         },
-//         [mapAvailableSlots, price?.id],
+//         [activePrice?.id, bundleDurationMinutes, isActiveFiveHourBundle, mapAvailableSlots],
 //     );
 
-//     // Fetch time slots for selected date
 //     useEffect(() => {
 //         const fetchTimeSlotsForSelected = async () => {
-//             if (!selectedDate || !price?.id) return;
-
-//             // Fetch slots for this specific date
-//             await fetchSlotsForDate(selectedDate, true);
+//             if (!selectedDate || !activePrice?.id) return;
+//             await fetchSlotsForDate(selectedDate);
 //             setSelectedTime("");
 //         };
-
 //         fetchTimeSlotsForSelected();
-//     }, [selectedDate, price?.id, fetchSlotsForDate]);
+//     }, [activePrice?.id, selectedDate, fetchSlotsForDate]);
 
-//     // Get time slots for selected date
 //     const getTimeSlotsForDate = (date) => {
 //         if (!date) return [];
 //         return timeSlots[date] || [];
@@ -4471,22 +2897,17 @@ export default CalendarIntegrationMobile;
 
 //     const getDateAvailabilityStatus = (dateValue) => {
 //         if (!dateValue) return null;
-
-//         if (isPastDate(dateValue)) {
+//         if (isPastDate(dateValue))
 //             return {
 //                 label: "Past date",
 //                 className: "border-gray-200 bg-gray-50 text-gray-500",
 //             };
-//         }
-
-//         if (loading && selectedDate === dateValue) {
+//         if (loading && selectedDate === dateValue)
 //             return {
 //                 label: "Checking availability...",
 //                 className: "border-amber-200 bg-amber-50 text-amber-700",
 //             };
-//         }
-
-//         if (timeSlots[dateValue] === undefined) {
+//         if (timeSlots[dateValue] === undefined)
 //             return {
 //                 label: availabilityLoading
 //                     ? "Checking availability..."
@@ -4495,15 +2916,11 @@ export default CalendarIntegrationMobile;
 //                     ? "border-amber-200 bg-amber-50 text-amber-700"
 //                     : "border-gray-200 bg-gray-50 text-gray-600",
 //             };
-//         }
-
-//         if (timeSlots[dateValue].length > 0) {
+//         if (timeSlots[dateValue].length > 0)
 //             return {
 //                 label: "Available",
 //                 className: "border-emerald-200 bg-emerald-50 text-emerald-700",
 //             };
-//         }
-
 //         return {
 //             label: "Fully booked",
 //             className: "border-red-200 bg-red-50 text-red-700",
@@ -4511,18 +2928,12 @@ export default CalendarIntegrationMobile;
 //     };
 
 //     const getDateOptionLabel = (date) => {
-//         if (isPastDate(date.value)) {
-//             return `${date.display} (Past date)`;
-//         }
-
+//         if (isPastDate(date.value)) return `${date.display} (Past date)`;
 //         const slots = timeSlots[date.value];
-
-//         if (slots === undefined) {
+//         if (slots === undefined)
 //             return availabilityLoading
 //                 ? `${date.display} (Checking...)`
 //                 : date.display;
-//         }
-
 //         return slots.length > 0
 //             ? `${date.display} \u2713 Available`
 //             : `${date.display} \u2715 Fully booked`;
@@ -4536,92 +2947,52 @@ export default CalendarIntegrationMobile;
 //             : "py-1 text-red-600";
 //     };
 
-//     // Find next available dates (optimized with cache)
 //     const findNextAvailableDates = async () => {
 //         try {
-//             const availableDates = [];
 //             const today = new Date();
+//             const rangeDates = [];
 
 //             for (let i = 1; i <= 30; i++) {
 //                 const nextDate = new Date(today);
 //                 nextDate.setDate(today.getDate() + i);
-//                 const dateKey = formatDateKey(nextDate);
-
-//                 // Check cache first
-//                 let availableSlots = timeSlots[dateKey];
-
-//                 if (!availableSlots) {
-//                     try {
-//                         const response = await axios.get(
-//                             route("ourtimeslots.get"),
-//                             {
-//                                 params: {
-//                                     date: dateKey,
-//                                     price_id: price.id,
-//                                 },
-//                             },
-//                         );
-
-//                         if (response.data.success) {
-//                             availableSlots = response.data.slots
-//                                 .filter((slot) => slot.status === "available")
-//                                 .map((slot) => {
-//                                     const startTime = slot.start_time;
-//                                     if (
-//                                         typeof startTime === "string" &&
-//                                         startTime.includes(":")
-//                                     ) {
-//                                         const parts = startTime.split(":");
-//                                         return `${parts[0]}:${parts[1]}`;
-//                                     }
-//                                     return startTime;
-//                                 });
-
-//                             // Cache the result
-//                             setTimeSlots((prev) => ({
-//                                 ...prev,
-//                                 [dateKey]: availableSlots,
-//                             }));
-//                             setScheduleEnds((prev) => ({
-//                                 ...prev,
-//                                 [dateKey]: response.data.current_end,
-//                             }));
-//                         }
-//                     } catch (err) {
-//                         console.error(
-//                             `Error fetching slots for ${dateKey}:`,
-//                             err,
-//                         );
-//                         continue;
-//                     }
-//                 }
-
-//                 if (availableSlots && availableSlots.length > 0) {
-//                     availableDates.push(nextDate);
-//                 }
-
-//                 if (availableDates.length >= 3) {
-//                     break;
-//                 }
+//                 rangeDates.push(nextDate);
 //             }
 
-//             return availableDates;
+//             const cachedAvailableDates = rangeDates.filter((date) => {
+//                 const dateKey = formatDateKey(date);
+//                 return (timeSlotsRef.current[dateKey] || []).length > 0;
+//             });
+
+//             if (cachedAvailableDates.length >= 3) {
+//                 return cachedAvailableDates.slice(0, 3);
+//             }
+
+//             const summary = await fetchAvailabilitySummary(
+//                 rangeDates[0],
+//                 rangeDates[rangeDates.length - 1],
+//             );
+
+//             return rangeDates
+//                 .filter((date) => {
+//                     const dateKey = formatDateKey(date);
+//                     const summarySlots =
+//                         summary[dateKey]?.available_slots || [];
+//                     const cachedSlots = timeSlotsRef.current[dateKey] || [];
+//                     return summarySlots.length > 0 || cachedSlots.length > 0;
+//                 })
+//                 .slice(0, 3);
 //         } catch (error) {
 //             console.error("Error finding next available dates:", error);
 //             return [];
 //         }
 //     };
 
-//     // Handle next availability click
 //     const handleNextAvailabilityClick = async () => {
 //         setShowNextAvailability(true);
 //         const loadingToast = toast.loading("Checking next available dates...");
-
 //         const availableDates = await findNextAvailableDates();
 //         setNextAvailableDates(availableDates);
-
 //         toast.dismiss(loadingToast);
-
 //         if (availableDates.length === 0) {
 //             toast.error("No available dates found in the next 30 days.");
 //         } else {
@@ -4629,7 +3000,6 @@ export default CalendarIntegrationMobile;
 //         }
 //     };
 
-//     // Handle selecting a next available date
 //     const handleSelectNextAvailableDate = (date) => {
 //         const formattedDate = date.toLocaleDateString("en-AU", {
 //             weekday: "short",
@@ -4643,35 +3013,57 @@ export default CalendarIntegrationMobile;
 //         toast.success(`Selected date: ${formattedDate}`);
 //     };
 
-//     // Handle form input changes
+//     // ── form change handlers ─────────────────────────────────────────────────
+
 //     const handleChange = (e) => {
 //         const { name, value } = e.target;
+
+//         const isSelectingMeetpoint =
+//             name === "address" && value === MEETPOINT_AREA;
+//         const isLeavingMeetpoint =
+//             name === "address" &&
+//             value !== MEETPOINT_AREA &&
+//             formData.address === MEETPOINT_AREA;
+
 //         setFormData((prev) => ({
 //             ...prev,
 //             [name]: value,
-//             ...(name === "address" && value === MEETPOINT_AREA
+//             ...(isSelectingMeetpoint
 //                 ? {
 //                       pickup_location: MEETPOINT_LOCATION.label,
 //                       dropoff_location: MEETPOINT_LOCATION.label,
 //                   }
 //                 : {}),
+//             ...(isLeavingMeetpoint
+//                 ? {
+//                       pickup_location: "",
+//                       dropoff_location: "",
+//                   }
+//                 : {}),
 //         }));
-//         if (name === "address" && value === MEETPOINT_AREA) {
+
+//         if (isSelectingMeetpoint) {
 //             setSelectedLocations({
 //                 pickup_location: MEETPOINT_LOCATION,
 //                 dropoff_location: MEETPOINT_LOCATION,
 //             });
 //         }
+//         if (isLeavingMeetpoint) {
+//             setSelectedLocations({
+//                 pickup_location: null,
+//                 dropoff_location: null,
+//             });
+//         }
+
 //         if (
 //             errors[name] ||
-//             (name === "address" &&
-//                 value === MEETPOINT_AREA &&
+//             ((isSelectingMeetpoint || isLeavingMeetpoint) &&
 //                 (errors.pickup_location || errors.dropoff_location))
 //         ) {
 //             setErrors((prev) => ({
 //                 ...prev,
 //                 [name]: "",
-//                 ...(name === "address" && value === MEETPOINT_AREA
+//                 ...(isSelectingMeetpoint || isLeavingMeetpoint
 //                     ? {
 //                           pickup_location: "",
 //                           dropoff_location: "",
@@ -4682,53 +3074,34 @@ export default CalendarIntegrationMobile;
 //     };
 
 //     const handleLocationInputChange = (name, value) => {
-//         setFormData((prev) => ({
-//             ...prev,
-//             [name]: value,
-//         }));
+//         setFormData((prev) => ({ ...prev, [name]: value }));
 //         setSelectedLocations((prev) => ({
 //             ...prev,
 //             [name]: locationMatchesTypedAddress(prev[name], value)
 //                 ? prev[name]
 //                 : null,
 //         }));
-//         if (errors[name]) {
-//             setErrors((prev) => ({
-//                 ...prev,
-//                 [name]: "",
-//             }));
-//         }
+//         if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
 //     };
 
 //     const handleLocationSelect = (name, location) => {
-//         setFormData((prev) => ({
-//             ...prev,
-//             [name]: location.label,
-//         }));
-//         setSelectedLocations((prev) => ({
-//             ...prev,
-//             [name]: location,
-//         }));
-//         if (errors[name]) {
-//             setErrors((prev) => ({
-//                 ...prev,
-//                 [name]: "",
-//             }));
-//         }
+//         setFormData((prev) => ({ ...prev, [name]: location.label }));
+//         setSelectedLocations((prev) => ({ ...prev, [name]: location }));
+//         if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
 //     };
+
+//     // ── validation ───────────────────────────────────────────────────────────
 
 //     const validateSelectedLocations = () => {
 //         const locationErrors = {};
-
 //         [
-//             ["pickup_location", "pickup location"],
-//             ["dropoff_location", "dropoff location"],
+//             ["pickup_location", "pickup address"],
+//             ["dropoff_location", "dropoff address"],
 //         ].forEach(([field, label]) => {
 //             if (!formData[field]?.trim()) {
 //                 locationErrors[field] = `Please enter a ${label}.`;
 //                 return;
 //             }
-
 //             if (
 //                 !selectedLocations[field] ||
 //                 !locationMatchesTypedAddress(
@@ -4737,37 +3110,15 @@ export default CalendarIntegrationMobile;
 //                 )
 //             ) {
 //                 locationErrors[field] =
-//                     `Please choose a service-area suggestion for the ${label}, then add house/unit details if needed.`;
+//                     `Please choose a service-area suggestion for the ${label}.`;
 //             }
 //         });
-
 //         return locationErrors;
 //     };
 
-//     // Handle form submission
-//     const handleSubmit = async (e) => {
-//         e.preventDefault();
+//     // ── submission ───────────────────────────────────────────────────────────
 
-//         const requiredFields = [
-//             "user_name",
-//             "email",
-//             "phone",
-//             "address",
-//             "pickup_location",
-//             "dropoff_location",
-//         ];
-//         const newErrors = {};
-
-//         requiredFields.forEach((field) => {
-//             if (!formData[field]?.trim()) {
-//                 newErrors[field] = `${field.replace("_", " ")} is required`;
-//             }
-//         });
-
-//         if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
-//             newErrors.email = "Please enter a valid email address";
-//         }
-
+//     const handleAddToCart = () => {
 //         if (!selectedDate) {
 //             toast.error("Please select a date");
 //             return;
@@ -4778,7 +3129,123 @@ export default CalendarIntegrationMobile;
 //             return;
 //         }
 
-//         // Check terms and conditions acceptance
+//         if (bundleDurationWouldExceedTotal) {
+//             toast.error("That lesson would exceed the 5-hour bundle total.");
+//             return;
+//         }
+
+//         const candidateItem = {
+//             price_id: activePrice.id,
+//             reservation_date: selectedDate,
+//             start_time: selectedTime,
+//             ...(isActiveFiveHourBundle && {
+//                 duration_minutes: bundleDurationMinutes,
+//             }),
+//             price: {
+//                 id: activePrice.id,
+//                 description: activePrice.description,
+//                 duration: activePrice.duration,
+//                 price: activePrice.price,
+//                 category: activePrice.category,
+//             },
+//         };
+
+//         if (findOverlappingCartItem(lessonCart.items, candidateItem)) {
+//             toast.error(
+//                 "This lesson overlaps another lesson in your cart or its required 20-minute buffer. Please choose a different time.",
+//             );
+//             return;
+//         }
+
+//         const added = lessonCart.addItem(candidateItem);
+
+//         if (added) {
+//             toast.success("Lesson added to cart");
+//             setSelectedTime("");
+//         } else {
+//             toast.error("That lesson is already in your cart");
+//         }
+//     };
+
+//     const handleCartCheckoutSuccess = async () => {
+//         lessonCart.clearCart();
+//         setSelectedTime("");
+//         timeSlotsRef.current = {};
+//         setTimeSlots({});
+//         setScheduleEnds({});
+//         await fetchDropdownAvailability();
+//         if (selectedDate) {
+//             await fetchSlotsForDate(selectedDate, true);
+//         }
+//     };
+
+//     const handleCartItemsUnavailable = async (itemErrors) => {
+//         const keysToRemove = Object.keys(itemErrors || {})
+//             .map((index) => lessonCart.items[Number(index)]?.key)
+//             .filter(Boolean);
+
+//         if (keysToRemove.length > 0) {
+//             lessonCart.removeItems(keysToRemove);
+//             toast.error("Unavailable lessons were removed from your cart.");
+//         }
+
+//         timeSlotsRef.current = {};
+//         setTimeSlots({});
+//         setScheduleEnds({});
+//         await fetchDropdownAvailability();
+//         if (selectedDate) {
+//             await fetchSlotsForDate(selectedDate, true);
+//         }
+//     };
+
+//     const handleSubmit = async (e) => {
+//         e.preventDefault();
+
+//         const newErrors = {};
+
+//         [
+//             "user_name",
+//             "email",
+//             "phone",
+//             "address",
+//             "pickup_location",
+//             "dropoff_location",
+//         ].forEach((field) => {
+//             if (!formData[field]?.trim())
+//                 newErrors[field] = `${field.replace("_", " ")} is required`;
+//         });
+
+//         if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
+//             newErrors.email = "Please enter a valid email address";
+//         }
+
+//         if (isCartCheckout && lessonCart.count === 0) {
+//             toast.error("Your cart is empty");
+//             return;
+//         }
+
+//         if (isCartCheckout && hasIncompleteBundleCart) {
+//             toast.error(
+//                 "Please select 1- and 2-hour lessons totaling exactly 5 hours for the bundle.",
+//             );
+//             return;
+//         }
+
+//         if (!isCartCheckout && !selectedDate) {
+//             toast.error("Please select a date");
+//             return;
+//         }
+
+//         if (!isCartCheckout && !selectedTime) {
+//             toast.error("Please select a time slot");
+//             return;
+//         }
+
+//         if (!isCartCheckout && isActiveFiveHourBundle) {
+//             toast.error("Please add 1-hour and 2-hour lessons totaling 5 hours to the cart for this bundle.");
+//             return;
+//         }
+
 //         if (!acceptTerms) {
 //             setErrors((prev) => ({
 //                 ...prev,
@@ -4802,45 +3269,76 @@ export default CalendarIntegrationMobile;
 //         setSubmitting(true);
 
 //         try {
-//             const durationMinutes = parseDuration(price.duration);
-//             const fullAddress = formData.address;
-
-//             const extractPackageName = (description) => {
-//                 if (!description) return "";
-//                 if (description.includes(":")) {
-//                     return description.split(":").pop().trim();
-//                 }
-//                 return description.trim();
-//             };
-
-//             const packageName = extractPackageName(price.description);
-
 //             const bookingData = {
 //                 user_name: formData.user_name,
 //                 email: formData.email,
 //                 phone: formData.phone,
-//                 address: fullAddress,
-//                 reservation_date: selectedDate,
-//                 price_id: price.id,
-//                 duration_minutes: durationMinutes,
-//                 start_time: selectedTime,
-//                 end_time: calculateEndTime(selectedTime, price.duration),
-//                 package_type: packageName,
-//                 package_price: price.price,
+//                 address: formData.address,
 //                 pickup_location: formData.pickup_location,
 //                 dropoff_location: formData.dropoff_location,
 //                 accepted_terms: acceptTerms,
 //                 comment: formData.comment,
 //             };
 
+//             let routeName = "ourreservations.store";
+//             let bookingType = "lesson";
+
+//             if (isCartCheckout) {
+//                 routeName = "ourreservations.cart";
+//                 bookingType = "cart";
+//                 bookingData.items = lessonCart.items.map((item) => ({
+//                     price_id: item.price_id,
+//                     reservation_date: item.reservation_date,
+//                     start_time: item.start_time,
+//                     ...(item.duration_minutes && {
+//                         duration_minutes: item.duration_minutes,
+//                     }),
+//                 }));
+//             } else {
+//                 const durationMinutes = parseDuration(selectedDuration);
+
+//                 const extractPackageName = (description) => {
+//                     if (!description) return "";
+//                     if (description.includes(":"))
+//                         return description.split(":").pop().trim();
+//                     return description.trim();
+//                 };
+
+//                 Object.assign(bookingData, {
+//                     reservation_date: selectedDate,
+//                     price_id: activePrice.id,
+//                     duration_minutes: durationMinutes,
+//                     start_time: selectedTime,
+//                     end_time: calculateEndTime(selectedTime, selectedDuration),
+//                     package_type: extractPackageName(activePrice?.description),
+//                     package_price: activePrice?.price,
+//                 });
+//             }
+
 //             const response = await axios.post(
-//                 route("ourreservations.store"),
-//                 bookingData,
+//                 route(useOnlinePay ? "payments.onlinepay.checkout" : routeName),
+//                 {
+//                     ...bookingData,
+//                     booking_type: bookingType,
+//                 },
 //             );
+
+//             if (useOnlinePay) {
+//                 if (response.data.checkout_url) {
+//                     toast.success("Redirecting to secure payment...");
+//                     window.location.assign(response.data.checkout_url);
+//                     return;
+//                 }
+
+//                 toast.error("Secure payment could not be started. Please try again.");
+//                 return;
+//             }
 
 //             if (response.data.success || response.data.message) {
 //                 toast.success(
-//                     "Booking confirmed successfully! Please check your Spam email for booking details.",
+//                     isCartCheckout
+//                         ? "Cart booked successfully! Please check your Spam email for booking details."
+//                         : "Booking confirmed successfully! Please check your Spam email for booking details.",
 //                 );
 
 //                 setFormData({
@@ -4859,6 +3357,9 @@ export default CalendarIntegrationMobile;
 //                 setSelectedDate("");
 //                 setSelectedTime("");
 //                 setAcceptTerms(false);
+//                 if (isCartCheckout) {
+//                     await handleCartCheckoutSuccess();
+//                 }
 
 //                 setTimeout(() => {
 //                     window.location.reload();
@@ -4866,8 +3367,14 @@ export default CalendarIntegrationMobile;
 //             }
 //         } catch (error) {
 //             console.error("Booking error:", error);
-
-//             if (error.response?.data?.errors) {
+//             const cartItemErrors = error.response?.data?.errors?.items;
+//             if (isCartCheckout && cartItemErrors) {
+//                 await handleCartItemsUnavailable(cartItemErrors);
+//                 setErrors({ items: cartItemErrors });
+//                 toast.error(
+//                     "Some lessons in your cart are no longer available.",
+//                 );
+//             } else if (error.response?.data?.errors) {
 //                 setErrors(error.response.data.errors);
 //                 toast.error("Please fix the errors in the form");
 //             } else if (error.response?.data?.message) {
@@ -4880,11 +3387,15 @@ export default CalendarIntegrationMobile;
 //         }
 //     };
 
+//     // ── derived state ────────────────────────────────────────────────────────
+
 //     const currentTimeSlots = getTimeSlotsForDate(selectedDate);
 //     const nonOverlappingSlots = getNonOverlappingSlots(
 //         currentTimeSlots,
 //         selectedDate,
 //     );
+
+//     // ── render ───────────────────────────────────────────────────────────────
 
 //     return (
 //         <div className="min-h-screen bg-gray-100 py-6 px-4 lg:py-12">
@@ -4892,23 +3403,14 @@ export default CalendarIntegrationMobile;
 //                 position="top-right"
 //                 toastOptions={{
 //                     duration: 4000,
-//                     style: {
-//                         background: "#363636",
-//                         color: "#fff",
-//                     },
+//                     style: { background: "#363636", color: "#fff" },
 //                     success: {
 //                         duration: 3000,
-//                         style: {
-//                             background: "#10b981",
-//                             color: "#fff",
-//                         },
+//                         style: { background: "#10b981", color: "#fff" },
 //                     },
 //                     error: {
 //                         duration: 4000,
-//                         style: {
-//                             background: "#ef4444",
-//                             color: "#fff",
-//                         },
+//                         style: { background: "#ef4444", color: "#fff" },
 //                     },
 //                 }}
 //             />
@@ -4924,10 +3426,21 @@ export default CalendarIntegrationMobile;
 
 //                 {/* Page Header */}
 //                 <div className="mb-8">
-//                     <div className="flex items-center gap-3 mb-1">
-//                         <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 ml-6">
+//                     <div className="flex items-center justify-between gap-3 mb-1 pl-6">
+//                         <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">
 //                             Book your lessons
 //                         </h1>
+//                         <button
+//                             type="button"
+//                             onClick={handleCartShortcutClick}
+//                             className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-indigo-100 bg-white text-indigo-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+//                             aria-label={`View cart with ${lessonCart.count} lessons`}
+//                         >
+//                             <ShoppingCart size={20} />
+//                             <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-indigo-600 px-1.5 text-[11px] font-bold leading-none text-white">
+//                                 {lessonCart.count}
+//                             </span>
+//                         </button>
 //                     </div>
 //                     <p className="text-gray-500 text-sm lg:text-base ml-6">
 //                         Fill in your details to confirm the booking
@@ -4937,40 +3450,80 @@ export default CalendarIntegrationMobile;
 //                 {/* Main Booking Form */}
 //                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 lg:p-8">
 //                     {/* Service Details Summary */}
-//                     {price && (
+//                     {activePrice && (
 //                         <div className="mb-6 p-4 bg-blue-50 rounded-xl">
 //                             <PackageSelector
 //                                 price={price}
+//                                 activePrice={activePrice}
 //                                 packageOptions={packageOptions}
+//                                 onPackageChange={handlePackageChange}
 //                                 className="mb-4"
 //                             />
-
+//                             {isActiveFiveHourBundle && (
+//                                 <div className="mb-4 rounded-xl border border-indigo-100 bg-white p-3">
+//                                     <p className="mb-2 text-sm font-semibold text-gray-900">
+//                                         Lesson length
+//                                     </p>
+//                                     <div className="grid grid-cols-2 gap-2">
+//                                         {[60, 120].map((durationMinutes) => (
+//                                             <button
+//                                                 key={durationMinutes}
+//                                                 type="button"
+//                                                 onClick={() =>
+//                                                     handleBundleDurationChange(
+//                                                         durationMinutes,
+//                                                     )
+//                                                 }
+//                                                 className={`rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+//                                                     bundleDurationMinutes === durationMinutes
+//                                                         ? "border-indigo-600 bg-indigo-600 text-white"
+//                                                         : "border-indigo-200 bg-indigo-50 text-indigo-700"
+//                                                 }`}
+//                                             >
+//                                                 {durationMinutes / 60} Hour
+//                                             </button>
+//                                         ))}
+//                                     </div>
+//                                     <p className="mt-2 text-xs text-indigo-800">
+//                                         {activeBundleSelectedMinutes / 60} of 5 hours selected;{" "}
+//                                         {(FIVE_HOUR_BUNDLE_TOTAL_MINUTES -
+//                                             activeBundleSelectedMinutes) /
+//                                             60}{" "}
+//                                         hours remaining.
+//                                     </p>
+//                                 </div>
+//                             )}
 //                             <h3 className="font-semibold text-gray-900 mb-2 capitalize">
-//                                 {price.category || "Driving Lessons"}
+//                                 {activePrice?.category || "Driving Lessons"}
 //                             </h3>
 //                             <p className="text-sm text-gray-600 mb-2">
-//                                 {price.description}
+//                                 {activePrice?.description}
 //                             </p>
 //                             <div className="flex justify-between text-sm">
 //                                 <span className="text-gray-600">Duration:</span>
 //                                 <span className="font-medium text-gray-900">
-//                                     {formatDurationDisplay(price.duration)}
+//                                     {isActiveFiveHourBundle
+//                                         ? "5 hours of 1- or 2-hour lessons"
+//                                         : formatDurationDisplay(activePrice?.duration)}
 //                                 </span>
 //                             </div>
 //                             <div className="flex justify-between text-sm">
 //                                 <span className="text-gray-600">Price:</span>
 //                                 <span className="font-medium text-gray-900">
-//                                     ${price.price}
+//                                     ${activePrice?.price}
 //                                 </span>
 //                             </div>
 //                         </div>
 //                     )}
 
 //                     <form onSubmit={handleSubmit} className="space-y-6">
-//                         {/* Date Selection */}
+//                         {/* ── Date Selection ───────────────────────────────── */}
 //                         <div>
 //                             <label className="block text-sm font-medium text-gray-700 mb-2">
-//                                 Available Date *
+//                                 Available Date{" "}
+//                                 {!isCartCheckout && (
+//                                     <span className="text-red-500">*</span>
+//                                 )}
 //                             </label>
 //                             <div className="relative">
 //                                 <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
@@ -4980,13 +3533,12 @@ export default CalendarIntegrationMobile;
 //                                     onMouseDown={fetchDropdownAvailability}
 //                                     onTouchStart={fetchDropdownAvailability}
 //                                     onChange={(e) => {
-//                                         const newDate = e.target.value;
-//                                         setSelectedDate(newDate);
+//                                         setSelectedDate(e.target.value);
 //                                         setSelectedTime("");
 //                                         setShowNextAvailability(false);
 //                                     }}
 //                                     className="w-full appearance-none bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 p-3 pl-10 transition"
-//                                     required
+//                                     required={!isCartCheckout}
 //                                 >
 //                                     <option value="">Select a date</option>
 //                                     {Object.entries(groupedDates).map(
@@ -4996,39 +3548,31 @@ export default CalendarIntegrationMobile;
 //                                                 label={`-- ${monthYear} --`}
 //                                                 className="font-semibold text-gray-700"
 //                                             >
-//                                                 {dates.map((date, i) => {
-//                                                     const isPast = isPastDate(
-//                                                         date.value,
-//                                                     );
-
-//                                                     return (
-//                                                         <option
-//                                                             key={i}
-//                                                             value={date.value}
-//                                                             disabled={isPast}
-//                                                             className={getDateOptionClassName(
-//                                                                 date.value,
-//                                                             )}
-//                                                         >
-//                                                             {getDateOptionLabel(
-//                                                                 date,
-//                                                             )}
-//                                                         </option>
-//                                                     );
-//                                                 })}
+//                                                 {dates.map((date, i) => (
+//                                                     <option
+//                                                         key={i}
+//                                                         value={date.value}
+//                                                         disabled={isPastDate(
+//                                                             date.value,
+//                                                         )}
+//                                                         className={getDateOptionClassName(
+//                                                             date.value,
+//                                                         )}
+//                                                     >
+//                                                         {getDateOptionLabel(
+//                                                             date,
+//                                                         )}
+//                                                     </option>
+//                                                 ))}
 //                                             </optgroup>
 //                                         ),
 //                                     )}
 //                                 </select>
 //                                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
 //                             </div>
-
 //                             {selectedDate && (
 //                                 <p
-//                                     className={`mt-2 rounded-lg border px-3 py-2 text-xs font-semibold ${
-//                                         getDateAvailabilityStatus(selectedDate)
-//                                             .className
-//                                     }`}
+//                                     className={`mt-2 rounded-lg border px-3 py-2 text-xs font-semibold ${getDateAvailabilityStatus(selectedDate).className}`}
 //                                 >
 //                                     {
 //                                         getDateAvailabilityStatus(selectedDate)
@@ -5037,7 +3581,8 @@ export default CalendarIntegrationMobile;
 //                                 </p>
 //                             )}
 //                         </div>
-//                         {/* Legend for color indicators */}
+
+//                         {/* Legend */}
 //                         <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
 //                             <div className="flex items-center gap-1">
 //                                 <span className="text-green-500 text-sm">
@@ -5048,7 +3593,6 @@ export default CalendarIntegrationMobile;
 //                                     Has available slots
 //                                 </span>
 //                             </div>
-
 //                             <div className="flex items-center gap-1">
 //                                 <span className="text-red-500 text-sm"> ✗</span>
 //                                 <span className="text-gray-600">
@@ -5057,10 +3601,13 @@ export default CalendarIntegrationMobile;
 //                             </div>
 //                         </div>
 
-//                         {/* Time Selection */}
+//                         {/* ── Time Selection ───────────────────────────────── */}
 //                         <div>
 //                             <label className="block text-sm font-medium text-gray-700 mb-2">
-//                                 Available Time *
+//                                 Available Time{" "}
+//                                 {!isCartCheckout && (
+//                                     <span className="text-red-500">*</span>
+//                                 )}
 //                             </label>
 //                             <div className="relative">
 //                                 <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
@@ -5071,7 +3618,7 @@ export default CalendarIntegrationMobile;
 //                                     }
 //                                     disabled={!selectedDate || loading}
 //                                     className="w-full appearance-none bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 p-3 pl-10 transition disabled:opacity-50 disabled:cursor-not-allowed"
-//                                     required
+//                                     required={!isCartCheckout}
 //                                 >
 //                                     <option value="">
 //                                         {loading
@@ -5099,7 +3646,115 @@ export default CalendarIntegrationMobile;
 //                                 )}
 //                         </div>
 
-//                         {/* Next Availability Button */}
+//                         <div
+//                             ref={cartSectionRef}
+//                             className="scroll-mt-4 rounded-xl border border-indigo-100 bg-indigo-50 p-4"
+//                         >
+//                             <button
+//                                 type="button"
+//                                 onClick={handleAddToCart}
+//                                 disabled={
+//                                     !selectedDate ||
+//                                     !selectedTime ||
+//                                     (isActiveFiveHourBundle &&
+//                                         bundleDurationWouldExceedTotal)
+//                                 }
+//                                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+//                             >
+//                                 <ShoppingCart size={18} />
+//                                 {isActiveFiveHourBundle
+//                                     ? `Add ${bundleDurationMinutes / 60}-Hour Lesson (${activeBundleSelectedMinutes / 60}/5 hours selected)`
+//                                     : "Add Selected Lesson to Cart"}
+//                             </button>
+
+//                             <div className="mt-4 flex items-center justify-between">
+//                                 <div className="flex items-center gap-2">
+//                                     <ShoppingCart size={18} className="text-indigo-700" />
+//                                     <span className="font-semibold text-gray-900">
+//                                         Cart
+//                                     </span>
+//                                 </div>
+//                                 <span className="text-sm text-gray-600">
+//                                     {lessonCart.count} lessons
+//                                 </span>
+//                             </div>
+
+//                             {lessonCart.count === 0 ? (
+//                                 <p className="mt-2 text-sm text-gray-600">
+//                                     {isActiveFiveHourBundle
+//                                         ? "Add 1- or 2-hour lessons totaling 5 hours, then checkout once."
+//                                         : "Add multiple lessons, then checkout once."}
+//                                 </p>
+//                             ) : (
+//                                 <div className="mt-3 space-y-3">
+//                                     {hasIncompleteBundleCart && (
+//                                         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+//                                             Bundle selections must total exactly 5 hours before checkout. Currently selected: {getFiveHourBundleSelectedMinutes(bundleCartItems) / 60} hours.
+//                                         </p>
+//                                     )}
+//                                     <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
+//                                         {lessonCart.items.map((item) => (
+//                                             <div
+//                                                 key={item.key}
+//                                                 className="flex items-start justify-between gap-3 rounded-lg border border-indigo-100 bg-white p-3"
+//                                             >
+//                                                 <div className="min-w-0">
+//                                                     <p className="truncate text-sm font-medium text-gray-900">
+//                                                         {item.price.description}
+//                                                     </p>
+//                                                     <p className="text-xs text-gray-500">
+//                                                         {item.reservation_date} at {item.start_time}
+//                                                     </p>
+//                                                     {isFiveHourLessonBundle(item.price) && (
+//                                                         <p className="text-xs text-indigo-700">
+//                                                             {getBundleItemDurationMinutes(item) / 60}-hour lesson
+//                                                         </p>
+//                                                     )}
+//                                                     <p className="text-xs font-medium text-gray-700">
+//                                                         ${item.price.price}
+//                                                     </p>
+//                                                 </div>
+//                                                 <button
+//                                                     type="button"
+//                                                     onClick={() =>
+//                                                         lessonCart.removeItem(item.key)
+//                                                     }
+//                                                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-500 hover:bg-gray-50 hover:text-red-600"
+//                                                     aria-label="Remove lesson from cart"
+//                                                 >
+//                                                     <Trash2 size={16} />
+//                                                 </button>
+//                                             </div>
+//                                         ))}
+//                                     </div>
+//                                     <div className="flex items-center justify-between text-sm font-semibold text-gray-900">
+//                                         <span>Total</span>
+//                                         <span>${lessonCart.subtotal.toFixed(2)}</span>
+//                                     </div>
+//                                     <button
+//                                         type="button"
+//                                         onClick={() => {
+//                                             if (hasIncompleteBundleCart) {
+//                                                 toast.error(
+//                                                     "Please select 1- and 2-hour lessons totaling exactly 5 hours for the bundle.",
+//                                                 );
+//                                                 return;
+//                                             }
+//                                             detailsFormRef.current?.scrollIntoView({
+//                                                 behavior: "smooth",
+//                                                 block: "start",
+//                                             });
+//                                         }}
+//                                         disabled={hasIncompleteBundleCart}
+//                                         className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+//                                     >
+//                                         Continue to Details
+//                                     </button>
+//                                 </div>
+//                             )}
+//                         </div>
+
+//                         {/* Next Availability */}
 //                         {selectedDate &&
 //                             nonOverlappingSlots.length === 0 &&
 //                             !loading &&
@@ -5113,7 +3768,6 @@ export default CalendarIntegrationMobile;
 //                                 </button>
 //                             )}
 
-//                         {/* Next Available Dates */}
 //                         {showNextAvailability &&
 //                             nextAvailableDates.length > 0 && (
 //                                 <div className="p-4 bg-gray-50 rounded-xl">
@@ -5161,13 +3815,21 @@ export default CalendarIntegrationMobile;
 //                                 </div>
 //                             )}
 
-//                         {/* Full Name */}
-//                         <div>
+//                         {/* ── Personal Details ─────────────────────────────── */}
+//                         {isCartCheckout && (
+//                             <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+//                                 Fill in your details below to book all{" "}
+//                                 {lessonCart.count} lessons in your cart.
+//                             </div>
+//                         )}
+
+//                         <div ref={detailsFormRef}>
 //                             <label
 //                                 htmlFor="user_name"
 //                                 className="block text-sm font-medium text-gray-700 mb-2"
 //                             >
-//                                 Full Name *
+//                                 Full Name{" "}
+//                                 <span className="text-red-500">*</span>
 //                             </label>
 //                             <div className="relative">
 //                                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -5177,11 +3839,7 @@ export default CalendarIntegrationMobile;
 //                                     name="user_name"
 //                                     value={formData.user_name}
 //                                     onChange={handleChange}
-//                                     className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${
-//                                         errors.user_name
-//                                             ? "border-red-500"
-//                                             : "border-gray-300"
-//                                     }`}
+//                                     className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${errors.user_name ? "border-red-500" : "border-gray-300"}`}
 //                                     placeholder="John Doe"
 //                                     required
 //                                 />
@@ -5193,13 +3851,13 @@ export default CalendarIntegrationMobile;
 //                             )}
 //                         </div>
 
-//                         {/* Email */}
 //                         <div>
 //                             <label
 //                                 htmlFor="email"
 //                                 className="block text-sm font-medium text-gray-700 mb-2"
 //                             >
-//                                 Email Address *
+//                                 Email Address{" "}
+//                                 <span className="text-red-500">*</span>
 //                             </label>
 //                             <div className="relative">
 //                                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -5209,11 +3867,7 @@ export default CalendarIntegrationMobile;
 //                                     name="email"
 //                                     value={formData.email}
 //                                     onChange={handleChange}
-//                                     className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${
-//                                         errors.email
-//                                             ? "border-red-500"
-//                                             : "border-gray-300"
-//                                     }`}
+//                                     className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${errors.email ? "border-red-500" : "border-gray-300"}`}
 //                                     placeholder="john@example.com"
 //                                     required
 //                                 />
@@ -5225,13 +3879,13 @@ export default CalendarIntegrationMobile;
 //                             )}
 //                         </div>
 
-//                         {/* Phone */}
 //                         <div>
 //                             <label
 //                                 htmlFor="phone"
 //                                 className="block text-sm font-medium text-gray-700 mb-2"
 //                             >
-//                                 Phone Number *
+//                                 Phone Number{" "}
+//                                 <span className="text-red-500">*</span>
 //                             </label>
 //                             <div className="relative">
 //                                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -5241,11 +3895,7 @@ export default CalendarIntegrationMobile;
 //                                     name="phone"
 //                                     value={formData.phone}
 //                                     onChange={handleChange}
-//                                     className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${
-//                                         errors.phone
-//                                             ? "border-red-500"
-//                                             : "border-gray-300"
-//                                     }`}
+//                                     className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${errors.phone ? "border-red-500" : "border-gray-300"}`}
 //                                     placeholder="0400 000 000"
 //                                     required
 //                                 />
@@ -5257,13 +3907,13 @@ export default CalendarIntegrationMobile;
 //                             )}
 //                         </div>
 
-//                         {/* Address - Dropdown */}
+//                         {/* ── Area ─────────────────────────────────────────── */}
 //                         <div>
 //                             <label
 //                                 htmlFor="address"
 //                                 className="block text-sm font-medium text-gray-700 mb-2"
 //                             >
-//                                 Area *
+//                                 Area <span className="text-red-500">*</span>
 //                             </label>
 //                             <div className="relative">
 //                                 <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
@@ -5273,11 +3923,7 @@ export default CalendarIntegrationMobile;
 //                                     value={formData.address}
 //                                     onChange={handleChange}
 //                                     required
-//                                     className={`w-full appearance-none pl-10 pr-10 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition bg-white ${
-//                                         errors.address
-//                                             ? "border-red-500"
-//                                             : "border-gray-300"
-//                                     }`}
+//                                     className={`w-full appearance-none pl-10 pr-10 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition bg-white ${errors.address ? "border-red-500" : "border-gray-300"}`}
 //                                 >
 //                                     <option value="">Select your Area</option>
 //                                     <option value="mandurah">Mandurah</option>
@@ -5301,7 +3947,6 @@ export default CalendarIntegrationMobile;
 //                                         Greenfields
 //                                     </option>
 //                                     <option value="erskine">Erskine</option>
-
 //                                     <option value="singleton">Singleton</option>
 //                                     <option value="parklands">Parklands</option>
 //                                     <option value="stake-hill">
@@ -5330,24 +3975,37 @@ export default CalendarIntegrationMobile;
 //                             </span>
 //                         </p>
 
-//                         {/* Pickup Location */}
+//                         {/* ── Pickup Location ───────────────── */}
 //                         <LocationAutocomplete
 //                             id="pickup_location"
 //                             name="pickup_location"
-//                             label="Pickup Location *"
+//                             label={
+//                                 <>
+//                                     Pickup Address{" "}
+//                                     <span className="text-red-500">*</span>
+//                                 </>
+//                             }
 //                             value={formData.pickup_location}
-//                             selectedLocation={selectedLocations.pickup_location}
+//                             selectedLocation={
+//                                 selectedLocations.pickup_location
+//                             }
 //                             error={errors.pickup_location}
 //                             placeholder="Start typing pickup address"
 //                             onInputChange={handleLocationInputChange}
 //                             onLocationSelect={handleLocationSelect}
+//                             disabled={isMeetpoint}
 //                         />
 
-//                         {/* Dropoff Location */}
+//                         {/* ── Dropoff Location ─────────────── */}
 //                         <LocationAutocomplete
 //                             id="dropoff_location"
 //                             name="dropoff_location"
-//                             label="Dropoff Location *"
+//                             label={
+//                                 <>
+//                                     Dropoff Address{" "}
+//                                     <span className="text-red-500">*</span>
+//                                 </>
+//                             }
 //                             value={formData.dropoff_location}
 //                             selectedLocation={
 //                                 selectedLocations.dropoff_location
@@ -5356,18 +4014,21 @@ export default CalendarIntegrationMobile;
 //                             placeholder="Start typing dropoff address"
 //                             onInputChange={handleLocationInputChange}
 //                             onLocationSelect={handleLocationSelect}
+//                             disabled={isMeetpoint}
 //                             action={
-//                                 <button
-//                                     type="button"
-//                                     onClick={setDropoffSameAsPickup}
-//                                     className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
-//                                 >
-//                                     Same as pickup location
-//                                 </button>
+//                                 !isMeetpoint ? (
+//                                     <button
+//                                         type="button"
+//                                         onClick={setDropoffSameAsPickup}
+//                                         className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
+//                                     >
+//                                         Same as pickup address
+//                                     </button>
+//                                 ) : null
 //                             }
 //                         />
 
-//                         {/* Comment */}
+//                         {/* ── Comment ──────────────────────────────────────── */}
 //                         <div>
 //                             <label
 //                                 htmlFor="comment"
@@ -5380,13 +4041,13 @@ export default CalendarIntegrationMobile;
 //                                 name="comment"
 //                                 value={formData.comment}
 //                                 onChange={handleChange}
-//                                 rows={6}
+//                                 rows={3}
 //                                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition resize-none"
 //                                 placeholder="Any special requests, notes for your instructor, etc."
 //                             />
 //                         </div>
 
-//                         {/* Terms and Conditions Checkbox */}
+//                         {/* ── Terms ────────────────────────────────────────── */}
 //                         <div className="border-t border-gray-200 pt-4">
 //                             <div className="flex items-start gap-3">
 //                                 <input
@@ -5395,12 +4056,11 @@ export default CalendarIntegrationMobile;
 //                                     checked={acceptTerms}
 //                                     onChange={(e) => {
 //                                         setAcceptTerms(e.target.checked);
-//                                         if (errors.terms) {
+//                                         if (errors.terms)
 //                                             setErrors((prev) => ({
 //                                                 ...prev,
 //                                                 terms: "",
 //                                             }));
-//                                         }
 //                                     }}
 //                                     className="mt-1 h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
 //                                     required
@@ -5427,7 +4087,7 @@ export default CalendarIntegrationMobile;
 //                                     >
 //                                         Privacy Policy
 //                                     </a>{" "}
-//                                     *
+//                                     <span className="text-red-500">*</span>
 //                                 </label>
 //                             </div>
 //                             {errors.terms && (
@@ -5437,13 +4097,17 @@ export default CalendarIntegrationMobile;
 //                             )}
 //                         </div>
 
-//                         {/* Submit Button */}
+//                         {/* ── Submit ───────────────────────────────────────── */}
 //                         <button
 //                             type="submit"
 //                             disabled={
 //                                 submitting ||
-//                                 !selectedDate ||
-//                                 !selectedTime ||
+//                                 (!isCartCheckout &&
+//                                     (!selectedDate ||
+//                                         !selectedTime ||
+//                                         isActiveFiveHourBundle)) ||
+//                                 (isCartCheckout && lessonCart.count === 0) ||
+//                                 (isCartCheckout && hasIncompleteBundleCart) ||
 //                                 !acceptTerms
 //                             }
 //                             className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-4 px-4 rounded-xl transition duration-200 text-base"
@@ -5453,14 +4117,24 @@ export default CalendarIntegrationMobile;
 //                                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
 //                                     Processing...
 //                                 </div>
+//                             ) : useOnlinePay ? (
+//                                 "Continue to secure payment"
+//                             ) : isCartCheckout ? (
+//                                 `Book Cart (${lessonCart.count} lessons)`
 //                             ) : (
 //                                 "Confirm Booking"
 //                             )}
 //                         </button>
 
 //                         <p className="text-xs text-center text-gray-500 mt-4">
-//                             By clicking Confirm Booking, you agree to our terms
-//                             and conditions and privacy policy
+//                             By clicking{" "}
+//                             {useOnlinePay
+//                                 ? "Continue to secure payment,"
+//                                 : isCartCheckout
+//                                 ? `Book Cart (${lessonCart.count} lessons),`
+//                                 : "Confirm Booking,"}
+//                             you agree to our terms and conditions and privacy
+//                             policy
 //                         </p>
 //                     </form>
 //                 </div>
