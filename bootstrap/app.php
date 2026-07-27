@@ -21,7 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'webhooks/onlinepay',
         ]);
         
-         // // Register your custom middleware aliases
+        // // Register your custom middleware aliases
         $middleware->alias([
             'role' => \App\Http\Middleware\CheckRole::class,
         ]);
