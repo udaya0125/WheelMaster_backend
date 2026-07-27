@@ -8,6 +8,7 @@ import {
     CalendarIcon,
     ChevronLeft,
     User,
+    UserRound,
     Mail,
     Phone,
     Home,
@@ -15,7 +16,7 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
-import { Link, usePage } from "@inertiajs/react";
+import { Link, router, usePage } from "@inertiajs/react";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -267,7 +268,8 @@ const LocationAutocomplete = ({
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const TestCalendarIntegrationMobile = ({ price }) => {
-    const { payment } = usePage().props;
+    const { payment, auth } = usePage().props;
+    const isAuthenticated = Boolean(auth?.user);
     const useOnlinePay = payment?.bookingMode === "onlinepay";
     const [selectedDate, setSelectedDate] = useState("");
     const [selectedTime, setSelectedTime] = useState("");
@@ -283,6 +285,9 @@ const TestCalendarIntegrationMobile = ({ price }) => {
     const [saved, setSaved] = useState(false);
     const [allDates, setAllDates] = useState([]);
     const [acceptTerms, setAcceptTerms] = useState(false);
+    const [showCheckoutOptions, setShowCheckoutOptions] = useState(false);
+    const [formUnlocked, setFormUnlocked] = useState(false);
+    const bookingFormRef = useRef(null);
 
     const [bookingForm, setBookingForm] = useState({
         user_name: "",
@@ -527,6 +532,42 @@ const TestCalendarIntegrationMobile = ({ price }) => {
         }
     };
 
+    // ── Continue-to-details gate (Guest vs. User checkout) ──────────────────
+    // A successful availability check no longer opens the booking form
+    // directly — it opens a Guest/User checkout choice first. Guest
+    // checkout unlocks the form immediately. User checkout unlocks it only
+    // for an already-authenticated session; otherwise it redirects to login.
+
+    const scrollToBookingForm = () => {
+        setTimeout(() => {
+            bookingFormRef.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+            });
+        }, 100);
+    };
+
+    const handleGuestCheckout = () => {
+        setShowCheckoutOptions(false);
+        setFormUnlocked(true);
+        scrollToBookingForm();
+    };
+
+    const handleUserCheckout = () => {
+        setShowCheckoutOptions(false);
+
+        if (isAuthenticated) {
+            setFormUnlocked(true);
+            scrollToBookingForm();
+            return;
+        }
+
+        toast("Please log in to continue as a returning customer.", {
+            icon: "🔒",
+        });
+        router.visit(route("login"));
+    };
+
     // ── Check availability ──────────────────────────────────────────────────
 
     const checkTestAvailability = async () => {
@@ -548,6 +589,7 @@ const TestCalendarIntegrationMobile = ({ price }) => {
         setAvailabilityMessage("");
         setAlternativeTimes([]);
         setTimeError("");
+        setFormUnlocked(false);
         const loadingToast = toast.loading("Checking availability...");
 
         try {
@@ -576,6 +618,7 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                 toast.success(
                     "Time slot is available! You can proceed to book.",
                 );
+                setShowCheckoutOptions(true);
             } else {
                 setIsAvailable(false);
                 let message =
@@ -626,6 +669,7 @@ const TestCalendarIntegrationMobile = ({ price }) => {
         setIsAvailable(false);
         setAlternativeTimes([]);
         setTimeError("");
+        setFormUnlocked(false);
         toast.success(`Selected time: ${formatTimeForDisplay(time24)}`, {
             duration: 2000,
         });
@@ -637,6 +681,7 @@ const TestCalendarIntegrationMobile = ({ price }) => {
         setIsAvailable(false);
         setAlternativeTimes([]);
         setTimeError("");
+        setFormUnlocked(false);
     };
 
     // ── Form input ──────────────────────────────────────────────────────────
@@ -803,6 +848,7 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                 setBookingDetails(null);
                 setTimeError("");
                 setAcceptTerms(false);
+                setFormUnlocked(false);
                 setSelectedLocations({
                     pickup_location: null,
                     dropoff_location: null,
@@ -929,6 +975,7 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                     setIsAvailable(false);
                                     setAlternativeTimes([]);
                                     setTimeError("");
+                                    setFormUnlocked(false);
                                 }}
                                 className="w-full appearance-none bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 p-3 pl-10 pr-10 transition"
                             >
@@ -1159,11 +1206,18 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                                 </div>
                             </div>
                         )}
+
+                        {isAvailable && bookingDetails && !formUnlocked && (
+                            <div className="mt-6 rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-sm text-indigo-800">
+                                Choose how you'd like to checkout to continue
+                                to your booking details.
+                            </div>
+                        )}
                     </div>
 
-                    {/* ── Booking Form ───────────────────────────────────── */}
-                    {isAvailable && bookingDetails && (
-                        <div className="mt-6">
+                    {/* ── Booking Form (hidden until checkout method is chosen) ── */}
+                    {formUnlocked && isAvailable && bookingDetails && (
+                        <div ref={bookingFormRef} className="mt-6">
                             <h2 className="text-lg font-semibold text-gray-900 mb-6">
                                 Complete Your Booking
                             </h2>
@@ -1656,11 +1710,84 @@ const TestCalendarIntegrationMobile = ({ price }) => {
                     </div>
                 </div>
             </div>
+
+            {/* ── Checkout method modal (Guest vs. User) ── */}
+            {showCheckoutOptions && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="checkout-options-heading"
+                    onClick={() => setShowCheckoutOptions(false)}
+                >
+                    <div
+                        className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <h3
+                            id="checkout-options-heading"
+                            className="text-lg font-semibold text-gray-900 mb-1"
+                        >
+                            How would you like to checkout?
+                        </h3>
+                        <p className="text-sm text-gray-500 mb-5">
+                            Choose guest checkout for a one-off booking, or
+                            checkout as a returning customer to use your
+                            saved details.
+                        </p>
+
+                        <div className="space-y-3">
+                            <button
+                                type="button"
+                                onClick={handleGuestCheckout}
+                                className="w-full flex items-center gap-3 rounded-lg border-2 border-gray-200 px-4 py-3 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-50"
+                            >
+                                <UserRound size={20} className="text-gray-500 shrink-0" />
+                                <span>
+                                    <span className="block text-sm font-semibold text-gray-900">
+                                        Guest Checkout
+                                    </span>
+                                    <span className="block text-xs text-gray-500">
+                                        Continue without an account
+                                    </span>
+                                </span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={handleUserCheckout}
+                                className="w-full flex items-center gap-3 rounded-lg border-2 border-gray-200 px-4 py-3 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-50"
+                            >
+                                <User size={20} className="text-gray-500 shrink-0" />
+                                <span>
+                                    <span className="block text-sm font-semibold text-gray-900">
+                                        User Checkout
+                                    </span>
+                                    <span className="block text-xs text-gray-500">
+                                        {isAuthenticated
+                                            ? "Checkout with your saved details"
+                                            : "Log in to your account to continue"}
+                                    </span>
+                                </span>
+                            </button>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() => setShowCheckoutOptions(false)}
+                            className="mt-5 w-full py-2 text-sm font-medium text-gray-500 hover:text-gray-700"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
 
 export default TestCalendarIntegrationMobile;
+
 
 
 
@@ -1681,16 +1808,14 @@ export default TestCalendarIntegrationMobile;
 // } from "lucide-react";
 // import axios from "axios";
 // import toast, { Toaster } from "react-hot-toast";
-// import { Link } from "@inertiajs/react";
+// import { Link, usePage } from "@inertiajs/react";
 
 // // ─── Constants ───────────────────────────────────────────────────────────────
 
 // const MEETPOINT_AREA = "meetpoint-mandurah-dot";
-// const MEETPOINT_HOME_ADDRESS = "Ranceby Avenue";
 // const MEETPOINT_LOCATION = {
-//     label: "Mandurah, Western Australia 6210",
+//     label: "Ranceby Avenue, Mandurah, Western Australia 6210",
 //     name: "Mandurah",
-//     street: "Mandurah",
 //     housenumber: null,
 //     postcode: "6210",
 //     city: "Mandurah",
@@ -1920,8 +2045,7 @@ export default TestCalendarIntegrationMobile;
 //             {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
 //             {!error && !disabled && (
 //                 <p className="mt-1 text-xs text-gray-500">
-//                     Choose a service-area suggestion, then add house number,
-//                     unit.
+//                     Choose a service-area suggestion.
 //                 </p>
 //             )}
 //             {!error && disabled && (
@@ -1936,6 +2060,8 @@ export default TestCalendarIntegrationMobile;
 // // ─── Main Component ───────────────────────────────────────────────────────────
 
 // const TestCalendarIntegrationMobile = ({ price }) => {
+//     const { payment } = usePage().props;
+//     const useOnlinePay = payment?.bookingMode === "onlinepay";
 //     const [selectedDate, setSelectedDate] = useState("");
 //     const [selectedTime, setSelectedTime] = useState("");
 //     const [loading, setLoading] = useState(false);
@@ -1958,9 +2084,7 @@ export default TestCalendarIntegrationMobile;
 //         address: "",
 //         test_location: "Mandurah licensing center",
 //         pickup_location: "",
-//         pickup_home_address: "",
 //         dropoff_location: "",
-//         dropoff_home_address: "",
 //         comment: "",
 //     });
 
@@ -2017,38 +2141,10 @@ export default TestCalendarIntegrationMobile;
 //                 )
 //             ) {
 //                 locationErrors[field] =
-//                     `Please choose a service-area suggestion for the ${label}, then add house/unit details if needed.`;
+//                     `Please choose a service-area suggestion for the ${label}.`;
 //             }
 //         });
-
-//         // Validate home address fields
-//         if (
-//             bookingForm.pickup_location?.trim() &&
-//             selectedLocations.pickup_location
-//         ) {
-//             if (!bookingForm.pickup_home_address?.trim()) {
-//                 locationErrors.pickup_home_address =
-//                     "Please enter your home address for pickup.";
-//             }
-//         }
-//         if (
-//             bookingForm.dropoff_location?.trim() &&
-//             selectedLocations.dropoff_location
-//         ) {
-//             if (!bookingForm.dropoff_home_address?.trim()) {
-//                 locationErrors.dropoff_home_address =
-//                     "Please enter your home address for dropoff.";
-//             }
-//         }
-
 //         return locationErrors;
-//     };
-
-//     // Build the full combined address string
-//     const buildFullAddress = (homeAddress, locationLabel) => {
-//         if (!homeAddress?.trim()) return locationLabel || "";
-//         if (!locationLabel?.trim()) return homeAddress.trim();
-//         return `${homeAddress.trim()}, ${locationLabel.trim()}`;
 //     };
 
 //     const setPickupSameAsAddress = () => {
@@ -2077,7 +2173,6 @@ export default TestCalendarIntegrationMobile;
 //             setBookingForm((prev) => ({
 //                 ...prev,
 //                 dropoff_location: prev.pickup_location,
-//                 dropoff_home_address: prev.pickup_home_address,
 //             }));
 //             setSelectedLocations((prev) => ({
 //                 ...prev,
@@ -2087,7 +2182,6 @@ export default TestCalendarIntegrationMobile;
 //                 setFormErrors((prev) => ({
 //                     ...prev,
 //                     dropoff_location: "",
-//                     dropoff_home_address: "",
 //                 }));
 //             }
 //             toast.success("Dropoff location set to pickup location");
@@ -2350,9 +2444,7 @@ export default TestCalendarIntegrationMobile;
 //                     ...prev,
 //                     address: value,
 //                     pickup_location: MEETPOINT_LOCATION.label,
-//                     pickup_home_address: MEETPOINT_HOME_ADDRESS,
 //                     dropoff_location: MEETPOINT_LOCATION.label,
-//                     dropoff_home_address: MEETPOINT_HOME_ADDRESS,
 //                 }));
 //                 setSelectedLocations({
 //                     pickup_location: MEETPOINT_LOCATION,
@@ -2362,9 +2454,7 @@ export default TestCalendarIntegrationMobile;
 //                     ...prev,
 //                     address: "",
 //                     pickup_location: "",
-//                     pickup_home_address: "",
 //                     dropoff_location: "",
-//                     dropoff_home_address: "",
 //                 }));
 //             } else {
 //                 // Switching away from Meetpoint (or any area change): clear pickup/dropoff
@@ -2372,9 +2462,7 @@ export default TestCalendarIntegrationMobile;
 //                     ...prev,
 //                     address: value,
 //                     pickup_location: "",
-//                     pickup_home_address: "",
 //                     dropoff_location: "",
-//                     dropoff_home_address: "",
 //                 }));
 //                 setSelectedLocations({
 //                     pickup_location: null,
@@ -2384,19 +2472,9 @@ export default TestCalendarIntegrationMobile;
 //                     ...prev,
 //                     address: "",
 //                     pickup_location: "",
-//                     pickup_home_address: "",
 //                     dropoff_location: "",
-//                     dropoff_home_address: "",
 //                 }));
 //             }
-//             return;
-//         }
-
-//         // Block edits to home address fields when Meetpoint is active
-//         if (
-//             isMeetpoint &&
-//             (name === "pickup_home_address" || name === "dropoff_home_address")
-//         ) {
 //             return;
 //         }
 
@@ -2412,25 +2490,6 @@ export default TestCalendarIntegrationMobile;
 //             ? description.split(":").pop().trim()
 //             : description.trim();
 //     };
-
-//     // ── Derived: show home address fields ──────────────────────────────────
-//     // Show pickup home address input once a valid pickup location is selected
-//     const showPickupHomeAddress =
-//         !!bookingForm.pickup_location?.trim() &&
-//         !!selectedLocations.pickup_location &&
-//         locationMatchesTypedAddress(
-//             selectedLocations.pickup_location,
-//             bookingForm.pickup_location,
-//         );
-
-//     // Show dropoff home address input once a valid dropoff location is selected
-//     const showDropoffHomeAddress =
-//         !!bookingForm.dropoff_location?.trim() &&
-//         !!selectedLocations.dropoff_location &&
-//         locationMatchesTypedAddress(
-//             selectedLocations.dropoff_location,
-//             bookingForm.dropoff_location,
-//         );
 
 //     // ── Submit ──────────────────────────────────────────────────────────────
 
@@ -2469,7 +2528,7 @@ export default TestCalendarIntegrationMobile;
 //             newErrors.email = "Please enter a valid email address";
 //         }
 
-//         // Validate location suggestions + home address fields
+//         // Validate location suggestions
 //         const locationErrors = validateSelectedLocations();
 //         Object.assign(newErrors, locationErrors);
 
@@ -2484,16 +2543,6 @@ export default TestCalendarIntegrationMobile;
 //         const submittingToast = toast.loading("Processing your booking...");
 
 //         try {
-//             // Build full combined address strings
-//             const fullPickupAddress = buildFullAddress(
-//                 bookingForm.pickup_home_address,
-//                 bookingForm.pickup_location,
-//             );
-//             const fullDropoffAddress = buildFullAddress(
-//                 bookingForm.dropoff_home_address,
-//                 bookingForm.dropoff_location,
-//             );
-
 //             const bookingData = {
 //                 user_name: bookingForm.user_name,
 //                 email: bookingForm.email,
@@ -2506,18 +2555,32 @@ export default TestCalendarIntegrationMobile;
 //                 end_time: bookingDetails.end_time,
 //                 test_time: selectedTime,
 //                 test_location: bookingForm.test_location,
-//                 pickup_location: fullPickupAddress,
-//                 dropoff_location: fullDropoffAddress,
+//                 pickup_location: bookingForm.pickup_location,
+//                 dropoff_location: bookingForm.dropoff_location,
 //                 test_type: extractPackageName(price.description),
 //                 accepted_terms: acceptTerms,
 //                 comment: bookingForm.comment,
 //             };
 
 //             const response = await axios.post(
-//                 route("test-packages.store"),
-//                 bookingData,
+//                 route(useOnlinePay ? "payments.onlinepay.checkout" : "test-packages.store"),
+//                 {
+//                     ...bookingData,
+//                     booking_type: "test",
+//                 },
 //             );
 //             toast.dismiss(submittingToast);
+
+//             if (useOnlinePay) {
+//                 if (response.data.checkout_url) {
+//                     toast.success("Redirecting to secure payment...");
+//                     window.location.assign(response.data.checkout_url);
+//                     return;
+//                 }
+
+//                 toast.error("Secure payment could not be started. Please try again.");
+//                 return;
+//             }
 
 //             if (response.data.success || response.data.message) {
 //                 toast.success(
@@ -2544,9 +2607,7 @@ export default TestCalendarIntegrationMobile;
 //                     address: "",
 //                     test_location: "Mandurah licensing center",
 //                     pickup_location: "",
-//                     pickup_home_address: "",
 //                     dropoff_location: "",
-//                     dropoff_home_address: "",
 //                     comment: "",
 //                 });
 
@@ -3099,70 +3160,15 @@ export default TestCalendarIntegrationMobile;
 //                                     </span>
 //                                 </p>
 
-//                                 {/* Pickup Home Address — shown inline once pickup is selected */}
-//                                 {showPickupHomeAddress && (
-//                                     <div className="flex gap-3 items-start">
-//                                         <div className="flex-1">
-//                                             <label
-//                                                 htmlFor="pickup_home_address"
-//                                                 className="block text-sm font-medium text-gray-700 mb-2"
-//                                             >
-//                                                 Home Address <span className="text-red-500">*</span>
-//                                             </label>
-//                                             <div className="relative">
-//                                                 <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-//                                                 <input
-//                                                     type="text"
-//                                                     id="pickup_home_address"
-//                                                     name="pickup_home_address"
-//                                                     value={
-//                                                         bookingForm.pickup_home_address
-//                                                     }
-//                                                     onChange={handleFormChange}
-//                                                     required
-//                                                     readOnly={isMeetpoint}
-//                                                     className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${formErrors.pickup_home_address ? "border-red-500" : "border-gray-300"} ${isMeetpoint ? "bg-gray-100 cursor-not-allowed text-gray-500" : ""}`}
-//                                                     placeholder="e.g. 12 Oak Street, Unit 4"
-//                                                 />
-//                                             </div>
-//                                             {formErrors.pickup_home_address && (
-//                                                 <p className="mt-1 text-sm text-red-600">
-//                                                     {
-//                                                         formErrors.pickup_home_address
-//                                                     }
-//                                                 </p>
-//                                             )}
-//                                             <p className="mt-1 text-xs text-gray-500">
-//                                                 {isMeetpoint
-//                                                     ? "Auto-filled for Meetpoint Mandurah Dot."
-//                                                     : <>
-//                                                         Enter your house/unit number and
-//                                                         street. It will be saved as:{" "}
-//                                                         <span className="font-medium text-gray-700">
-//                                                             {bookingForm.pickup_home_address
-//                                                                 ? buildFullAddress(
-//                                                                       bookingForm.pickup_home_address,
-//                                                                       bookingForm.pickup_location,
-//                                                                   )
-//                                                                 : "your address, " +
-//                                                                   bookingForm.pickup_location}
-//                                                         </span>
-//                                                     </>
-//                                                 }
-//                                             </p>
-//                                         </div>
-//                                     </div>
-//                                 )}
-
 //                                 {/* ── Pickup Location ──────── */}
 //                                 <LocationAutocomplete
 //                                     id="pickup_location"
 //                                     name="pickup_location"
 //                                     label={
-//   <>
-//     Pickup Location <span className="text-red-500">*</span>
-//   </>
-// }
+//                                         <>
+//                                             Pickup Location <span className="text-red-500">*</span>
+//                                         </>
+//                                     }
 //                                     value={bookingForm.pickup_location}
 //                                     selectedLocation={
 //                                         selectedLocations.pickup_location
@@ -3182,71 +3188,15 @@ export default TestCalendarIntegrationMobile;
 //                                     disabled={isMeetpoint}
 //                                 />
 
-//                                 {/* Dropoff Home Address — shown inline once dropoff is selected */}
-//                                 {showDropoffHomeAddress && (
-//                                     <div className="flex gap-3 items-start">
-//                                         <div className="flex-1">
-//                                             <label
-//                                                 htmlFor="dropoff_home_address"
-//                                                 className="block text-sm font-medium text-gray-700 mb-2"
-//                                             >
-//                                                 Home Address  <span className="text-red-500">*</span>
-//                                             </label>
-//                                             <div className="relative">
-//                                                 <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-//                                                 <input
-//                                                     type="text"
-//                                                     id="dropoff_home_address"
-//                                                     name="dropoff_home_address"
-//                                                     value={
-//                                                         bookingForm.dropoff_home_address
-//                                                     }
-//                                                     onChange={handleFormChange}
-//                                                     required
-//                                                     readOnly={isMeetpoint}
-//                                                     className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${formErrors.dropoff_home_address ? "border-red-500" : "border-gray-300"} ${isMeetpoint ? "bg-gray-100 cursor-not-allowed text-gray-500" : ""}`}
-//                                                     placeholder="e.g. 12 Ocean Drive, Mandurah"
-//                                                 />
-//                                             </div>
-//                                             {formErrors.dropoff_home_address && (
-//                                                 <p className="mt-1 text-sm text-red-600">
-//                                                     {
-//                                                         formErrors.dropoff_home_address
-//                                                     }
-//                                                 </p>
-//                                             )}
-//                                             <p className="mt-1 text-xs text-gray-500">
-//                                                 {isMeetpoint
-//                                                     ? "Auto-filled for Meetpoint Mandurah Dot."
-//                                                     : <>
-//                                                         Enter your house/unit number and
-//                                                         street. It will be saved as:{" "}
-//                                                         <span className="font-medium text-gray-700">
-//                                                             {bookingForm.dropoff_home_address
-//                                                                 ? buildFullAddress(
-//                                                                       bookingForm.dropoff_home_address,
-//                                                                       bookingForm.dropoff_location,
-//                                                                   )
-//                                                                 : "your address, " +
-//                                                                   bookingForm.dropoff_location}
-//                                                         </span>
-//                                                     </>
-//                                                 }
-//                                             </p>
-//                                         </div>
-//                                     </div>
-//                                 )}
-
 //                                 {/* ── Dropoff Location ─────── */}
 //                                 <LocationAutocomplete
 //                                     id="dropoff_location"
 //                                     name="dropoff_location"
 //                                     label={
-//     <>
-
-//         Dropoff Location <span className="text-red-500">*</span>
-//     </>
-// }
+//                                         <>
+//                                             Dropoff Location <span className="text-red-500">*</span>
+//                                         </>
+//                                     }
 //                                     value={bookingForm.dropoff_location}
 //                                     selectedLocation={
 //                                         selectedLocations.dropoff_location
@@ -3358,6 +3308,8 @@ export default TestCalendarIntegrationMobile;
 //                                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
 //                                                 Processing...
 //                                             </div>
+//                                         ) : useOnlinePay ? (
+//                                             "Continue to secure payment"
 //                                         ) : (
 //                                             "Confirm Booking"
 //                                         )}
@@ -3502,4 +3454,3 @@ export default TestCalendarIntegrationMobile;
 // };
 
 // export default TestCalendarIntegrationMobile;
-
