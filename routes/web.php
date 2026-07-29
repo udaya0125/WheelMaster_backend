@@ -41,7 +41,89 @@ Route::get('/', function () {
     // Authenticated routes
     // --------------------------------------------------------------------------
 
-Route::middleware('auth')->group(function () {
+    Route::middleware('auth')->group(function () {
+
+
+
+
+    });
+
+
+    // --------------------------------------------------------------------------
+    // Profile routes
+    // --------------------------------------------------------------------------
+
+
+    // --------------------------------------------------------------------------
+    // Reservation routes for public access
+    // --------------------------------------------------------------------------
+
+    Route::get('/ourreservations/timeslots', [ReservationController::class, 'getTimeSlotsForCalendar'])->name('ourreservations.timeslots');
+    Route::get('/ourreservations/availability', [ReservationController::class, 'checkAvailability'])->name('ourreservations.availability');
+    Route::post('/ourreservations/cart', [ReservationController::class, 'storeCart'])->name('ourreservations.cart');
+    Route::post('/ourreservations', [ReservationController::class, 'store'])->name('ourreservations.store');
+    Route::get('/location-search', [LocationSearchController::class, 'search'])->name('locations.search');
+
+    Route::post('/payments/onlinepay/checkout', [PaymentController::class, 'checkout'])->name('payments.onlinepay.checkout');
+    Route::get('/payments/onlinepay/status/{paymentIntent:uuid}', [PaymentController::class, 'status'])->name('payments.onlinepay.status');
+    Route::get('/payments/onlinepay/return/{paymentIntent:uuid}', [PaymentController::class, 'paymentReturn'])->name('payments.onlinepay.return');
+    Route::post('/webhooks/onlinepay', [PaymentController::class, 'webhook'])->name('webhooks.onlinepay');
+
+
+    // --------------------------------------------------------------------------
+    // Test Package routes for public access
+    // --------------------------------------------------------------------------
+
+    Route::get('/test-packages/available-slots', [TestPackageController::class, 'getAvailableTimeSlots'])->name('test-packages.available-slots');
+    Route::post('/test-packages/check-availability', [TestPackageController::class, 'checkAvailability'])->name('test-packages.check-availability');
+    Route::post('/test-packages/book', [TestPackageController::class, 'storeTestReservation'])->name('test-packages.store');
+
+
+    // --------------------------------------------------------------------------
+    // Test Package routes for public access
+    // --------------------------------------------------------------------------
+
+    Route::get('/calendar/test/{slug}', [PriceController::class, 'testCalendar'])->name('test.calendar');
+   
+    // --------------------------------------------------------------------------
+    // Standard and bundle Lessons routes for public access
+    // --------------------------------------------------------------------------
+
+    Route::get('/calendar/{slug}', [PriceController::class, 'indexBySlug'])->name('calendar.show');
+
+
+    // --------------------------------------------------------------------------
+    // Price Controller routes for public access
+    // --------------------------------------------------------------------------
+
+    Route::get('/ourprice', [PriceController::class, 'index'])->name('ourprice.index');
+
+
+
+    // --------------------------------------------------------------------------
+    // Time Slot Controller routes for public access
+    // --------------------------------------------------------------------------
+
+
+    Route::get('/ourtimeslots', [TimeSlotController::class, 'index'])->name('ourtimeslots.index');
+    Route::get('/ourtimeslots/get', [TimeSlotController::class, 'getSlotsForDate'])->name('ourtimeslots.get');
+    Route::get('/ourtimeslots/block-summary', [TimeSlotController::class, 'getBlockSummary'])->name('ourtimeslots.block-summary');
+    Route::get('/ourtimeslots/availability-summary', [TimeSlotController::class, 'getAvailabilitySummary'])->name('ourtimeslots.availability-summary');
+    Route::post('/ourtimeslots/update', [TimeSlotController::class, 'updateAvailability'])->name('ourtimeslots.update');
+    Route::post('/ourtimeslots/update-end', [TimeSlotController::class, 'updateEndTime'])->name('ourtimeslots.update-end');
+    Route::post('/ourtimeslots/update-range', [TimeSlotController::class, 'updateDateRange'])->name('ourtimeslots.update-range');
+    Route::post('/ourtimeslots/reset', [TimeSlotController::class, 'resetToDefault'])->name('ourtimeslots.reset');
+    Route::post('/ourtimeslots/update-single', [TimeSlotController::class, 'updateSingleSlot'])->name('ourtimeslots.update-single');
+    Route::post('/ourtimeslots/update-single-with-subsequent', [TimeSlotController::class, 'updateSingleSlotWithSubsequent'])->name('ourtimeslots.update-single-with-subsequent');
+
+    
+
+
+    // ##################################################################################
+    // Only admin users can access the routes below
+    // ##################################################################################
+
+    Route::middleware(['auth', 'role:admin'])->group(function () {
 
     // --------------------------------------------------------------------------
     // Testimonial route for Dashboard
@@ -50,9 +132,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/testimonial', function () {
         return Inertia::render('Testimonial');
     });
-
-    // Route::get('/dashboard', [DashboardController::class, 'index']);
-    // Route::get('/dashboard/chart-data', [DashboardController::class, 'getChartData']);
 
 
     // --------------------------------------------------------------------------
@@ -63,6 +142,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard/chart-data', [DashboardController::class, 'getChartData']);
     Route::get('/dashboard/realtime-data', [DashboardController::class, 'getRealtimeData']);
     Route::get('/dashboard/top-pages', [DashboardController::class, 'getTopPages']);
+
 
     // --------------------------------------------------------------------------
     // Gallery Controller routes
@@ -77,7 +157,9 @@ Route::middleware('auth')->group(function () {
     // --------------------------------------------------------------------------
     // Testimonial Controller routes
     // --------------------------------------------------------------------------
+    
 
+    Route::get('/testimonials', [TestimonialController::class, 'index'])->name('testimonials.index');
     Route::post('/testimonials', [TestimonialController::class, 'store'])->name('testimonials.store');
     Route::put('/testimonials/{id}', [TestimonialController::class, 'update'])->name('testimonials.update');
     Route::delete('/testimonials/{id}', [TestimonialController::class, 'destroy'])->name('testimonials.destroy');
@@ -211,16 +293,8 @@ Route::middleware('auth')->group(function () {
     Route::delete('/notifications/{id}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
     Route::delete('/notifications', [NotificationController::class, 'clearAll'])->name('notifications.clearAll');
 
-    Route::get('/test', function () {
-        $data = Analytics::fetchMostVisitedPages(Period::days(30));
-        return response()->json($data);
-    });
 
-    // Route::get('/block-time', function () {
-    //     return Inertia::render('BlockTime');
-    // });
-
-        // --------------------------------------------------------------------------
+    // --------------------------------------------------------------------------
     // Block Time routes — redirect bare /block-time to first available slug
     // --------------------------------------------------------------------------
 
@@ -234,97 +308,19 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/block-time/{slug}', [PriceController::class, 'blockTimeBySlug'])->name('block-time.show');
 
-        
     
-});
+    });
 
 
-    // --------------------------------------------------------------------------
-    // Profile routes
-    // --------------------------------------------------------------------------
+    // ##################################################################################
+    // Only admin and user roles can access the routes below
+    // ##################################################################################
 
+    Route::middleware(['auth', 'role:admin,user'])->group(function () {
 
-    // --------------------------------------------------------------------------
-    // Price Controller routes for public access
-    // --------------------------------------------------------------------------
-
-    Route::get('/ourprice', [PriceController::class, 'index'])->name('ourprice.index');
-
-
-    // --------------------------------------------------------------------------
-    // Testimonial Controller routes for public access
-    // --------------------------------------------------------------------------
-    Route::get('/testimonials', [TestimonialController::class, 'index'])->name('testimonials.index');
 
     
-    // --------------------------------------------------------------------------
-    // Calendar routes by slug
-    // --------------------------------------------------------------------------
-
-    // Route::get('/calendar/{slug}', [PriceController::class, 'indexBySlug']);
-     Route::get('/calendar/{slug}', [PriceController::class, 'indexBySlug'])->name('calendar.show');
-
-
-    // --------------------------------------------------------------------------
-    // Reservation routes for public access
-    // --------------------------------------------------------------------------
-
-    Route::get('/ourreservations/timeslots', [ReservationController::class, 'getTimeSlotsForCalendar'])->name('ourreservations.timeslots');
-    Route::get('/ourreservations/availability', [ReservationController::class, 'checkAvailability'])->name('ourreservations.availability');
-    Route::post('/ourreservations/cart', [ReservationController::class, 'storeCart'])->name('ourreservations.cart');
-    Route::post('/ourreservations', [ReservationController::class, 'store'])->name('ourreservations.store');
-    Route::get('/location-search', [LocationSearchController::class, 'search'])->name('locations.search');
-
-    Route::post('/payments/onlinepay/checkout', [PaymentController::class, 'checkout'])->name('payments.onlinepay.checkout');
-    Route::get('/payments/onlinepay/status/{paymentIntent:uuid}', [PaymentController::class, 'status'])->name('payments.onlinepay.status');
-    Route::get('/payments/onlinepay/return/{paymentIntent:uuid}', [PaymentController::class, 'paymentReturn'])->name('payments.onlinepay.return');
-    Route::post('/webhooks/onlinepay', [PaymentController::class, 'webhook'])->name('webhooks.onlinepay');
-
-
-    // --------------------------------------------------------------------------
-    // Test Package routes for public access
-    // --------------------------------------------------------------------------
-
-    Route::get('/test-packages/available-slots', [TestPackageController::class, 'getAvailableTimeSlots'])->name('test-packages.available-slots');
-    Route::post('/test-packages/check-availability', [TestPackageController::class, 'checkAvailability'])->name('test-packages.check-availability');
-    Route::post('/test-packages/book', [TestPackageController::class, 'storeTestReservation'])->name('test-packages.store');
-
-
-    // --------------------------------------------------------------------------
-    // Test Calendar route for testing
-    // --------------------------------------------------------------------------
-
-    Route::get('/calendar/test/{slug}', [PriceController::class, 'testCalendar'])->name('test.calendar');
-   
-
-
-    // --------------------------------------------------------------------------
-    // Analytics Test Route
-    // --------------------------------------------------------------------------
-
-    // Route::get('/test', fn() => Analytics::fetchMostVisitedPages(Period::days(7)));
-
-    Route::get('/ourtimeslots', [TimeSlotController::class, 'index'])->name('ourtimeslots.index');
-    Route::get('/ourtimeslots/get', [TimeSlotController::class, 'getSlotsForDate'])->name('ourtimeslots.get');
-    Route::get('/ourtimeslots/block-summary', [TimeSlotController::class, 'getBlockSummary'])->name('ourtimeslots.block-summary');
-    Route::get('/ourtimeslots/availability-summary', [TimeSlotController::class, 'getAvailabilitySummary'])->name('ourtimeslots.availability-summary');
-    Route::post('/ourtimeslots/update', [TimeSlotController::class, 'updateAvailability'])->name('ourtimeslots.update');
-    Route::post('/ourtimeslots/update-end', [TimeSlotController::class, 'updateEndTime'])->name('ourtimeslots.update-end');
-    Route::post('/ourtimeslots/update-range', [TimeSlotController::class, 'updateDateRange'])->name('ourtimeslots.update-range');
-    Route::post('/ourtimeslots/reset', [TimeSlotController::class, 'resetToDefault'])->name('ourtimeslots.reset');
-    Route::post('/ourtimeslots/update-single', [TimeSlotController::class, 'updateSingleSlot'])->name('ourtimeslots.update-single');
-    Route::post('/ourtimeslots/update-single-with-subsequent', [TimeSlotController::class, 'updateSingleSlotWithSubsequent'])->name('ourtimeslots.update-single-with-subsequent');
-
-    
-    // Route::get('/calendar', function () {
-    //     return Inertia::render('PricePackages/CalendarIntegrationMobile');
-    // });
-
-
-    // Route::get('/test-calendar', function () {
-    //     return Inertia::render('PricePackages/TestCalendarIntegrationMobile');
-    // });
-
+    });
 
  
 
