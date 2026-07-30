@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Artisan;
 use App\Http\Controllers\DashboardController;
 use Illuminate\Http\Request;
 use App\Http\Controllers\TimeSlotController;
+use App\Http\Controllers\BookingHistoryController;
 
 
 Route::get('/', function () {
@@ -318,7 +319,11 @@ Route::get('/', function () {
 
     Route::middleware(['auth', 'role:admin,user'])->group(function () {
 
+    Route::get('/my-booking', function () {
+        return Inertia::render('UserPages/MyBookings');
+    });
 
+    Route::get('/ourbookings', [BookingHistoryController::class, 'index'])->name('ourbookings.history')->middleware('auth');
     
     });
 
