@@ -31,6 +31,9 @@ const CalendarIntegration = ({ price, packageOptions = [] }) => {
     const [showBookingForm, setShowBookingForm] = useState(false);
     const [showCartCheckout, setShowCartCheckout] = useState(false);
     const [showCheckoutOptions, setShowCheckoutOptions] = useState(false);
+    // NEW: tracks which flow opened the Guest/User modal so the right
+    // form (single lesson vs. cart) opens after the user picks an option.
+    const [checkoutFlow, setCheckoutFlow] = useState(null); // "single" | "cart"
     const [nextAvailableDates, setNextAvailableDates] = useState([]);
     const [allSlotsData, setAllSlotsData] = useState({});
     const [scheduleEnds, setScheduleEnds] = useState({});
@@ -494,6 +497,8 @@ const CalendarIntegration = ({ price, packageOptions = [] }) => {
         toast.success(`Selected date: ${date.toLocaleDateString()}`);
     };
 
+    // UPDATED: "Book this lesson only" now opens the Guest/User checkout
+    // modal instead of jumping straight to the BookingForm.
     const handleConfirmBookingClick = () => {
         if (isActiveFiveHourBundle) {
             toast.error("Please add 1-hour and 2-hour lessons totaling 5 hours to the cart for this bundle.");
@@ -501,7 +506,8 @@ const CalendarIntegration = ({ price, packageOptions = [] }) => {
         }
 
         if (selectedTime && selectedDuration) {
-            setTimeout(() => setShowBookingForm(true), 500);
+            setCheckoutFlow("single");
+            setShowCheckoutOptions(true);
         } else {
             toast.error("Please select a time slot first");
         }
@@ -654,11 +660,15 @@ const CalendarIntegration = ({ price, packageOptions = [] }) => {
         setCurrentMonth(month);
     };
 
-    // ─── Cart checkout entry point ─────────────────────────────────────────
-    // Clicking "Checkout Cart" opens a small modal asking Guest vs User
-    // checkout. Guest goes straight to the booking form (no auth needed).
-    // User checkout requires an authenticated session — logged-in users go
-    // straight to the booking form, everyone else is redirected to login.
+    // ─── Checkout entry points ─────────────────────────────────────────────
+    // Both "Book this lesson only" and "Checkout Cart" open the same small
+    // modal asking Guest vs. User checkout. `checkoutFlow` remembers which
+    // one triggered it so the correct form opens afterward:
+    //   - "single" → single-lesson BookingForm (showBookingForm)
+    //   - "cart"   → cart BookingForm (showCartCheckout)
+    // Guest goes straight to the form (no auth needed). User checkout
+    // requires an authenticated session — logged-in users go straight to
+    // the form, everyone else is redirected to login.
 
     const handleCheckoutCartClick = () => {
         if (!canCheckoutCart) {
@@ -667,19 +677,30 @@ const CalendarIntegration = ({ price, packageOptions = [] }) => {
             );
             return;
         }
+        setCheckoutFlow("cart");
         setShowCheckoutOptions(true);
     };
 
     const handleGuestCheckout = () => {
         setShowCheckoutOptions(false);
-        setShowCartCheckout(true);
+        if (checkoutFlow === "single") {
+            setShowBookingForm(true);
+        } else {
+            setShowCartCheckout(true);
+        }
+        setCheckoutFlow(null);
     };
 
     const handleUserCheckout = () => {
         setShowCheckoutOptions(false);
 
         if (isAuthenticated) {
-            setShowCartCheckout(true);
+            if (checkoutFlow === "single") {
+                setShowBookingForm(true);
+            } else {
+                setShowCartCheckout(true);
+            }
+            setCheckoutFlow(null);
             return;
         }
 
@@ -792,22 +813,6 @@ const CalendarIntegration = ({ price, packageOptions = [] }) => {
                             </div>
                         </div>
 
-                        {/*
-                         * HOW THE COLORING WORKS:
-                         *
-                         * `modifiers` — passes named arrays of Date objects to
-                         *   react-day-picker. Each date in the array gets that
-                         *   modifier class added to its <button> element.
-                         *
-                         * `modifiersClassNames` — maps modifier names to CSS
-                         *   class strings applied directly to the day <button>.
-                         *   Using Tailwind's `!` prefix forces these styles to
-                         *   win over the default rdp styles.
-                         *
-                         * This is the ONLY reliable way to color full day cells
-                         * in shadcn/radix Calendar — DayContent only wraps the
-                         * text node, not the button background.
-                         */}
                         <Calendar
                             mode="single"
                             selected={selectedDate}
@@ -1208,14 +1213,18 @@ const CalendarIntegration = ({ price, packageOptions = [] }) => {
                     />
                 )}
 
-                {/* ── Checkout method modal (Guest vs. User) ── */}
+                {/* ── Checkout method modal (Guest vs. User) ──
+                     Shared by both "Book this lesson only" and "Checkout Cart" */}
                 {showCheckoutOptions && (
                     <div
                         className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
                         role="dialog"
                         aria-modal="true"
                         aria-labelledby="checkout-options-heading"
-                        onClick={() => setShowCheckoutOptions(false)}
+                        onClick={() => {
+                            setShowCheckoutOptions(false);
+                            setCheckoutFlow(null);
+                        }}
                     >
                         <div
                             className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl"
@@ -1271,7 +1280,10 @@ const CalendarIntegration = ({ price, packageOptions = [] }) => {
 
                             <button
                                 type="button"
-                                onClick={() => setShowCheckoutOptions(false)}
+                                onClick={() => {
+                                    setShowCheckoutOptions(false);
+                                    setCheckoutFlow(null);
+                                }}
                                 className="mt-5 w-full py-2 text-sm font-medium text-gray-500 hover:text-gray-700"
                             >
                                 Cancel

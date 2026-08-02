@@ -144,7 +144,7 @@ const UserNavBar = ({ onMenuToggle }) => {
                                     </div>
                                     <div className="border-t border-gray-100 pt-1">
                                         <Link
-                                            href={route("profile.edit")}
+                                            // href={route("profile.edit")}
                                             className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                                         >
                                             <UserCircle className="w-4 h-4 mr-3" />
