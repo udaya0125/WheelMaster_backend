@@ -325,6 +325,10 @@ Route::get('/', function () {
 
     Route::get('/ourbookings', [BookingHistoryController::class, 'index'])->name('ourbookings.history')->middleware('auth');
     
+
+    Route::get('/user-dashboard', function () {
+        return Inertia::render('UserPages/UserDashboard');
+    });
     });
 
  
