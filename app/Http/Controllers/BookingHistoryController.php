@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\UserReservation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class BookingHistoryController extends Controller
 {
@@ -13,18 +14,34 @@ class BookingHistoryController extends Controller
      * Matched by email since UserReservation has no user_id.
      *
      * Query params:
-     *   page   = pagination page
+     *   page     = pagination page
+     *   per_page = results per page (default 9, capped at 50)
+     *   upcoming = 1 to only return bookings whose date/time is in the future
+     *   sort     = 'asc' or 'desc' (default 'desc', i.e. newest first)
      */
     public function index(Request $request)
     {
         $email = Auth::user()->email;
 
-        $query = UserReservation::with('price')
-            ->where('email', $email)
-            ->orderBy('reservation_date', 'desc')
-            ->orderBy('start_time', 'desc');
+        $perPage = (int) $request->input('per_page', 9);
+        $perPage = max(1, min($perPage, 50));
 
-        $reservations = $query->paginate(10)->through(function (UserReservation $reservation) {
+        $direction = strtolower($request->input('sort', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        $query = UserReservation::with('price')
+            ->where('email', $email);
+
+        if ($request->boolean('upcoming')) {
+            // Combine date + time into a single comparable timestamp at the DB level
+            $query->whereRaw(
+                "TIMESTAMP(reservation_date, start_time) >= ?",
+                [now()]
+            );
+        }
+
+        $query->orderByRaw("TIMESTAMP(reservation_date, start_time) {$direction}");
+
+        $reservations = $query->paginate($perPage)->through(function (UserReservation $reservation) {
             return [
                 'id'               => $reservation->id,
                 'reservation_date' => $reservation->reservation_date,

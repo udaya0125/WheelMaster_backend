@@ -260,13 +260,20 @@ const UserNavBar = ({ onMenuToggle }) => {
 
 
     return (
+        // <nav
+        //     className={`fixed top-0 right-0 left-0 lg:left-auto lg:w-[98%] h-16 z-30 transition-all duration-300 ${
+        //         isScrolled
+        //             ? "bg-white/85 backdrop-blur-md shadow-[0_1px_0_0_rgba(0,0,0,0.04),0_4px_16px_-8px_rgba(15,23,42,0.12)] border-b border-gray-200/60"
+        //             : "bg-white/40 backdrop-blur-sm"
+        //     }`}
+        // >
         <nav
-            className={`fixed top-0 right-0 left-0 lg:left-auto lg:w-[98%] h-16 z-30 transition-all duration-300 ${
-                isScrolled
-                    ? "bg-white/85 backdrop-blur-md shadow-[0_1px_0_0_rgba(0,0,0,0.04),0_4px_16px_-8px_rgba(15,23,42,0.12)] border-b border-gray-200/60"
-                    : "bg-white/40 backdrop-blur-sm"
-            }`}
-        >
+    className={`fixed top-0 right-0 left-0 lg:left-[var(--sidebar-width)] h-16 z-30 transition-all duration-300 ${
+        isScrolled
+            ? "bg-white/85 backdrop-blur-md shadow-[0_1px_0_0_rgba(0,0,0,0.04),0_4px_16px_-8px_rgba(15,23,42,0.12)] border-b border-gray-200/60"
+            : "bg-white/40 backdrop-blur-sm"
+    }`}
+>
             <div className="h-full px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-full">
                     {/* Left: Menu toggle (mobile) + greeting */}

@@ -22,6 +22,7 @@ use App\Http\Controllers\DashboardController;
 use Illuminate\Http\Request;
 use App\Http\Controllers\TimeSlotController;
 use App\Http\Controllers\BookingHistoryController;
+use App\Http\Controllers\ProfileController;
 
 
 Route::get('/', function () {
@@ -42,12 +43,20 @@ Route::get('/', function () {
     // Authenticated routes
     // --------------------------------------------------------------------------
 
-    Route::middleware('auth')->group(function () {
+    // Route::middleware('auth')->group(function () {
+
+    // Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    // Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    // Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
 
+    // });
 
-
-    });
+   Route::middleware('auth')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
 
 
     // --------------------------------------------------------------------------
@@ -329,6 +338,16 @@ Route::get('/', function () {
     Route::get('/user-dashboard', function () {
         return Inertia::render('UserPages/UserDashboard');
     });
+
+    // Route::get('/profile', function () {
+    //     return Inertia::render('UserPages/Profile');
+    // });
+
+   
+    });
+
+      Route::get('/loading', function () {
+        return Inertia::render('UserPages/Loader');
     });
 
  
