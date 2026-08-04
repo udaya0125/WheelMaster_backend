@@ -121,27 +121,60 @@
 
 // export default Loader
 
-import React from 'react'
+
+
+
+import React, { useEffect, useRef } from 'react'
+import gsap from 'gsap'
+
+const SPOKE_COUNT = 12
+const CYCLE_DURATION = 1.1 // seconds for one full chase around the spokes
 
 const Loader = () => {
+  const spokesRef = useRef([])
+
+  useEffect(() => {
+    const spokes = spokesRef.current
+    const stepTime = CYCLE_DURATION / SPOKE_COUNT
+
+    // set initial state via GSAP so nothing fights the animation
+    gsap.set(spokes, { opacity: 1, scale: 1 })
+
+    const tween = gsap.to(spokes, {
+      opacity: 0.15,
+      scale: 0.82,
+      duration: stepTime * 3,
+      ease: 'sine.inOut',
+      stagger: {
+        each: stepTime,
+        repeat: -1,
+        yoyo: true, // no restart pop — each spoke dims then brightens forever
+      },
+    })
+
+    return () => {
+      tween.kill()
+      gsap.killTweensOf(spokes)
+    }
+  }, [])
+
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white">
-      {/* Morphing shape */}
-      <div className="relative w-16 h-16 flex items-center justify-center">
-        <div className="absolute w-16 h-16 rounded-2xl bg-slate-900 animate-[spin_2.5s_linear_infinite,morph_2.5s_ease-in-out_infinite]" />
+    <div className="flex items-center justify-center py-24">
+      <div className="relative w-14 h-14">
+        {Array.from({ length: SPOKE_COUNT }).map((_, i) => {
+          const rotation = (360 / SPOKE_COUNT) * i
+          return (
+            <div
+              key={i}
+              ref={(el) => (spokesRef.current[i] = el)}
+              className="absolute left-1/2 top-1/2 w-[7%] h-[28%] bg-slate-700 rounded-full"
+              style={{
+                transform: `translateX(-50%) rotate(${rotation}deg) translateY(-140%)`,
+              }}
+            />
+          )
+        })}
       </div>
-
-      {/* Label with fade-in-out */}
-      <p className="mt-6 text-xs font-medium tracking-[0.3em] text-slate-400 uppercase animate-pulse">
-        Loading
-      </p>
-
-      <style>{`
-        @keyframes morph {
-          0%, 100% { border-radius: 20%; }
-          50% { border-radius: 50%; }
-        }
-      `}</style>
     </div>
   )
 }

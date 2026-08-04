@@ -214,7 +214,6 @@ const UserSideBar = ({
         { href: "/user-dashboard", label: "Dashboard", icon: RxDashboard },
         { href: "/my-booking", label: "My Bookings", icon: MdOutlineCalendarMonth },
         { href: "/profile", label: "My Profile", icon: MdOutlinePerson },
-        { href: "/support", label: "Support", icon: MdOutlineHelpOutline },
     ];
 
     const isActive = (href) => currentPath === href;
