@@ -350,6 +350,11 @@ Route::get('/', function () {
         return Inertia::render('UserPages/Loader');
     });
 
+
+    Route::patch('/user-reservations/{id}/reschedule', [UserReservationController::class, 'reschedule'])
+    ->middleware('auth')
+    ->name('ourreservations.reschedule');
+
  
 
 require __DIR__.'/auth.php';

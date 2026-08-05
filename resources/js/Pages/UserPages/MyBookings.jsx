@@ -345,14 +345,14 @@ export default function MyBookings() {
                         </div>
                       )}
 
-                      {booking.comment && (
+                      {/* {booking.comment && (
                         <div className="flex items-start gap-2">
                           <MessageSquare size={14} className="text-gray-400 shrink-0 mt-0.5" />
                           <span className="leading-snug italic text-gray-500">
                             {booking.comment}
                           </span>
                         </div>
-                      )}
+                      )} */}
                     </div>
                   </div>
                 </div>

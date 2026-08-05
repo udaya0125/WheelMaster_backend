@@ -77,9 +77,11 @@ class TimeSlotController extends Controller
             'date' => 'nullable|date',
             'price_id' => 'nullable|exists:prices,id',
             'duration_minutes' => 'nullable|integer|in:60,120',
+            'exclude_reservation_id' => 'nullable|integer|exists:user_reservations,id',
         ]);
         $date = $validated['date'] ?? Carbon::now()->format('Y-m-d');
         $priceId = $validated['price_id'] ?? null;
+        $excludeId = $validated['exclude_reservation_id'] ?? null;
 
         TimeSlot::initializeForDateRange($date, $date);
 
@@ -89,13 +91,15 @@ class TimeSlotController extends Controller
 
         $reservations = UserReservation::where('reservation_date', $date)
             ->where('status', '!=', 'Rejected')
+            ->when($excludeId, fn ($q) => $q->where('id', '!=', $excludeId))
             ->get();
 
         $blocks          = BlockReservation::where('date', $date)->get();
         $activeHolds     = SlotHold::active()->forDate($date)->get();
-        $durationMinutes = $this->getDurationMinutesForPrice(
+        $durationMinutes = $this->resolveDurationMinutesForAvailability(
             $priceId,
-            $validated['duration_minutes'] ?? null
+            $validated['duration_minutes'] ?? null,
+            $excludeId
         );
 
         $defaultSlots      = TimeSlot::generateDefaultSlotsForDate($date);
@@ -108,7 +112,8 @@ class TimeSlotController extends Controller
             $defaultStartTimes,
             $date,
             $priceId,
-            $durationMinutes
+            $durationMinutes,
+            $excludeId
         ) {
             $status    = $slot->status;
             $slotStart = Carbon::parse($slot->start_time);
@@ -157,7 +162,7 @@ class TimeSlotController extends Controller
 
             // ── Duration bookability check ────────────────────────────────────
             if ($status === 'available' && $priceId &&
-                !$this->isBookableForDuration($date, $priceId, $slotStart, $durationMinutes)
+                !$this->isBookableForDuration($date, $priceId, $slotStart, $durationMinutes, $excludeId)
             ) {
                 $status = 'unavailable';
             }
@@ -269,13 +274,22 @@ class TimeSlotController extends Controller
         ]);
     }
 
+    /**
+     * Get availability summary across a date range (API endpoint)
+     *
+     * price_id is only required when there's no exclude_reservation_id —
+     * when rescheduling an existing booking, duration is derived straight
+     * from that reservation's own start/end time, so price_id is not
+     * needed to compute availability.
+     */
     public function getAvailabilitySummary(Request $request)
     {
         $validated = $request->validate([
             'start_date' => 'required|date',
             'end_date'   => 'required|date|after_or_equal:start_date',
-            'price_id'   => 'required|exists:prices,id',
+            'price_id'   => 'nullable|required_without:exclude_reservation_id|exists:prices,id',
             'duration_minutes' => 'nullable|integer|in:60,120',
+            'exclude_reservation_id' => 'nullable|integer|exists:user_reservations,id',
         ]);
 
         $startDate = Carbon::parse($validated['start_date'])->startOfDay();
@@ -290,9 +304,11 @@ class TimeSlotController extends Controller
 
         $startKey = $startDate->toDateString();
         $endKey   = $endDate->toDateString();
-        $durationMinutes = $this->getDurationMinutesForPrice(
-            $validated['price_id'],
-            $validated['duration_minutes'] ?? null
+        $excludeId = $validated['exclude_reservation_id'] ?? null;
+        $durationMinutes = $this->resolveDurationMinutesForAvailability(
+            $validated['price_id'] ?? null,
+            $validated['duration_minutes'] ?? null,
+            $excludeId
         );
 
         $slotsByDate = TimeSlot::whereBetween('date', [$startKey, $endKey])
@@ -302,6 +318,7 @@ class TimeSlotController extends Controller
 
         $reservationsByDate = UserReservation::whereBetween('reservation_date', [$startKey, $endKey])
             ->where('status', '!=', 'Rejected')
+            ->when($excludeId, fn ($q) => $q->where('id', '!=', $excludeId))
             ->get()
             ->groupBy(fn ($reservation) => Carbon::parse($reservation->reservation_date)->toDateString());
 
@@ -389,6 +406,36 @@ class TimeSlotController extends Controller
         }
     }
 
+    /**
+     * Resolve the lesson duration (in minutes) to use for availability
+     * calculations.
+     *
+     * If an explicit duration or no exclude_reservation_id was given,
+     * this falls back to the normal price-based lookup. Otherwise (i.e.
+     * during a reschedule, where price_id may be absent) the duration is
+     * derived straight from the existing reservation's own start/end time.
+     */
+    private function resolveDurationMinutesForAvailability($priceId, ?int $requestedDurationMinutes = null, $excludeReservationId = null): int
+    {
+        if ($requestedDurationMinutes !== null || ! $excludeReservationId) {
+            return $this->getDurationMinutesForPrice($priceId, $requestedDurationMinutes);
+        }
+
+        $reservation = UserReservation::find($excludeReservationId);
+
+        if (! $reservation || ! $reservation->start_time || ! $reservation->end_time) {
+            return $this->getDurationMinutesForPrice($priceId);
+        }
+
+        $start = Carbon::parse($reservation->start_time);
+        $end = Carbon::parse($reservation->end_time);
+        $durationMinutes = $start->diffInMinutes($end, false);
+
+        return $durationMinutes > 0
+            ? (int) $durationMinutes
+            : $this->getDurationMinutesForPrice($priceId);
+    }
+
     private function parseDurationToMinutes($duration)
     {
         if (! $duration) {
@@ -414,7 +461,7 @@ class TimeSlotController extends Controller
         return (int) round($totalMinutes ?: 60);
     }
 
-    private function isBookableForDuration($date, $priceId, Carbon $startTime, $durationMinutes)
+    private function isBookableForDuration($date, $priceId, Carbon $startTime, $durationMinutes, $excludeId = null)
     {
         $bufferEnd = $startTime->copy()
             ->addMinutes($durationMinutes)
@@ -440,6 +487,7 @@ class TimeSlotController extends Controller
 
         return ! UserReservation::where('reservation_date', $date)
             ->where('status', '!=', 'Rejected')
+            ->when($excludeId, fn ($q) => $q->where('id', '!=', $excludeId))
             ->get()
             ->contains(function ($reservation) use ($startTime, $bufferEnd) {
                 $existingStart     = Carbon::parse($reservation->start_time);
