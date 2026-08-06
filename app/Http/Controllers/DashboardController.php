@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\GoogleAnalyticsService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
@@ -86,6 +87,10 @@ class DashboardController extends Controller
             ];
         }
 
+        // Payments count is independent of the GA4 analytics pipeline above,
+        // so it's fetched outside that try/catch and gets its own error guard.
+        $paymentsCompleted = $this->getPaymentsCompletedCount();
+
         return Inertia::render('Dashboard', [
             'visitors' => [
                 'visitors' => $totalVisitors,
@@ -95,7 +100,28 @@ class DashboardController extends Controller
             ],
             'pieData' => $pieData,
             'barData' => $barData,
+            'paymentsCompleted' => $paymentsCompleted,
         ]);
+    }
+
+    /**
+     * Count distinct paid payment_intents linked to a UserReservation
+     * whose status is Accepted (i.e. the booking is confirmed).
+     */
+    private function getPaymentsCompletedCount(): int
+    {
+        try {
+            return DB::table('payment_reservations')
+                ->join('payment_intents', 'payment_intents.id', '=', 'payment_reservations.payment_intent_id')
+                ->join('user_reservations', 'user_reservations.id', '=', 'payment_reservations.user_reservation_id')
+                ->where('user_reservations.status', 'Accepted')
+                ->distinct('payment_intents.id')
+                ->count('payment_intents.id');
+        } catch (\Exception $e) {
+            Log::error('Payments completed count error: '.$e->getMessage());
+
+            return 0;
+        }
     }
 
     /**
