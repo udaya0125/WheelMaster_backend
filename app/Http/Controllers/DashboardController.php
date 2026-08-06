@@ -87,9 +87,9 @@ class DashboardController extends Controller
             ];
         }
 
-        // Payments count is independent of the GA4 analytics pipeline above,
-        // so it's fetched outside that try/catch and gets its own error guard.
-        $paymentsCompleted = $this->getPaymentsCompletedCount();
+        // Payment status counts are independent of the GA4 analytics pipeline
+        // above, so they're fetched outside that try/catch with their own guard.
+        $paymentStats = $this->getPaymentStatusChartData();
 
         return Inertia::render('Dashboard', [
             'visitors' => [
@@ -100,27 +100,47 @@ class DashboardController extends Controller
             ],
             'pieData' => $pieData,
             'barData' => $barData,
-            'paymentsCompleted' => $paymentsCompleted,
+            'paymentStats' => $paymentStats,
         ]);
     }
 
     /**
-     * Count distinct paid payment_intents linked to a UserReservation
-     * whose status is Accepted (i.e. the booking is confirmed).
+     * Count all payment_intents grouped by status (paid / pending / failed)
+     * and format for the "Payments Collected" bar chart.
      */
-    private function getPaymentsCompletedCount(): int
+    private function getPaymentStatusChartData(): array
     {
         try {
-            return DB::table('payment_reservations')
-                ->join('payment_intents', 'payment_intents.id', '=', 'payment_reservations.payment_intent_id')
-                ->join('user_reservations', 'user_reservations.id', '=', 'payment_reservations.user_reservation_id')
-                ->where('user_reservations.status', 'Accepted')
-                ->distinct('payment_intents.id')
-                ->count('payment_intents.id');
-        } catch (\Exception $e) {
-            Log::error('Payments completed count error: '.$e->getMessage());
+            $counts = DB::table('payment_intents')
+                ->select('status', DB::raw('count(*) as total'))
+                ->groupBy('status')
+                ->pluck('total', 'status');
 
-            return 0;
+            return [
+                [
+                    'name' => 'Collected',
+                    'status' => 'paid',
+                    'value' => (int) ($counts['paid'] ?? 0),
+                ],
+                [
+                    'name' => 'Pending',
+                    'status' => 'pending',
+                    'value' => (int) ($counts['pending'] ?? 0),
+                ],
+                [
+                    'name' => 'Failed',
+                    'status' => 'failed',
+                    'value' => (int) ($counts['failed'] ?? 0),
+                ],
+            ];
+        } catch (\Exception $e) {
+            Log::error('Payment status chart data error: '.$e->getMessage());
+
+            return [
+                ['name' => 'Collected', 'status' => 'paid', 'value' => 0],
+                ['name' => 'Pending', 'status' => 'pending', 'value' => 0],
+                ['name' => 'Failed', 'status' => 'failed', 'value' => 0],
+            ];
         }
     }
 

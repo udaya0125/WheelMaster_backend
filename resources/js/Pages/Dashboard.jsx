@@ -805,7 +805,7 @@ export default function Dashboard({
     pieData = [],
     barData = [],
     visitors = { visitors: 0, pageviews: 0 },
-    paymentsCompleted = 0,
+    paymentStats = [],
 }) {
     const { props } = usePage();
     const user = props?.auth?.user;
@@ -817,6 +817,11 @@ export default function Dashboard({
         "#10b981",
         "#ef4444",
     ];
+    const PAYMENT_STATUS_COLORS = {
+        paid: "#10b981",
+        pending: "#f59e0b",
+        failed: "#ef4444",
+    };
     const [isMobile, setIsMobile] = useState(false);
     const [isTablet, setIsTablet] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -859,6 +864,11 @@ export default function Dashboard({
         percentage:
             total > 0 ? ((item.value / total) * 100).toFixed(1) + "%" : "0%",
     }));
+
+    const totalPayments = paymentStats.reduce(
+        (sum, item) => sum + (item.value || 0),
+        0,
+    );
 
     // Custom Tooltip for Pie Chart
     const PieCustomTooltip = ({ active, payload }) => {
@@ -924,6 +934,35 @@ export default function Dashboard({
                             </div>
                         ))}
                     </div>
+                </div>
+            );
+        }
+        return null;
+    };
+
+    // Custom Tooltip for Payments Chart
+    const PaymentCustomTooltip = ({ active, payload }) => {
+        if (active && payload && payload.length) {
+            const data = payload[0].payload;
+            return (
+                <div className="bg-gray-900/95 backdrop-blur-sm px-4 py-3 rounded-xl shadow-2xl border border-gray-800 text-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                        <div
+                            className="w-3 h-3 rounded-full"
+                            style={{
+                                backgroundColor:
+                                    PAYMENT_STATUS_COLORS[data.status] ||
+                                    "#94a3b8",
+                            }}
+                        />
+                        <p className="font-semibold text-white">
+                            {data.name}
+                        </p>
+                    </div>
+                    <span className="font-semibold text-white">
+                        {data.value.toLocaleString()} payment
+                        {data.value === 1 ? "" : "s"}
+                    </span>
                 </div>
             );
         }
@@ -1407,13 +1446,96 @@ export default function Dashboard({
                                             </p>
                                         </div>
                                     )}
+                                </div>
 
-                                    {/* Payments Completed */}
-                                    <div className="mt-6 flex items-center justify-between rounded-xl border border-emerald-100 bg-emerald-50 p-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100">
+                                {/* Payments Collected Chart */}
+                                <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-lg font-semibold text-gray-900">
+                                            Payments Collected
+                                        </h3>
+                                        <span className="text-xs font-medium text-gray-500">
+                                            {totalPayments.toLocaleString()}{" "}
+                                            total
+                                        </span>
+                                    </div>
+
+                                    {totalPayments > 0 ? (
+                                        <div className="h-56">
+                                            <ResponsiveContainer
+                                                width="100%"
+                                                height="100%"
+                                            >
+                                                <BarChart
+                                                    data={paymentStats}
+                                                    layout="vertical"
+                                                    margin={{
+                                                        top: 5,
+                                                        right: 30,
+                                                        left: 10,
+                                                        bottom: 5,
+                                                    }}
+                                                >
+                                                    <CartesianGrid
+                                                        strokeDasharray="3 3"
+                                                        stroke="#f0f0f0"
+                                                        horizontal={false}
+                                                    />
+                                                    <XAxis
+                                                        type="number"
+                                                        stroke="#666"
+                                                        fontSize={12}
+                                                        axisLine={false}
+                                                        tickLine={false}
+                                                        allowDecimals={false}
+                                                    />
+                                                    <YAxis
+                                                        type="category"
+                                                        dataKey="name"
+                                                        stroke="#666"
+                                                        fontSize={13}
+                                                        axisLine={false}
+                                                        tickLine={false}
+                                                        width={80}
+                                                    />
+                                                    <Tooltip
+                                                        content={
+                                                            <PaymentCustomTooltip />
+                                                        }
+                                                        cursor={{
+                                                            fill: "rgba(16, 185, 129, 0.05)",
+                                                        }}
+                                                    />
+                                                    <Bar
+                                                        dataKey="value"
+                                                        radius={[
+                                                            0, 6, 6, 0,
+                                                        ]}
+                                                        maxBarSize={32}
+                                                    >
+                                                        {paymentStats.map(
+                                                            (entry, index) => (
+                                                                <Cell
+                                                                    key={`payment-cell-${index}`}
+                                                                    fill={
+                                                                        PAYMENT_STATUS_COLORS[
+                                                                            entry
+                                                                                .status
+                                                                        ] ||
+                                                                        "#94a3b8"
+                                                                    }
+                                                                />
+                                                            ),
+                                                        )}
+                                                    </Bar>
+                                                </BarChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    ) : (
+                                        <div className="h-56 flex flex-col items-center justify-center text-center">
+                                            <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
                                                 <svg
-                                                    className="h-5 w-5 text-emerald-600"
+                                                    className="w-8 h-8 text-gray-400"
                                                     fill="none"
                                                     stroke="currentColor"
                                                     viewBox="0 0 24 24"
@@ -1421,25 +1543,20 @@ export default function Dashboard({
                                                     <path
                                                         strokeLinecap="round"
                                                         strokeLinejoin="round"
-                                                        strokeWidth="2"
+                                                        strokeWidth="1.5"
                                                         d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                                                     />
                                                 </svg>
                                             </div>
-                                            <div>
-                                                <p className="text-sm font-medium text-gray-900">
-                                                    Payments Completed
-                                                </p>
-                                                <p className="text-xs text-gray-500">
-                                                    Confirmed bookings with a
-                                                    paid payment
-                                                </p>
-                                            </div>
+                                            <p className="text-gray-900 font-semibold mb-1">
+                                                No payments yet
+                                            </p>
+                                            <p className="text-sm text-gray-500 max-w-sm">
+                                                Collected, pending, and failed
+                                                payments will show up here
+                                            </p>
                                         </div>
-                                        <p className="text-2xl font-bold text-emerald-700">
-                                            {paymentsCompleted.toLocaleString()}
-                                        </p>
-                                    </div>
+                                    )}
                                 </div>
                             </div>
 
