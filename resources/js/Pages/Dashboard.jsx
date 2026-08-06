@@ -871,8 +871,18 @@ export default function Dashboard({
         0,
     );
 
-    const collectedAmount =
-        paymentStats.find((item) => item.status === "paid")?.amount || 0;
+    const collectedStat = paymentStats.find((item) => item.status === "paid");
+    const pendingStat = paymentStats.find((item) => item.status === "pending");
+    const failedStat = paymentStats.find((item) => item.status === "failed");
+
+    const collectedAmount = collectedStat?.amount || 0;
+    const pendingAmount = pendingStat?.amount || 0;
+    const failedAmount = failedStat?.amount || 0;
+    const totalAmountTracked = collectedAmount + pendingAmount + failedAmount;
+    const collectedShare =
+        totalAmountTracked > 0
+            ? Math.round((collectedAmount / totalAmountTracked) * 100)
+            : 0;
 
     const formatMoney = (amount) => {
         try {
@@ -957,13 +967,13 @@ export default function Dashboard({
         return null;
     };
 
-    // Custom Tooltip for Payments Chart
-    const PaymentCustomTooltip = ({ active, payload }) => {
+    // Custom Tooltip for Payment Status Count Chart
+    const PaymentCountTooltip = ({ active, payload }) => {
         if (active && payload && payload.length) {
             const data = payload[0].payload;
             return (
                 <div className="bg-gray-900/95 backdrop-blur-sm px-4 py-3 rounded-xl shadow-2xl border border-gray-800 text-sm">
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center gap-2 mb-1">
                         <div
                             className="w-3 h-3 rounded-full"
                             style={{
@@ -976,20 +986,10 @@ export default function Dashboard({
                             {data.name}
                         </p>
                     </div>
-                    <div className="space-y-1">
-                        <div className="flex items-center justify-between gap-6">
-                            <span className="text-gray-300">Payments</span>
-                            <span className="font-semibold text-white">
-                                {data.value.toLocaleString()}
-                            </span>
-                        </div>
-                        <div className="flex items-center justify-between gap-6">
-                            <span className="text-gray-300">Amount</span>
-                            <span className="font-semibold text-white">
-                                {formatMoney(data.amount)}
-                            </span>
-                        </div>
-                    </div>
+                    <span className="font-semibold text-white">
+                        {data.value.toLocaleString()} payment
+                        {data.value === 1 ? "" : "s"}
+                    </span>
                 </div>
             );
         }
@@ -1302,6 +1302,86 @@ export default function Dashboard({
                     </div>
                 </div>
 
+                {/* Money Collected — standalone hero card, separate from counts */}
+                <div className="mb-8 overflow-hidden rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-white shadow-lg">
+                    <div className="p-6 sm:p-7">
+                        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-emerald-100">
+                                    <svg
+                                        className="h-7 w-7 text-emerald-600"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth="1.8"
+                                            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V6m0 12v-2m9-4a9 9 0 11-18 0 9 9 0 0118 0z"
+                                        />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p className="text-sm font-semibold uppercase tracking-wide text-emerald-600">
+                                        Money Collected
+                                    </p>
+                                    <p className="mt-1 text-4xl font-bold text-gray-900">
+                                        {formatMoney(collectedAmount)}
+                                    </p>
+                                    <p className="mt-1 text-sm text-gray-500">
+                                        From{" "}
+                                        {(collectedStat?.value || 0).toLocaleString()}{" "}
+                                        completed payment
+                                        {(collectedStat?.value || 0) === 1
+                                            ? ""
+                                            : "s"}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Collected vs outstanding, kept visually separate from the payment-count chart below */}
+                            <div className="grid grid-cols-2 gap-4 sm:min-w-[280px]">
+                                <div className="rounded-xl border border-amber-100 bg-amber-50 p-4">
+                                    <p className="text-xs font-medium uppercase tracking-wide text-amber-600">
+                                        Pending
+                                    </p>
+                                    <p className="mt-1 text-xl font-bold text-gray-900">
+                                        {formatMoney(pendingAmount)}
+                                    </p>
+                                </div>
+                                <div className="rounded-xl border border-red-100 bg-red-50 p-4">
+                                    <p className="text-xs font-medium uppercase tracking-wide text-red-600">
+                                        Failed
+                                    </p>
+                                    <p className="mt-1 text-xl font-bold text-gray-900">
+                                        {formatMoney(failedAmount)}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {totalAmountTracked > 0 && (
+                            <div className="mt-6">
+                                <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
+                                    <span>Collected vs. tracked total</span>
+                                    <span className="font-medium text-gray-700">
+                                        {collectedShare}%
+                                    </span>
+                                </div>
+                                <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+                                    <div
+                                        className="h-full rounded-full bg-emerald-500 transition-all"
+                                        style={{
+                                            width: `${collectedShare}%`,
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
                 {/* Chart Section */}
                 <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-lg border border-gray-200 overflow-hidden ">
                     {/* Chart Header */}
@@ -1475,105 +1555,128 @@ export default function Dashboard({
                                     )}
                                 </div>
 
-                                {/* Payments Collected Chart */}
+                                {/* Payment Status — counts only, kept separate from money above */}
                                 <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                                    <div className="flex items-start justify-between mb-4 gap-3">
-                                        <div>
-                                            <h3 className="text-lg font-semibold text-gray-900">
-                                                Payments Collected
-                                            </h3>
-                                            <p className="text-xs text-gray-500 mt-0.5">
-                                                {totalPayments.toLocaleString()}{" "}
-                                                payment
-                                                {totalPayments === 1
-                                                    ? ""
-                                                    : "s"}{" "}
-                                                total
-                                            </p>
-                                        </div>
-                                        <div className="text-right flex-shrink-0">
-                                            <p className="text-xs font-medium text-emerald-600 uppercase tracking-wide">
-                                                Money collected
-                                            </p>
-                                            <p className="text-2xl font-bold text-emerald-700">
-                                                {formatMoney(collectedAmount)}
-                                            </p>
-                                        </div>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-lg font-semibold text-gray-900">
+                                            Payment Status
+                                        </h3>
+                                        <span className="text-xs font-medium text-gray-500">
+                                            {totalPayments.toLocaleString()}{" "}
+                                            total
+                                        </span>
                                     </div>
 
                                     {totalPayments > 0 ? (
-                                        <div className="h-56">
-                                            <ResponsiveContainer
-                                                width="100%"
-                                                height="100%"
-                                            >
-                                                <BarChart
-                                                    data={paymentStats}
-                                                    layout="vertical"
-                                                    margin={{
-                                                        top: 5,
-                                                        right: 30,
-                                                        left: 10,
-                                                        bottom: 5,
-                                                    }}
+                                        <>
+                                            <div className="h-52">
+                                                <ResponsiveContainer
+                                                    width="100%"
+                                                    height="100%"
                                                 >
-                                                    <CartesianGrid
-                                                        strokeDasharray="3 3"
-                                                        stroke="#f0f0f0"
-                                                        horizontal={false}
-                                                    />
-                                                    <XAxis
-                                                        type="number"
-                                                        stroke="#666"
-                                                        fontSize={12}
-                                                        axisLine={false}
-                                                        tickLine={false}
-                                                        allowDecimals={false}
-                                                    />
-                                                    <YAxis
-                                                        type="category"
-                                                        dataKey="name"
-                                                        stroke="#666"
-                                                        fontSize={13}
-                                                        axisLine={false}
-                                                        tickLine={false}
-                                                        width={80}
-                                                    />
-                                                    <Tooltip
-                                                        content={
-                                                            <PaymentCustomTooltip />
-                                                        }
-                                                        cursor={{
-                                                            fill: "rgba(16, 185, 129, 0.05)",
+                                                    <BarChart
+                                                        data={paymentStats}
+                                                        layout="vertical"
+                                                        margin={{
+                                                            top: 5,
+                                                            right: 30,
+                                                            left: 10,
+                                                            bottom: 5,
                                                         }}
-                                                    />
-                                                    <Bar
-                                                        dataKey="value"
-                                                        radius={[
-                                                            0, 6, 6, 0,
-                                                        ]}
-                                                        maxBarSize={32}
                                                     >
-                                                        {paymentStats.map(
-                                                            (entry, index) => (
-                                                                <Cell
-                                                                    key={`payment-cell-${index}`}
-                                                                    fill={
+                                                        <CartesianGrid
+                                                            strokeDasharray="3 3"
+                                                            stroke="#f0f0f0"
+                                                            horizontal={false}
+                                                        />
+                                                        <XAxis
+                                                            type="number"
+                                                            stroke="#666"
+                                                            fontSize={12}
+                                                            axisLine={false}
+                                                            tickLine={false}
+                                                            allowDecimals={
+                                                                false
+                                                            }
+                                                        />
+                                                        <YAxis
+                                                            type="category"
+                                                            dataKey="name"
+                                                            stroke="#666"
+                                                            fontSize={13}
+                                                            axisLine={false}
+                                                            tickLine={false}
+                                                            width={80}
+                                                        />
+                                                        <Tooltip
+                                                            content={
+                                                                <PaymentCountTooltip />
+                                                            }
+                                                            cursor={{
+                                                                fill: "rgba(59, 130, 246, 0.05)",
+                                                            }}
+                                                        />
+                                                        <Bar
+                                                            dataKey="value"
+                                                            radius={[
+                                                                0, 6, 6, 0,
+                                                            ]}
+                                                            maxBarSize={28}
+                                                        >
+                                                            {paymentStats.map(
+                                                                (
+                                                                    entry,
+                                                                    index,
+                                                                ) => (
+                                                                    <Cell
+                                                                        key={`payment-count-cell-${index}`}
+                                                                        fill={
+                                                                            PAYMENT_STATUS_COLORS[
+                                                                                entry
+                                                                                    .status
+                                                                            ] ||
+                                                                            "#94a3b8"
+                                                                        }
+                                                                    />
+                                                                ),
+                                                            )}
+                                                        </Bar>
+                                                    </BarChart>
+                                                </ResponsiveContainer>
+                                            </div>
+
+                                            {/* Count-only legend, no money mixed in */}
+                                            <div className="mt-4 grid grid-cols-3 gap-3">
+                                                {paymentStats.map((item) => (
+                                                    <div
+                                                        key={item.status}
+                                                        className="rounded-lg bg-gray-50 p-3 text-center"
+                                                    >
+                                                        <div className="flex items-center justify-center gap-1.5 mb-1">
+                                                            <div
+                                                                className="w-2 h-2 rounded-full flex-shrink-0"
+                                                                style={{
+                                                                    backgroundColor:
                                                                         PAYMENT_STATUS_COLORS[
-                                                                            entry
+                                                                            item
                                                                                 .status
                                                                         ] ||
-                                                                        "#94a3b8"
-                                                                    }
-                                                                />
-                                                            ),
-                                                        )}
-                                                    </Bar>
-                                                </BarChart>
-                                            </ResponsiveContainer>
-                                        </div>
+                                                                        "#94a3b8",
+                                                                }}
+                                                            />
+                                                            <p className="text-xs font-medium text-gray-500">
+                                                                {item.name}
+                                                            </p>
+                                                        </div>
+                                                        <p className="text-lg font-bold text-gray-900">
+                                                            {item.value.toLocaleString()}
+                                                        </p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </>
                                     ) : (
-                                        <div className="h-56 flex flex-col items-center justify-center text-center">
+                                        <div className="h-52 flex flex-col items-center justify-center text-center">
                                             <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
                                                 <svg
                                                     className="w-8 h-8 text-gray-400"
@@ -1593,50 +1696,9 @@ export default function Dashboard({
                                                 No payments yet
                                             </p>
                                             <p className="text-sm text-gray-500 max-w-sm">
-                                                Collected, pending, and failed
-                                                payments will show up here
+                                                Payment status counts will show
+                                                up here
                                             </p>
-                                        </div>
-                                    )}
-
-                                    {/* Per-status amount breakdown */}
-                                    {totalPayments > 0 && (
-                                        <div className="mt-4 grid grid-cols-3 gap-3">
-                                            {paymentStats.map((item) => (
-                                                <div
-                                                    key={item.status}
-                                                    className="rounded-lg bg-gray-50 p-3"
-                                                >
-                                                    <div className="flex items-center gap-1.5 mb-1">
-                                                        <div
-                                                            className="w-2 h-2 rounded-full flex-shrink-0"
-                                                            style={{
-                                                                backgroundColor:
-                                                                    PAYMENT_STATUS_COLORS[
-                                                                        item
-                                                                            .status
-                                                                    ] ||
-                                                                    "#94a3b8",
-                                                            }}
-                                                        />
-                                                        <p className="text-xs font-medium text-gray-500 truncate">
-                                                            {item.name}
-                                                        </p>
-                                                    </div>
-                                                    <p className="text-sm font-bold text-gray-900">
-                                                        {formatMoney(
-                                                            item.amount,
-                                                        )}
-                                                    </p>
-                                                    <p className="text-xs text-gray-500">
-                                                        {item.value.toLocaleString()}{" "}
-                                                        payment
-                                                        {item.value === 1
-                                                            ? ""
-                                                            : "s"}
-                                                    </p>
-                                                </div>
-                                            ))}
                                         </div>
                                     )}
                                 </div>
@@ -1764,5 +1826,4 @@ export default function Dashboard({
         </Wrapper>
     );
 }
-
 
