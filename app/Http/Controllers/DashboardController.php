@@ -87,8 +87,9 @@ class DashboardController extends Controller
             ];
         }
 
-        // Payment status counts are independent of the GA4 analytics pipeline
-        // above, so they're fetched outside that try/catch with their own guard.
+        // Payment status counts/amounts are independent of the GA4 analytics
+        // pipeline above, so they're fetched outside that try/catch with
+        // their own guard.
         $paymentStats = $this->getPaymentStatusChartData();
 
         return Inertia::render('Dashboard', [
@@ -100,46 +101,63 @@ class DashboardController extends Controller
             ],
             'pieData' => $pieData,
             'barData' => $barData,
-            'paymentStats' => $paymentStats,
+            'paymentStats' => $paymentStats['breakdown'],
+            'paymentCurrency' => $paymentStats['currency'],
         ]);
     }
 
     /**
      * Count all payment_intents grouped by status (paid / pending / failed)
-     * and format for the "Payments Collected" bar chart.
+     * and sum the collected amount per status, for the "Payments Collected"
+     * chart. amount_cents is summed then converted to a decimal amount.
      */
     private function getPaymentStatusChartData(): array
     {
         try {
-            $counts = DB::table('payment_intents')
-                ->select('status', DB::raw('count(*) as total'))
+            $rows = DB::table('payment_intents')
+                ->select(
+                    'status',
+                    DB::raw('count(*) as total'),
+                    DB::raw('coalesce(sum(amount_cents), 0) as amount_cents_total')
+                )
                 ->groupBy('status')
-                ->pluck('total', 'status');
+                ->get()
+                ->keyBy('status');
+
+            // Currency is assumed uniform across payment_intents (single
+            // storefront currency). Falls back to AUD if none found yet.
+            $currency = DB::table('payment_intents')
+                ->whereNotNull('currency')
+                ->value('currency') ?? 'AUD';
+
+            $statuses = ['paid' => 'Collected', 'pending' => 'Pending', 'failed' => 'Failed'];
+
+            $breakdown = [];
+            foreach ($statuses as $status => $label) {
+                $row = $rows->get($status);
+
+                $breakdown[] = [
+                    'name' => $label,
+                    'status' => $status,
+                    'value' => (int) ($row->total ?? 0),
+                    'amount' => round(((int) ($row->amount_cents_total ?? 0)) / 100, 2),
+                ];
+            }
 
             return [
-                [
-                    'name' => 'Collected',
-                    'status' => 'paid',
-                    'value' => (int) ($counts['paid'] ?? 0),
-                ],
-                [
-                    'name' => 'Pending',
-                    'status' => 'pending',
-                    'value' => (int) ($counts['pending'] ?? 0),
-                ],
-                [
-                    'name' => 'Failed',
-                    'status' => 'failed',
-                    'value' => (int) ($counts['failed'] ?? 0),
-                ],
+                'breakdown' => $breakdown,
+                'currency' => $currency,
             ];
         } catch (\Exception $e) {
             Log::error('Payment status chart data error: '.$e->getMessage());
 
             return [
-                ['name' => 'Collected', 'status' => 'paid', 'value' => 0],
-                ['name' => 'Pending', 'status' => 'pending', 'value' => 0],
-                ['name' => 'Failed', 'status' => 'failed', 'value' => 0],
+                'breakdown' => [
+                    ['name' => 'Collected', 'status' => 'paid', 'value' => 0, 'amount' => 0],
+                    ['name' => 'Pending', 'status' => 'pending', 'value' => 0, 'amount' => 0],
+                    ['name' => 'Failed', 'status' => 'failed', 'value' => 0, 'amount' => 0],
+                ],
+                'currency' => 'AUD',
             ];
         }
     }

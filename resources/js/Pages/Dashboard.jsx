@@ -806,6 +806,7 @@ export default function Dashboard({
     barData = [],
     visitors = { visitors: 0, pageviews: 0 },
     paymentStats = [],
+    paymentCurrency = "AUD",
 }) {
     const { props } = usePage();
     const user = props?.auth?.user;
@@ -869,6 +870,22 @@ export default function Dashboard({
         (sum, item) => sum + (item.value || 0),
         0,
     );
+
+    const collectedAmount =
+        paymentStats.find((item) => item.status === "paid")?.amount || 0;
+
+    const formatMoney = (amount) => {
+        try {
+            return new Intl.NumberFormat("en-AU", {
+                style: "currency",
+                currency: paymentCurrency || "AUD",
+                maximumFractionDigits: 2,
+            }).format(amount || 0);
+        } catch (e) {
+            // Fall back if an unexpected currency code slips through
+            return `${(amount || 0).toLocaleString()} ${paymentCurrency || ""}`;
+        }
+    };
 
     // Custom Tooltip for Pie Chart
     const PieCustomTooltip = ({ active, payload }) => {
@@ -959,10 +976,20 @@ export default function Dashboard({
                             {data.name}
                         </p>
                     </div>
-                    <span className="font-semibold text-white">
-                        {data.value.toLocaleString()} payment
-                        {data.value === 1 ? "" : "s"}
-                    </span>
+                    <div className="space-y-1">
+                        <div className="flex items-center justify-between gap-6">
+                            <span className="text-gray-300">Payments</span>
+                            <span className="font-semibold text-white">
+                                {data.value.toLocaleString()}
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-6">
+                            <span className="text-gray-300">Amount</span>
+                            <span className="font-semibold text-white">
+                                {formatMoney(data.amount)}
+                            </span>
+                        </div>
+                    </div>
                 </div>
             );
         }
@@ -1450,14 +1477,28 @@ export default function Dashboard({
 
                                 {/* Payments Collected Chart */}
                                 <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h3 className="text-lg font-semibold text-gray-900">
-                                            Payments Collected
-                                        </h3>
-                                        <span className="text-xs font-medium text-gray-500">
-                                            {totalPayments.toLocaleString()}{" "}
-                                            total
-                                        </span>
+                                    <div className="flex items-start justify-between mb-4 gap-3">
+                                        <div>
+                                            <h3 className="text-lg font-semibold text-gray-900">
+                                                Payments Collected
+                                            </h3>
+                                            <p className="text-xs text-gray-500 mt-0.5">
+                                                {totalPayments.toLocaleString()}{" "}
+                                                payment
+                                                {totalPayments === 1
+                                                    ? ""
+                                                    : "s"}{" "}
+                                                total
+                                            </p>
+                                        </div>
+                                        <div className="text-right flex-shrink-0">
+                                            <p className="text-xs font-medium text-emerald-600 uppercase tracking-wide">
+                                                Money collected
+                                            </p>
+                                            <p className="text-2xl font-bold text-emerald-700">
+                                                {formatMoney(collectedAmount)}
+                                            </p>
+                                        </div>
                                     </div>
 
                                     {totalPayments > 0 ? (
@@ -1555,6 +1596,47 @@ export default function Dashboard({
                                                 Collected, pending, and failed
                                                 payments will show up here
                                             </p>
+                                        </div>
+                                    )}
+
+                                    {/* Per-status amount breakdown */}
+                                    {totalPayments > 0 && (
+                                        <div className="mt-4 grid grid-cols-3 gap-3">
+                                            {paymentStats.map((item) => (
+                                                <div
+                                                    key={item.status}
+                                                    className="rounded-lg bg-gray-50 p-3"
+                                                >
+                                                    <div className="flex items-center gap-1.5 mb-1">
+                                                        <div
+                                                            className="w-2 h-2 rounded-full flex-shrink-0"
+                                                            style={{
+                                                                backgroundColor:
+                                                                    PAYMENT_STATUS_COLORS[
+                                                                        item
+                                                                            .status
+                                                                    ] ||
+                                                                    "#94a3b8",
+                                                            }}
+                                                        />
+                                                        <p className="text-xs font-medium text-gray-500 truncate">
+                                                            {item.name}
+                                                        </p>
+                                                    </div>
+                                                    <p className="text-sm font-bold text-gray-900">
+                                                        {formatMoney(
+                                                            item.amount,
+                                                        )}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500">
+                                                        {item.value.toLocaleString()}{" "}
+                                                        payment
+                                                        {item.value === 1
+                                                            ? ""
+                                                            : "s"}
+                                                    </p>
+                                                </div>
+                                            ))}
                                         </div>
                                     )}
                                 </div>
