@@ -1019,6 +1019,121 @@ export default function Dashboard({
               ).toLocaleString()
             : "0";
 
+    // Config for the fancy stat cards — keeps the JSX below clean and makes
+    // it trivial to add/reorder cards later.
+    const statCards = [
+        {
+            key: "visitors",
+            label: "Total Visitors",
+            value: visitors?.visitors?.toLocaleString() || "0",
+            sublabel: "All-time unique",
+            gradient: "from-blue-600 via-indigo-600 to-indigo-700",
+            glow: "shadow-blue-500/30",
+            ringColor: "ring-blue-400/30",
+            iconBg: "bg-white/15",
+            blobColor: "bg-blue-300/30",
+            icon: (
+                <svg
+                    className="w-6 h-6 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                    />
+                </svg>
+            ),
+        },
+        {
+            key: "pageviews",
+            label: "Page Views",
+            value: visitors?.pageviews?.toLocaleString() || "0",
+            sublabel: "All-time total",
+            gradient: "from-fuchsia-600 via-purple-600 to-purple-700",
+            glow: "shadow-purple-500/30",
+            ringColor: "ring-purple-400/30",
+            iconBg: "bg-white/15",
+            blobColor: "bg-fuchsia-300/30",
+            icon: (
+                <svg
+                    className="w-6 h-6 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                    <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                    />
+                </svg>
+            ),
+        },
+        {
+            key: "avgVisitors",
+            label: "Avg. Visitors",
+            value: avgVisitors,
+            sublabel: "Daily average",
+            gradient: "from-cyan-600 via-sky-600 to-blue-700",
+            glow: "shadow-sky-500/30",
+            ringColor: "ring-sky-400/30",
+            iconBg: "bg-white/15",
+            blobColor: "bg-cyan-300/30",
+            icon: (
+                <svg
+                    className="w-6 h-6 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                    />
+                </svg>
+            ),
+        },
+        {
+            key: "avgPageViews",
+            label: "Avg. Page Views",
+            value: avgPageViews,
+            sublabel: "Daily average",
+            gradient: "from-rose-600 via-pink-600 to-fuchsia-700",
+            glow: "shadow-pink-500/30",
+            ringColor: "ring-pink-400/30",
+            iconBg: "bg-white/15",
+            blobColor: "bg-rose-300/30",
+            icon: (
+                <svg
+                    className="w-6 h-6 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+                    />
+                </svg>
+            ),
+        },
+    ];
+
     return (
         <Wrapper>
             <div className=" sm:px-6 lg:px-8 py-6 lg:py-4">
@@ -1154,152 +1269,63 @@ export default function Dashboard({
                     </div>
                 </div>
 
-                {/* Stats Cards - 4 Column Grid */}
+                {/* Stats Cards - 4 Column Grid (fancy gradient version) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    {/* Total Visitors */}
-                    <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-6 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <div className="flex items-center gap-2 mb-3">
-                                    <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-            <svg
-  className="w-5 h-5 text-blue-600"
-  fill="none"
-  stroke="currentColor"
-  viewBox="0 0 24 24"
-  xmlns="http://www.w3.org/2000/svg"
->
-  <path
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    strokeWidth="2"
-    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-  />
-</svg>
-                                    </div>
-                                    <p className="text-sm font-medium text-gray-500">
-                                        Total Visitors
-                                    </p>
-                                </div>
-                                <p className="text-4xl font-bold text-gray-900 mb-2">
-                                    {visitors?.visitors?.toLocaleString() ||
-                                        "0"}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
+                    {statCards.map((card) => (
+                        <div
+                            key={card.key}
+                            className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${card.gradient} p-6 shadow-lg ${card.glow} ring-1 ${card.ringColor} transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl`}
+                        >
+                            {/* Decorative background blobs */}
+                            <div
+                                aria-hidden="true"
+                                className={`absolute -right-8 -top-10 h-32 w-32 rounded-full ${card.blobColor} blur-2xl transition-transform duration-500 group-hover:scale-110`}
+                            />
+                            <div
+                                aria-hidden="true"
+                                className="absolute -bottom-10 -left-6 h-28 w-28 rounded-full bg-white/10 blur-2xl"
+                            />
+                            {/* Subtle grid texture */}
+                            <div
+                                aria-hidden="true"
+                                className="absolute inset-0 opacity-[0.15]"
+                                style={{
+                                    backgroundImage:
+                                        "linear-gradient(rgba(255,255,255,0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.4) 1px, transparent 1px)",
+                                    backgroundSize: "22px 22px",
+                                }}
+                            />
 
-                    {/* Page Views */}
-                    <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-6 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <div className="flex items-center gap-2 mb-3">
-                                    <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
-                                        <svg
-                                            className="w-5 h-5 text-purple-600"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth="2"
-                                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                            />
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth="2"
-                                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                                            />
-                                        </svg>
+                            <div className="relative">
+                                <div className="flex items-center justify-between">
+                                    <div
+                                        className={`flex h-12 w-12 items-center justify-center rounded-xl ${card.iconBg} shadow-inner ring-1 ring-white/20 backdrop-blur-sm transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3`}
+                                    >
+                                        {card.icon}
                                     </div>
-                                    <p className="text-sm font-medium text-gray-500">
-                                        Page Views
-                                    </p>
+                                    <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/80 ring-1 ring-white/15">
+                                        Live
+                                    </span>
                                 </div>
-                                <p className="text-4xl font-bold text-gray-900 mb-2">
-                                    {visitors?.pageviews?.toLocaleString() ||
-                                        "0"}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
 
-                    {/* Avg. Visitors */}
-                    <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-6 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <div className="flex items-center gap-2 mb-3">
-                                    <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-                                        <svg
-                                            className="w-5 h-5 text-blue-600"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth="2"
-                                                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                                            />
-                                        </svg>
-                                    </div>
-                                    <p className="text-sm font-medium text-gray-500">
-                                        Avg. Visitors
-                                    </p>
-                                </div>
-                                <p className="text-4xl font-bold text-gray-900 mb-2">
-                                    {avgVisitors}
+                                <p className="mt-5 text-sm font-medium text-white/75">
+                                    {card.label}
                                 </p>
-                                <p className="text-xs text-gray-500 mt-1">
-                                    Daily average
+                                <p className="mt-1 text-4xl font-extrabold tracking-tight text-white drop-shadow-sm">
+                                    {card.value}
+                                </p>
+                                <p className="mt-2 text-xs font-medium text-white/60">
+                                    {card.sublabel}
                                 </p>
                             </div>
-                        </div>
-                    </div>
 
-                    {/* Avg. Page Views */}
-                    <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-6 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300">
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <div className="flex items-center gap-2 mb-3">
-                                    <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
-                                        <svg
-                                            className="w-5 h-5 text-purple-600"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth="2"
-                                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                            />
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth="2"
-                                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                                            />
-                                        </svg>
-                                    </div>
-                                    <p className="text-sm font-medium text-gray-500">
-                                        Avg. Page Views
-                                    </p>
-                                </div>
-                                <p className="text-4xl font-bold text-gray-900 mb-2">
-                                    {avgPageViews}
-                                </p>
-                                <p className="text-xs text-gray-500 mt-1">
-                                    Daily average
-                                </p>
-                            </div>
+                            {/* Bottom accent line that grows on hover */}
+                            <div
+                                aria-hidden="true"
+                                className="absolute inset-x-0 bottom-0 h-1 origin-left scale-x-0 bg-white/60 transition-transform duration-300 group-hover:scale-x-100"
+                            />
                         </div>
-                    </div>
+                    ))}
                 </div>
 
                 {/* Money Collected — standalone hero card, separate from counts */}
