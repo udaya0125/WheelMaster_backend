@@ -820,11 +820,6 @@ export default function Dashboard({
         "#10b981",
         "#ef4444",
     ];
-    const PAYMENT_STATUS_COLORS = {
-        paid: "#10b981",
-        pending: "#f59e0b",
-        failed: "#ef4444",
-    };
     const [isMobile, setIsMobile] = useState(false);
     const [isTablet, setIsTablet] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -873,18 +868,22 @@ export default function Dashboard({
         0,
     );
 
-    const collectedStat = paymentStats.find((item) => item.status === "paid");
-    const pendingStat = paymentStats.find((item) => item.status === "pending");
-    const failedStat = paymentStats.find((item) => item.status === "failed");
+    // Normalize before matching — protects the dashboard from silently
+    // showing $0 if the backend ever sends "Paid", " paid ", etc. instead
+    // of the exact lowercase "paid" string.
+    const normalizeStatus = (value) =>
+        typeof value === "string" ? value.trim().toLowerCase() : "";
+    const findStat = (status) =>
+        paymentStats.find((item) => normalizeStatus(item.status) === status);
+
+    const collectedStat = findStat("paid");
+    const pendingStat = findStat("pending");
+    const failedStat = findStat("failed");
 
     const collectedAmount = collectedStat?.amount || 0;
     const pendingAmount = pendingStat?.amount || 0;
     const failedAmount = failedStat?.amount || 0;
     const totalAmountTracked = collectedAmount + pendingAmount + failedAmount;
-    const collectedShare =
-        totalAmountTracked > 0
-            ? Math.round((collectedAmount / totalAmountTracked) * 100)
-            : 0;
 
     const formatAmount = (amount) => {
         try {
@@ -963,35 +962,6 @@ export default function Dashboard({
                             </div>
                         ))}
                     </div>
-                </div>
-            );
-        }
-        return null;
-    };
-
-    // Custom Tooltip for Payment Status Count Chart
-    const PaymentCountTooltip = ({ active, payload }) => {
-        if (active && payload && payload.length) {
-            const data = payload[0].payload;
-            return (
-                <div className="bg-gray-900/95 backdrop-blur-sm px-4 py-3 rounded-xl shadow-2xl border border-gray-800 text-sm">
-                    <div className="flex items-center gap-2 mb-1">
-                        <div
-                            className="w-3 h-3 rounded-full"
-                            style={{
-                                backgroundColor:
-                                    PAYMENT_STATUS_COLORS[data.status] ||
-                                    "#94a3b8",
-                            }}
-                        />
-                        <p className="font-semibold text-white">
-                            {data.name}
-                        </p>
-                    </div>
-                    <span className="font-semibold text-white">
-                        {data.value.toLocaleString()} payment
-                        {data.value === 1 ? "" : "s"}
-                    </span>
                 </div>
             );
         }
@@ -1136,34 +1106,54 @@ export default function Dashboard({
         },
     ];
 
-    // Payment breakdown rows used by the redesigned "Amount Collected" panel
-    const amountBreakdown = [
+    // Shared status config, styled to match the original gradient stat
+    // cards up top (gradient bg, glow, blob color, icon in a translucent
+    // chip) so the payment tiles below feel like the same family.
+    const paymentStatusMeta = [
         {
-            key: "collected",
+            key: "paid",
             label: "Collected",
             amount: collectedAmount,
             count: collectedStat?.value || 0,
-            dot: "bg-emerald-500",
-            text: "text-emerald-700",
-            chip: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+            gradient: "from-emerald-600 via-emerald-500 to-teal-600",
+            glow: "shadow-emerald-500/30",
+            ringColor: "ring-emerald-400/30",
+            blobColor: "bg-emerald-300/30",
+            icon: (
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                </svg>
+            ),
         },
         {
             key: "pending",
             label: "Pending",
             amount: pendingAmount,
             count: pendingStat?.value || 0,
-            dot: "bg-amber-500",
-            text: "text-amber-700",
-            chip: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+            gradient: "from-amber-600 via-orange-500 to-amber-700",
+            glow: "shadow-amber-500/30",
+            ringColor: "ring-amber-400/30",
+            blobColor: "bg-amber-300/30",
+            icon: (
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            ),
         },
         {
             key: "failed",
             label: "Failed",
             amount: failedAmount,
             count: failedStat?.value || 0,
-            dot: "bg-red-500",
-            text: "text-red-700",
-            chip: "bg-red-50 text-red-700 ring-1 ring-red-200",
+            gradient: "from-red-600 via-rose-600 to-red-700",
+            glow: "shadow-red-500/30",
+            ringColor: "ring-red-400/30",
+            blobColor: "bg-red-300/30",
+            icon: (
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            ),
         },
     ];
 
@@ -1361,106 +1351,82 @@ export default function Dashboard({
                     ))}
                 </div>
 
-                {/* Amount Collected — redesigned summary panel: headline figure + a
-                    clean breakdown table instead of the old two-tile layout. */}
-                <div className="mb-8 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-lg">
-                    <div className="flex flex-col gap-6 p-6 sm:p-7 lg:flex-row lg:items-stretch">
-                        {/* Headline figure */}
-                        <div className="relative flex flex-1 flex-col justify-between overflow-hidden rounded-xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-6 text-white">
-                            <div
-                                aria-hidden="true"
-                                className="absolute -right-10 -top-12 h-40 w-40 rounded-full bg-indigo-500/20 blur-2xl"
-                            />
-                            <div
-                                aria-hidden="true"
-                                className="absolute -bottom-12 -left-8 h-32 w-32 rounded-full bg-emerald-400/10 blur-2xl"
-                            />
-                            <div className="relative">
-                                <div className="flex items-center gap-2">
-                                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 ring-1 ring-white/15">
-                                        <svg
-                                            className="h-4.5 w-4.5 text-emerald-300"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth="1.8"
-                                                d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"
-                                            />
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth="1.8"
-                                                d="M3 10h18M7 15h4"
-                                            />
-                                        </svg>
-                                    </div>
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-white/70">
-                                        Amount Collected
-                                    </p>
-                                </div>
-                                <p className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">
-                                    {formatAmount(collectedAmount)}
-                                </p>
-                                <p className="mt-2 text-sm text-white/60">
-                                    From {(collectedStat?.value || 0).toLocaleString()}{" "}
-                                    completed payment
-                                    {(collectedStat?.value || 0) === 1 ? "" : "s"}
-                                </p>
-                            </div>
+                {/* Payments — same gradient-tile treatment as the stat cards
+                    above. Each tile carries the amount, payment count, and
+                    share of the tracked total for that status. */}
+                <div className="mb-8">
+                    <div className="mb-4 flex items-center justify-between">
+                        <h2 className="text-lg font-bold text-gray-900">
+                            Payments
+                        </h2>
+                        <span className="text-xs font-medium text-gray-500">
+                            {totalPayments.toLocaleString()} total ·{" "}
+                            {formatAmount(totalAmountTracked)} tracked
+                        </span>
+                    </div>
 
-                            {totalAmountTracked > 0 && (
-                                <div className="relative mt-6">
-                                    <div className="flex items-center justify-between text-xs text-white/60 mb-1.5">
-                                        <span>Share of tracked total</span>
-                                        <span className="font-semibold text-white">
-                                            {collectedShare}%
-                                        </span>
-                                    </div>
-                                    <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
-                                        <div
-                                            className="h-full rounded-full bg-emerald-400 transition-all"
-                                            style={{
-                                                width: `${collectedShare}%`,
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                        {paymentStatusMeta.map((row) => {
+                            const countPct =
+                                totalPayments > 0
+                                    ? Math.round((row.count / totalPayments) * 100)
+                                    : 0;
 
-                        {/* Breakdown list */}
-                        <div className="flex flex-1 flex-col justify-center gap-3">
-                            {amountBreakdown.map((row) => (
+                            return (
                                 <div
                                     key={row.key}
-                                    className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50/70 px-4 py-3.5"
+                                    className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${row.gradient} p-6 shadow-lg ${row.glow} ring-1 ${row.ringColor} transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl`}
                                 >
-                                    <div className="flex items-center gap-3">
-                                        <span
-                                            className={`h-2.5 w-2.5 rounded-full ${row.dot}`}
-                                        />
-                                        <div>
-                                            <p className="text-sm font-semibold text-gray-900">
-                                                {row.label}
-                                            </p>
-                                            <p className="text-xs text-gray-500">
-                                                {row.count.toLocaleString()}{" "}
-                                                payment{row.count === 1 ? "" : "s"}
-                                            </p>
+                                    {/* Decorative background blobs */}
+                                    <div
+                                        aria-hidden="true"
+                                        className={`absolute -right-8 -top-10 h-32 w-32 rounded-full ${row.blobColor} blur-2xl transition-transform duration-500 group-hover:scale-110`}
+                                    />
+                                    <div
+                                        aria-hidden="true"
+                                        className="absolute -bottom-10 -left-6 h-28 w-28 rounded-full bg-white/10 blur-2xl"
+                                    />
+                                    {/* Subtle grid texture */}
+                                    <div
+                                        aria-hidden="true"
+                                        className="absolute inset-0 opacity-[0.15]"
+                                        style={{
+                                            backgroundImage:
+                                                "linear-gradient(rgba(255,255,255,0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.4) 1px, transparent 1px)",
+                                            backgroundSize: "22px 22px",
+                                        }}
+                                    />
+
+                                    <div className="relative">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/15 shadow-inner ring-1 ring-white/20 backdrop-blur-sm transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3">
+                                                {row.icon}
+                                            </div>
+                                            <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/80 ring-1 ring-white/15">
+                                                {countPct}%
+                                            </span>
                                         </div>
+
+                                        <p className="mt-5 text-sm font-medium text-white/75">
+                                            {row.label}
+                                        </p>
+                                        <p className="mt-1 text-4xl font-extrabold tracking-tight text-white drop-shadow-sm">
+                                            {formatAmount(row.amount)}
+                                        </p>
+                                        <p className="mt-2 text-xs font-medium text-white/60">
+                                            {row.count.toLocaleString()} payment
+                                            {row.count === 1 ? "" : "s"}
+                                        </p>
                                     </div>
-                                    <span
-                                        className={`rounded-full px-3 py-1 text-sm font-bold ${row.chip}`}
-                                    >
-                                        {formatAmount(row.amount)}
-                                    </span>
+
+                                    {/* Bottom accent line that grows on hover */}
+                                    <div
+                                        aria-hidden="true"
+                                        className="absolute inset-x-0 bottom-0 h-1 origin-left scale-x-0 bg-white/60 transition-transform duration-300 group-hover:scale-x-100"
+                                    />
                                 </div>
-                            ))}
-                        </div>
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -1632,154 +1598,6 @@ export default function Dashboard({
                                             <p className="text-sm text-gray-500 max-w-sm">
                                                 Start tracking your website to
                                                 see page performance insights
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Payment Status — counts only, kept separate from the amount panel above */}
-                                <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h3 className="text-lg font-semibold text-gray-900">
-                                            Payment Status
-                                        </h3>
-                                        <span className="text-xs font-medium text-gray-500">
-                                            {totalPayments.toLocaleString()}{" "}
-                                            total
-                                        </span>
-                                    </div>
-
-                                    {totalPayments > 0 ? (
-                                        <>
-                                            <div className="h-52">
-                                                <ResponsiveContainer
-                                                    width="100%"
-                                                    height="100%"
-                                                >
-                                                    <BarChart
-                                                        data={paymentStats}
-                                                        layout="vertical"
-                                                        margin={{
-                                                            top: 5,
-                                                            right: 30,
-                                                            left: 10,
-                                                            bottom: 5,
-                                                        }}
-                                                    >
-                                                        <CartesianGrid
-                                                            strokeDasharray="3 3"
-                                                            stroke="#f0f0f0"
-                                                            horizontal={false}
-                                                        />
-                                                        <XAxis
-                                                            type="number"
-                                                            stroke="#666"
-                                                            fontSize={12}
-                                                            axisLine={false}
-                                                            tickLine={false}
-                                                            allowDecimals={
-                                                                false
-                                                            }
-                                                        />
-                                                        <YAxis
-                                                            type="category"
-                                                            dataKey="name"
-                                                            stroke="#666"
-                                                            fontSize={13}
-                                                            axisLine={false}
-                                                            tickLine={false}
-                                                            width={80}
-                                                        />
-                                                        <Tooltip
-                                                            content={
-                                                                <PaymentCountTooltip />
-                                                            }
-                                                            cursor={{
-                                                                fill: "rgba(59, 130, 246, 0.05)",
-                                                            }}
-                                                        />
-                                                        <Bar
-                                                            dataKey="value"
-                                                            radius={[
-                                                                0, 6, 6, 0,
-                                                            ]}
-                                                            maxBarSize={28}
-                                                        >
-                                                            {paymentStats.map(
-                                                                (
-                                                                    entry,
-                                                                    index,
-                                                                ) => (
-                                                                    <Cell
-                                                                        key={`payment-count-cell-${index}`}
-                                                                        fill={
-                                                                            PAYMENT_STATUS_COLORS[
-                                                                                entry
-                                                                                    .status
-                                                                            ] ||
-                                                                            "#94a3b8"
-                                                                        }
-                                                                    />
-                                                                ),
-                                                            )}
-                                                        </Bar>
-                                                    </BarChart>
-                                                </ResponsiveContainer>
-                                            </div>
-
-                                            {/* Count-only legend, no amounts mixed in */}
-                                            <div className="mt-4 grid grid-cols-3 gap-3">
-                                                {paymentStats.map((item) => (
-                                                    <div
-                                                        key={item.status}
-                                                        className="rounded-lg bg-gray-50 p-3 text-center"
-                                                    >
-                                                        <div className="flex items-center justify-center gap-1.5 mb-1">
-                                                            <div
-                                                                className="w-2 h-2 rounded-full flex-shrink-0"
-                                                                style={{
-                                                                    backgroundColor:
-                                                                        PAYMENT_STATUS_COLORS[
-                                                                            item
-                                                                                .status
-                                                                        ] ||
-                                                                        "#94a3b8",
-                                                                }}
-                                                            />
-                                                            <p className="text-xs font-medium text-gray-500">
-                                                                {item.name}
-                                                            </p>
-                                                        </div>
-                                                        <p className="text-lg font-bold text-gray-900">
-                                                            {item.value.toLocaleString()}
-                                                        </p>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <div className="h-52 flex flex-col items-center justify-center text-center">
-                                            <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
-                                                <svg
-                                                    className="w-8 h-8 text-gray-400"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    viewBox="0 0 24 24"
-                                                >
-                                                    <path
-                                                        strokeLinecap="round"
-                                                        strokeLinejoin="round"
-                                                        strokeWidth="1.5"
-                                                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                                                    />
-                                                </svg>
-                                            </div>
-                                            <p className="text-gray-900 font-semibold mb-1">
-                                                No payments yet
-                                            </p>
-                                            <p className="text-sm text-gray-500 max-w-sm">
-                                                Payment status counts will show
-                                                up here
                                             </p>
                                         </div>
                                     )}

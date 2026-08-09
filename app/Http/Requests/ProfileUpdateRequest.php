@@ -25,10 +25,10 @@ class ProfileUpdateRequest extends FormRequest
                 'max:255',
                 Rule::unique(User::class)->ignore($this->user()->id),
             ],
-            'phone_number' => ['required', 'string', 'regex:/^[0-9+\-\s]{7,15}$/'],
-            'area' => ['required', 'string', 'max:255'],
-            'pickup_address' => ['required', 'string', 'max:255'],
-            'dropoff_address' => ['required', 'string', 'max:255'],
+            'phone_number' => ['nullable', 'string', 'regex:/^[0-9+\-\s]{7,15}$/'],
+            'area' => ['nullable', 'string', 'max:255'],
+            'pickup_address' => ['nullable', 'string', 'max:255'],
+            'dropoff_address' => ['nullable', 'string', 'max:255'],
         ];
     }
 }
