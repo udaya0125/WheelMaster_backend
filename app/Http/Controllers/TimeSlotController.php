@@ -161,7 +161,17 @@ class TimeSlotController extends Controller
             }
 
             // ── Duration bookability check ────────────────────────────────────
-            if ($status === 'available' && $priceId &&
+            // Runs whenever we can actually resolve a duration for this
+            // request — either from an explicit price_id (normal booking
+            // flow) or from exclude_reservation_id (reschedule flow, where
+            // duration is derived from the existing booking's own
+            // start/end time). Previously this only ran when $priceId was
+            // present, which meant a reschedule request with no price_id
+            // skipped the buffer/overlap check entirely and could show a
+            // start time as "available" even though it didn't actually
+            // leave room for the lesson + 20-minute driving buffer before
+            // the next booking/block.
+            if ($status === 'available' && ($priceId || $excludeId) &&
                 !$this->isBookableForDuration($date, $priceId, $slotStart, $durationMinutes, $excludeId)
             ) {
                 $status = 'unavailable';

@@ -1110,6 +1110,10 @@ const UserReservation = () => {
                 width: 60,
             },
             {
+                Header: "Booking ID",
+                accessor: "id",
+            },
+            {
                 Header: "User",
                 accessor: "user_name",
             },
