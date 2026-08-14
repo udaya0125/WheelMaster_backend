@@ -26,7 +26,9 @@ Route::get('/user', function (Request $request) {
     // ############################################################################
     // API routes for the  Testimonial Controller
     // ############################################################################
+
     Route::get('/testimonials', [TestimonialController::class, 'index']);
+
     // ############################################################################
     // API routes for the  Price Controller 
     // ############################################################################
@@ -36,14 +38,17 @@ Route::get('/user', function (Request $request) {
     // ############################################################################
     // API routes for the  Blog Controller
     // ############################################################################
+
     Route::get('/ourblog', [BlogController::class, 'index']);
 
     // ############################################################################
     // API routes for the  Blog Controller slug
     // ############################################################################
+
     Route::get('/blog/{slug}', [BlogController::class, 'indexShowBlogSlug']);
 
     // ############################################################################
     // API routes for the Price Controller slug
     // ############################################################################
+    
     Route::get('/ourprice/{slug}', [PriceController::class, 'indexShowPriceSlug']);

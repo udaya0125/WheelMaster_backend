@@ -6,7 +6,7 @@
 
         <title inertia>{{ config('app.name', 'WheelMaster') }}</title>
 
-         <link rel="icon" href='/images/logo2.png'type='image/png'>
+        <link rel="icon" href='/images/logo2.png'type='image/png'>
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
