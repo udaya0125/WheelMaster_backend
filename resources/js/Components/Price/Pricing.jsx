@@ -1027,14 +1027,15 @@ const Pricing = () => {
 
                 <div className="p-5 sm:p-6 lg:p-8 flex flex-col flex-grow">
                     <div className="mb-4 sm:mb-6">
+                         {description && (
+                            <p className="text-slate-900 text-lg sm:text-xl font-bold  leading-relaxed mb-1.5">{description}</p>
+                        )}
                         {(!isPackageBundle || isBookableFiveHourBundle) && displayDuration && (
-                            <h3 className="text-lg sm:text-xl font-bold text-slate-900 mb-1.5">
+                            <h3 className=" text-xs sm:text-sm text-slate-500 ">
                                 {displayDuration}
                             </h3>
                         )}
-                        {description && (
-                            <p className="text-slate-500 text-xs sm:text-sm leading-relaxed">{description}</p>
-                        )}
+                       
                     </div>
 
                     <div className="mb-5 sm:mb-6 pb-5 sm:pb-6 border-b border-slate-100">
