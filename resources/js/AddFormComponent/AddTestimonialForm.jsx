@@ -237,7 +237,6 @@
 
 // export default AddTestimonialForm;
 
-
 import React, { useEffect, useState } from "react";
 
 const AddTestimonialForm = ({ onClose, onCreate }) => {
@@ -281,7 +280,10 @@ const AddTestimonialForm = ({ onClose, onCreate }) => {
 
             if (!isFileSizeValid(file)) {
                 alert(
-                    `The file "${file.name}" (${(file.size / (1024 * 1024)).toFixed(
+                    `The file "${file.name}" (${(
+                        file.size /
+                        (1024 * 1024)
+                    ).toFixed(
                         2,
                     )}MB) exceeds the 2MB limit and was not added.\n\n` +
                         `Maximum allowed file size is 2MB.`,
