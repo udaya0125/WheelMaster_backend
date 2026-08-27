@@ -20,6 +20,10 @@ class UserReservationController extends Controller
 
     private const DEFAULT_SCHEDULE_END = '18:00:00';
 
+    // Reschedule is blocked once the booking's existing start time is
+    // this many hours away (or less). Used only by reschedule().
+    private const RESCHEDULE_CUTOFF_HOURS = 48;
+
     // ---------------------------------------
     // Helper: Extract number of lessons from package description
     // ---------------------------------------
@@ -776,101 +780,117 @@ class UserReservationController extends Controller
         }
     }
 
-    // This is for the Rescheduling 
+    // This is for the Rescheduling
 
     // ---------------------------------------
-// RESCHEDULE - change date/time on an existing reservation only
-// ---------------------------------------
-public function reschedule(Request $request, $id)
-{
-    $reservation = UserReservation::find($id);
+    // RESCHEDULE - change date/time on an existing reservation only
+    // ---------------------------------------
+    public function reschedule(Request $request, $id)
+    {
+        $reservation = UserReservation::find($id);
 
-    if (! $reservation) {
+        if (! $reservation) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Booking not found',
+            ], 404);
+        }
+
+        if ($reservation->status === 'Rejected') {
+            return response()->json([
+                'success' => false,
+                'message' => 'This booking has been cancelled and cannot be rescheduled.',
+            ], 422);
+        }
+
+        // Block rescheduling once the booking's CURRENT start time is 48
+        // hours away or less. This is checked against the existing
+        // reservation_date/start_time, not the newly requested ones — so a
+        // booking starting tomorrow can't be rescheduled no matter what new
+        // date/time is submitted.
+        $originalStart = Carbon::parse(
+            Carbon::parse($reservation->reservation_date)->format('Y-m-d').' '.$reservation->start_time
+        );
+
+        if (Carbon::now()->greaterThanOrEqualTo($originalStart->copy()->subHours(self::RESCHEDULE_CUTOFF_HOURS))) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This booking starts within 48 hours and can no longer be rescheduled.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'reservation_date' => 'required|date|after_or_equal:today',
+            'start_time' => 'required',
+            'end_time' => 'required',
+        ]);
+
+        $requestStart = Carbon::parse($validated['start_time']);
+        $requestEnd = Carbon::parse($validated['end_time']);
+        $requestBufferEnd = $this->bookingBufferEnd($validated['end_time']);
+        $reservationDate = Carbon::parse($validated['reservation_date'])->format('Y-m-d');
+
+        $existingBlock = $this->hasBlockOverlap($reservationDate, $requestStart, $requestBufferEnd);
+
+        if ($existingBlock) {
+            return response()->json([
+                'success' => false,
+                'message' => 'That time slot is blocked. Please choose another.',
+            ], 409);
+        }
+
+        TimeSlot::initializeForDateRange($reservationDate, $reservationDate);
+
+        $startsOnAvailableSlot = TimeSlot::where('date', $reservationDate)
+            ->where('start_time', $requestStart->format('H:i:s'))
+            ->where('status', 'available')
+            ->exists();
+
+        if (! $startsOnAvailableSlot || $requestBufferEnd > $this->getScheduleEndForDate($reservationDate)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'That lesson does not fit inside the available schedule. Please choose another time.',
+            ], 409);
+        }
+
+        $conflict = $this->findReservationConflict(
+            $reservationDate,
+            $requestStart,
+            $requestEnd,
+            $reservation
+        );
+
+        if ($conflict) {
+            return response()->json([
+                'success' => false,
+                'message' => $conflict['type'] === 'direct_overlap'
+                    ? 'That time slot is already booked. Please choose another.'
+                    : 'That time is too close to another booking — a 20-minute buffer is required.',
+            ], 409);
+        }
+
+        $oldSchedule = [
+            'reservation_date' => $reservation->reservation_date,
+            'start_time' => $reservation->start_time,
+            'end_time' => $reservation->end_time,
+        ];
+
+        // Rescheduling puts the booking back to Pending so the instructor
+        // re-confirms the new time. Drop the 'status' line below if you'd
+        // rather keep an Accepted booking Accepted after a self-reschedule.
+        $reservation->update([
+            'reservation_date' => $reservationDate,
+            'start_time' => $requestStart->format('H:i:s'),
+            'end_time' => $requestEnd->format('H:i:s'),
+            'status' => 'Pending',
+        ]);
+
+        $this->sendTimeUpdateEmail($reservation, $oldSchedule);
+
         return response()->json([
-            'success' => false,
-            'message' => 'Booking not found',
-        ], 404);
+            'success' => true,
+            'message' => 'Booking rescheduled successfully',
+            'data' => $reservation,
+        ], 200);
     }
-
-    if ($reservation->status === 'Rejected') {
-        return response()->json([
-            'success' => false,
-            'message' => 'This booking has been cancelled and cannot be rescheduled.',
-        ], 422);
-    }
-
-    $validated = $request->validate([
-        'reservation_date' => 'required|date|after_or_equal:today',
-        'start_time' => 'required',
-        'end_time' => 'required',
-    ]);
-
-    $requestStart = Carbon::parse($validated['start_time']);
-    $requestEnd = Carbon::parse($validated['end_time']);
-    $requestBufferEnd = $this->bookingBufferEnd($validated['end_time']);
-    $reservationDate = Carbon::parse($validated['reservation_date'])->format('Y-m-d');
-
-    $existingBlock = $this->hasBlockOverlap($reservationDate, $requestStart, $requestBufferEnd);
-
-    if ($existingBlock) {
-        return response()->json([
-            'success' => false,
-            'message' => 'That time slot is blocked. Please choose another.',
-        ], 409);
-    }
-
-    TimeSlot::initializeForDateRange($reservationDate, $reservationDate);
-
-    $startsOnAvailableSlot = TimeSlot::where('date', $reservationDate)
-        ->where('start_time', $requestStart->format('H:i:s'))
-        ->where('status', 'available')
-        ->exists();
-
-    if (! $startsOnAvailableSlot || $requestBufferEnd > $this->getScheduleEndForDate($reservationDate)) {
-        return response()->json([
-            'success' => false,
-            'message' => 'That lesson does not fit inside the available schedule. Please choose another time.',
-        ], 409);
-    }
-
-    $conflict = $this->findReservationConflict(
-        $reservationDate,
-        $requestStart,
-        $requestEnd,
-        $reservation
-    );
-
-    if ($conflict) {
-        return response()->json([
-            'success' => false,
-            'message' => $conflict['type'] === 'direct_overlap'
-                ? 'That time slot is already booked. Please choose another.'
-                : 'That time is too close to another booking — a 20-minute buffer is required.',
-        ], 409);
-    }
-
-    $oldSchedule = [
-        'reservation_date' => $reservation->reservation_date,
-        'start_time' => $reservation->start_time,
-        'end_time' => $reservation->end_time,
-    ];
-
-    // Rescheduling puts the booking back to Pending so the instructor
-    // re-confirms the new time. Drop the 'status' line below if you'd
-    // rather keep an Accepted booking Accepted after a self-reschedule.
-    $reservation->update([
-        'reservation_date' => $reservationDate,
-        'start_time' => $requestStart->format('H:i:s'),
-        'end_time' => $requestEnd->format('H:i:s'),
-        'status' => 'Pending',
-    ]);
-
-    $this->sendTimeUpdateEmail($reservation, $oldSchedule);
-
-    return response()->json([
-        'success' => true,
-        'message' => 'Booking rescheduled successfully',
-        'data' => $reservation,
-    ], 200);
-}
 }

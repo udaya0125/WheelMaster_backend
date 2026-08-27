@@ -13,6 +13,25 @@ class Price extends Model
 
     public const FIVE_HOUR_BUNDLE_ALLOWED_SESSION_MINUTES = [60, 120];
 
+    public const FIVE_HOUR_BUNDLE_HOURS = 5;
+
+    public const TEN_HOUR_BUNDLE_SESSION_MINUTES = 60;
+
+    public const TEN_HOUR_BUNDLE_TOTAL_MINUTES = 600;
+
+    public const TEN_HOUR_BUNDLE_ALLOWED_SESSION_MINUTES = [60, 120];
+
+    public const TEN_HOUR_BUNDLE_HOURS = 10;
+
+    // Generic allowed session lengths shared by every lesson bundle size.
+    public const LESSON_BUNDLE_ALLOWED_SESSION_MINUTES = [60, 120];
+
+    // Every recognised lesson bundle size, in hours. Add new sizes here.
+    private const LESSON_BUNDLE_HOUR_OPTIONS = [
+        self::FIVE_HOUR_BUNDLE_HOURS,
+        self::TEN_HOUR_BUNDLE_HOURS,
+    ];
+
     protected $fillable = [
         'description', 'price', 'features', 'duration', 'discount', 'category', 'slug',
     ];
@@ -30,14 +49,54 @@ class Price extends Model
                stripos($this->description ?? '', 'test') !== false;
     }
 
-    public function isFiveHourLessonBundle(): bool
+    /**
+     * Returns the matched lesson-bundle size in hours (5, 10, ...) or null
+     * if this price is not a recognised lesson bundle. This is the single
+     * source of truth for bundle detection — mirrors getLessonBundleHours()
+     * in the frontend packageRules.js.
+     */
+    public function getLessonBundleHours(): ?int
     {
         $category = strtolower($this->category ?? '');
         $description = strtolower($this->description ?? '');
 
-        return ! $this->isTestPackage()
-            && str_contains($category, 'package bundles')
-            && (bool) preg_match('/\b5\s*-?\s*hour\b/', $description);
+        if ($this->isTestPackage() || ! str_contains($category, 'package bundles')) {
+            return null;
+        }
+
+        foreach (self::LESSON_BUNDLE_HOUR_OPTIONS as $hours) {
+            if (preg_match('/\b'.$hours.'\s*-?\s*hour\b/', $description)) {
+                return $hours;
+            }
+        }
+
+        return null;
+    }
+
+    public function isLessonBundle(): bool
+    {
+        return $this->getLessonBundleHours() !== null;
+    }
+
+    public function isFiveHourLessonBundle(): bool
+    {
+        return $this->getLessonBundleHours() === self::FIVE_HOUR_BUNDLE_HOURS;
+    }
+
+    public function isTenHourLessonBundle(): bool
+    {
+        return $this->getLessonBundleHours() === self::TEN_HOUR_BUNDLE_HOURS;
+    }
+
+    /**
+     * Total minutes required to complete this lesson bundle, or null if
+     * this price is not a bundle.
+     */
+    public function lessonBundleTotalMinutes(): ?int
+    {
+        $hours = $this->getLessonBundleHours();
+
+        return $hours ? $hours * 60 : null;
     }
 
     public function isCartBookableLessonPackage(): bool
@@ -45,7 +104,7 @@ class Price extends Model
         $category = strtolower($this->category ?? '');
         $description = strtolower($this->description ?? '');
 
-        if ($this->isFiveHourLessonBundle()) {
+        if ($this->isLessonBundle()) {
             return true;
         }
 
@@ -56,14 +115,15 @@ class Price extends Model
 
     public function lessonBookingDurationMinutes(?int $requestedDurationMinutes = null): int
     {
-        if (! $this->isFiveHourLessonBundle()) {
+        if (! $this->isLessonBundle()) {
             return $this->durationMinutes();
         }
 
         $durationMinutes = $requestedDurationMinutes ?? self::FIVE_HOUR_BUNDLE_SESSION_MINUTES;
 
-        if (! in_array($durationMinutes, self::FIVE_HOUR_BUNDLE_ALLOWED_SESSION_MINUTES, true)) {
-            throw new \InvalidArgumentException('The 5 hour lesson bundle only supports 1-hour or 2-hour lessons.');
+        if (! in_array($durationMinutes, self::LESSON_BUNDLE_ALLOWED_SESSION_MINUTES, true)) {
+            $bundleHours = $this->getLessonBundleHours();
+            throw new \InvalidArgumentException("The {$bundleHours} hour lesson bundle only supports 1-hour or 2-hour lessons.");
         }
 
         return $durationMinutes;

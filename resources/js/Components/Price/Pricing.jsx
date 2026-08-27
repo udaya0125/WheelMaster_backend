@@ -817,13 +817,371 @@
 
 
 
+// import React, { useEffect, useState } from "react";
+// import { Check, Star, Zap, ArrowRight, Phone, Route } from "lucide-react";
+// import { Link } from "@inertiajs/react";
+// import axios from "axios";
+// import {
+//     getPackageDurationLabel,
+//     isFiveHourLessonBundle,
+// } from "../../Pages/PricePackages/packageRules";
+
+// const Pricing = () => {
+//     const [activeTab, setActiveTab] = useState("");
+//     const [prices, setPrices] = useState([]);
+//     const [loading, setLoading] = useState(true);
+//     const [categories, setCategories] = useState([]);
+
+//     useEffect(() => {
+//         const fetchPrices = async () => {
+//             try {
+//                 setLoading(true);
+//                 const response = await axios.get(route("ourprice.index"));
+//                 const data = response.data.data;
+//                 setPrices(data);
+
+//                 const uniqueCategories = [...new Set(data.map((p) => p.category))].filter(Boolean);
+//                 setCategories(uniqueCategories);
+
+//                 if (uniqueCategories.length > 0) {
+//                     setActiveTab(uniqueCategories[0]);
+//                 }
+//             } catch (err) {
+//                 console.error("Error fetching prices:", err);
+//             } finally {
+//                 setLoading(false);
+//             }
+//         };
+
+//         fetchPrices();
+//     }, []);
+
+//     const getPricesByCategory = () => {
+//         let filtered = prices.filter((p) => p.category === activeTab);
+
+//         if (activeTab.toLowerCase() === "standard lessons" && filtered.length >= 3) {
+//             // Move the "Comprehensive lesson for advanced skills" item to the 2nd position (Most Popular)
+//             const mostPopularIndex = filtered.findIndex(
+//                 (p) =>
+//                     p.description &&
+//                     p.description.toLowerCase().includes("comprehensive lesson for advanced skills")
+//             );
+
+//             if (mostPopularIndex !== -1) {
+//                 const reordered = [...filtered];
+//                 const [mostPopular] = reordered.splice(mostPopularIndex, 1);
+//                 reordered.splice(1, 0, mostPopular);
+//                 filtered = reordered;
+//             }
+
+//             // Move "Mock Test" to the 3rd position (index 2)
+//             const mockTestIndex = filtered.findIndex(
+//                 (p) => p.description && p.description.toLowerCase().includes("mock test")
+//             );
+
+//             if (mockTestIndex !== -1 && mockTestIndex !== 2) {
+//                 const reordered = [...filtered];
+//                 const [mockTest] = reordered.splice(mockTestIndex, 1);
+//                 const targetIndex = Math.min(2, reordered.length);
+//                 reordered.splice(targetIndex, 0, mockTest);
+//                 filtered = reordered;
+//             }
+//         }
+
+//         return filtered;
+//     };
+
+//     const getBookingRoute = (slug, category) =>
+//         category === "test packages" ? `/calendar/test/${slug}` : `/calendar/${slug}`;
+
+//     // Tailwind needs literal class names to detect them at build time, so
+//     // dynamic strings like `bg-${color}` won't work — use a lookup map instead.
+//     const colorClasses = {
+//         "blue-500": { border: "border-blue-500", tag: "bg-blue-500" },
+//         "blue-400": { border: "border-blue-400", tag: "bg-blue-400" },
+//         "blue-600": { border: "border-blue-600", tag: "bg-blue-600" },
+//     };
+
+//     const renderFeatures = (features) => {
+//         if (!features) return null;
+
+//         try {
+//             const cleaned = features.trim().replace(/^["']|["']$/g, "");
+//             const tempDiv = document.createElement("div");
+//             tempDiv.innerHTML = cleaned;
+
+//             let items = [];
+//             const listItems = tempDiv.querySelectorAll("li");
+//             if (listItems.length > 0) {
+//                 listItems.forEach((li) => {
+//                     const text = li.textContent.trim();
+//                     if (text) items.push(text);
+//                 });
+//             } else {
+//                 const text = tempDiv.textContent || cleaned;
+//                 items = text.split(/[•\n\-]/).map((i) => i.trim()).filter(Boolean);
+//             }
+
+//             if (items.length === 0) items = [cleaned.replace(/<[^>]*>/g, "")];
+
+//             return (
+//                 <div className="space-y-2">
+//                     {items.map((feature, i) => (
+//                         <div key={i} className="flex items-start gap-2">
+//                             <Check className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+//                             <span className="text-slate-600 text-xs sm:text-sm leading-relaxed">
+//                                 {feature}
+//                             </span>
+//                         </div>
+//                     ))}
+//                 </div>
+//             );
+//         } catch (error) {
+//             console.error("Error parsing features:", error);
+//             return (
+//                 <div className="flex items-start gap-2">
+//                     <Check className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+//                     <span className="text-slate-600 text-xs sm:text-sm">
+//                         {features.replace(/<[^>]*>/g, "").trim()}
+//                     </span>
+//                 </div>
+//             );
+//         }
+//     };
+
+//     const PricingCard = ({ duration, price, description, features, discount, category, slug }) => {
+//         const isPackageBundle = category?.toLowerCase().includes("package bundles");
+//         const isBookableFiveHourBundle = isFiveHourLessonBundle({
+//             duration,
+//             description,
+//             category,
+//         });
+//         const isLogBookPackage = description?.toLowerCase().includes("log book package");
+//         const isTestOnly = category?.toLowerCase() === "test packages" && duration?.toLowerCase().includes("test only");
+//         const isMockTest =
+//             category?.toLowerCase() === "standard lessons" &&
+//             description?.toLowerCase().includes("mock test");
+//         const isMostPopularLesson =
+//             category?.toLowerCase() === "standard lessons" &&
+//             description?.toLowerCase().includes("comprehensive lesson for advanced skills");
+
+//         let tag = null;
+//         if (isMostPopularLesson) {
+//             tag = { text: "Most Popular", icon: Star, color: "blue-500" };
+//         } else if (isMockTest) {
+//             tag = { text: "Popular", icon: Star, color: "blue-400" };
+//         } else if (description?.toLowerCase().includes("10 x 1-hour lessons")) {
+//             tag = { text: "Popular", icon: Star, color: "blue-400" };
+//         } else if (isLogBookPackage) {
+//             tag = { text: "SPECIAL", icon: Zap, color: "blue-600" };
+//         }
+
+//         const bookingRoute = getBookingRoute(slug, category);
+//         const isHighlighted = tag?.text === "Most Popular";
+//         const colors = colorClasses[tag?.color] || colorClasses["blue-500"];
+//         const displayDuration = getPackageDurationLabel({
+//             duration,
+//             description,
+//             category,
+//         });
+
+//         const renderButton = () => {
+//             if ((isPackageBundle && !isBookableFiveHourBundle) || isTestOnly) {
+//                 return (
+//                     <a
+//                         href="tel:+1234567890"
+//                         className="w-full py-3.5 sm:py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 mt-auto text-white shadow-md hover:shadow-lg bg-blue-600 hover:bg-blue-700 text-sm sm:text-base"
+//                     >
+//                         <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
+//                         Call Now
+//                         <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
+//                     </a>
+//                 );
+//             }
+
+//             return (
+//                 <Link
+//                     href={bookingRoute}
+//                     className="w-full py-3.5 sm:py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 mt-auto text-white shadow-md hover:shadow-lg bg-blue-600 hover:bg-blue-700 text-sm sm:text-base"
+//                 >
+//                     {isLogBookPackage ? "Learn More" : "Book Now"}
+//                     <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
+//                 </Link>
+//             );
+//         };
+
+//         return (
+//             <div
+//                 className={`relative bg-white rounded-2xl flex flex-col h-full border-2 transition-all duration-300 hover:-translate-y-1 ${
+//                     tag ? `${colors.border} shadow-lg` : "border-slate-200 shadow-sm hover:shadow-lg"
+//                 } ${isHighlighted ? "md:scale-105 lg:scale-110 z-10" : ""}`}
+//             >
+//                 {tag && (
+//                     <div
+//                         className={`absolute -top-3 sm:-top-4 left-1/2 -translate-x-1/2 ${colors.tag} text-white px-4 sm:px-6 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-bold shadow-lg flex items-center gap-1 whitespace-nowrap`}
+//                     >
+//                         <tag.icon className="w-3 h-3 sm:w-4 sm:h-4 fill-current" />
+//                         {tag.text}
+//                     </div>
+//                 )}
+
+//                 <div className="p-5 sm:p-6 lg:p-8 flex flex-col flex-grow">
+//                     <div className="mb-4 sm:mb-6">
+//                          {description && (
+//                             <p className="text-slate-900 text-lg sm:text-xl font-bold  leading-relaxed mb-1.5">{description}</p>
+//                         )}
+//                         {(!isPackageBundle || isBookableFiveHourBundle) && displayDuration && (
+//                             <h3 className=" text-xs sm:text-sm text-slate-500 ">
+//                                 {displayDuration}
+//                             </h3>
+//                         )}
+                       
+//                     </div>
+
+//                     <div className="mb-5 sm:mb-6 pb-5 sm:pb-6 border-b border-slate-100">
+//                         <div className="flex items-end gap-1.5">
+//                             {isLogBookPackage ? (
+//                                 <span className="text-3xl sm:text-4xl font-extrabold text-slate-900">Included</span>
+//                             ) : (
+//                                 <>
+//                                     <span className="text-sm font-semibold text-slate-400 mb-1">$</span>
+//                                     <span className="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight leading-none">
+//                                         {price}
+//                                     </span>
+//                                 </>
+//                             )}
+//                         </div>
+//                         {discount && (
+//                             <div className="mt-2.5 inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-md text-xs font-semibold">
+//                                 You save ${discount}
+//                             </div>
+//                         )}
+//                     </div>
+
+//                     {features && <div className="mb-5 sm:mb-6 flex-grow">{renderFeatures(features)}</div>}
+
+//                     {renderButton()}
+//                 </div>
+//             </div>
+//         );
+//     };
+
+//     const formatCategoryName = (category) =>
+//         category ? category.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") : "Other";
+
+//     const filteredPrices = getPricesByCategory();
+
+//     return (
+//         <div className="bg-slate-50">
+//             <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 sm:pt-20 pb-8 sm:pb-10 text-center">
+//                 <p className="text-xs sm:text-sm font-bold uppercase tracking-[0.2em] text-blue-600 mb-3">
+//                     Pricing
+//                 </p>
+//                 <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900">
+//                     Choose your route to a licence
+//                 </h2>
+//                 <p className="text-slate-500 text-sm sm:text-base mt-3 max-w-xl mx-auto">
+//                     Simple, transparent pricing — no hidden fees.
+//                 </p>
+//             </div>
+
+//             <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 -mt-1">
+//                 {loading ? (
+//                     <div className="h-14 bg-slate-200/60 rounded-2xl animate-pulse" />
+//                 ) : categories.length > 0 ? (
+//                     <div className="bg-white border border-slate-200 rounded-2xl p-1.5 sm:p-2 flex flex-col sm:flex-row gap-1.5 shadow-sm">
+//                         {categories.map((category) => (
+//                             <button
+//                                 key={category}
+//                                 onClick={() => setActiveTab(category)}
+//                                 className={`relative flex-1 py-3 px-4 lg:px-6 rounded-xl font-semibold transition-all duration-200 ease-in-out text-sm sm:text-base focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
+//                                     activeTab === category
+//                                         ? "bg-blue-600 text-white shadow-md"
+//                                         : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+//                                 }`}
+//                             >
+//                                 {formatCategoryName(category)}
+//                             </button>
+//                         ))}
+//                     </div>
+//                 ) : (
+//                     <div className="w-full text-center py-6 text-slate-400 text-sm sm:text-base font-medium">
+//                         No categories available
+//                     </div>
+//                 )}
+//             </div>
+
+//             <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 pb-16 sm:pb-20 pt-10 sm:pt-12">
+//                 {loading ? (
+//                     <div className="grid gap-5 sm:gap-6 lg:gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+//                         {[1, 2, 3].map((i) => (
+//                             <div key={i} className="h-96 bg-white rounded-2xl border border-slate-200 animate-pulse" />
+//                         ))}
+//                     </div>
+//                 ) : filteredPrices.length > 0 ? (
+//                     <div
+//                         className={`grid gap-5 sm:gap-6 lg:gap-10 ${
+//                             filteredPrices.length === 1
+//                                 ? "grid-cols-1 max-w-sm mx-auto"
+//                                 : filteredPrices.length === 2
+//                                 ? "grid-cols-1 sm:grid-cols-2 max-w-2xl mx-auto"
+//                                 : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+//                         }`}
+//                     >
+//                         {filteredPrices.map((priceItem) => (
+//                             <div
+//                                 key={priceItem.id}
+//                                 className={
+//                                     priceItem.category?.toLowerCase() === "standard lessons" &&
+//                                     priceItem.description
+//                                         ?.toLowerCase()
+//                                         .includes("comprehensive lesson for advanced skills")
+//                                         ? "pt-5 sm:pt-6 lg:pt-0"
+//                                         : ""
+//                                 }
+//                             >
+//                                 <PricingCard
+//                                     duration={priceItem.duration}
+//                                     price={priceItem.price}
+//                                     description={priceItem.description}
+//                                     features={priceItem.features}
+//                                     discount={priceItem.discount}
+//                                     category={priceItem.category}
+//                                     slug={priceItem.slug}
+//                                 />
+//                             </div>
+//                         ))}
+//                     </div>
+//                 ) : (
+//                     <div className="text-center py-10 sm:py-12">
+//                         <div className="max-w-xs sm:max-w-md mx-auto">
+//                             <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+//                                 <Route className="w-7 h-7 sm:w-8 sm:h-8 text-slate-400" />
+//                             </div>
+//                             <p className="text-slate-600 text-base sm:text-lg mb-1.5 font-medium">
+//                                 No pricing available for {formatCategoryName(activeTab)} at the moment.
+//                             </p>
+//                             <p className="text-slate-400 text-xs sm:text-sm">
+//                                 Please check back later or contact us for custom packages.
+//                             </p>
+//                         </div>
+//                     </div>
+//                 )}
+//             </div>
+//         </div>
+//     );
+// };
+
+// export default Pricing;
+
+
 import React, { useEffect, useState } from "react";
 import { Check, Star, Zap, ArrowRight, Phone, Route } from "lucide-react";
 import { Link } from "@inertiajs/react";
 import axios from "axios";
 import {
     getPackageDurationLabel,
-    isFiveHourLessonBundle,
+    isLessonBundle,
 } from "../../Pages/PricePackages/packageRules";
 
 const Pricing = () => {
@@ -951,7 +1309,7 @@ const Pricing = () => {
 
     const PricingCard = ({ duration, price, description, features, discount, category, slug }) => {
         const isPackageBundle = category?.toLowerCase().includes("package bundles");
-        const isBookableFiveHourBundle = isFiveHourLessonBundle({
+        const isBookableLessonBundle = isLessonBundle({
             duration,
             description,
             category,
@@ -986,7 +1344,7 @@ const Pricing = () => {
         });
 
         const renderButton = () => {
-            if ((isPackageBundle && !isBookableFiveHourBundle) || isTestOnly) {
+            if ((isPackageBundle && !isBookableLessonBundle) || isTestOnly) {
                 return (
                     <a
                         href="tel:+1234567890"
@@ -1030,7 +1388,7 @@ const Pricing = () => {
                          {description && (
                             <p className="text-slate-900 text-lg sm:text-xl font-bold  leading-relaxed mb-1.5">{description}</p>
                         )}
-                        {(!isPackageBundle || isBookableFiveHourBundle) && displayDuration && (
+                        {(!isPackageBundle || isBookableLessonBundle) && displayDuration && (
                             <h3 className=" text-xs sm:text-sm text-slate-500 ">
                                 {displayDuration}
                             </h3>

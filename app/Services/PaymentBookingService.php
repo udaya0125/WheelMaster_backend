@@ -272,6 +272,7 @@ class PaymentBookingService
         $prepared = [];
         $errors = [];
         $seen = [];
+        $bundleGroupsWithIndividualErrors = [];
 
         foreach ($validated['items'] as $index => $item) {
             $price = Price::find($item['price_id']);
@@ -281,6 +282,11 @@ class PaymentBookingService
 
             if (isset($seen[$cartKey])) {
                 $errors[$index] = 'This lesson is duplicated in your cart.';
+
+                if ($price?->isLessonBundle()) {
+                    $bundleGroupsWithIndividualErrors[$price->id] = true;
+                }
+
                 continue;
             }
 
@@ -291,8 +297,8 @@ class PaymentBookingService
                 continue;
             }
 
-            if (isset($item['duration_minutes']) && ! $price->isFiveHourLessonBundle()) {
-                $errors[$index] = 'A custom lesson duration is only available for the 5 hour lesson bundle.';
+            if (isset($item['duration_minutes']) && ! $price->isLessonBundle()) {
+                $errors[$index] = 'A custom lesson duration is only available for lesson bundles.';
                 continue;
             }
 
@@ -306,6 +312,11 @@ class PaymentBookingService
 
             if (! $availability['available']) {
                 $errors[$index] = $availability['message'];
+
+                if ($price->isLessonBundle()) {
+                    $bundleGroupsWithIndividualErrors[$price->id] = true;
+                }
+
                 continue;
             }
 
@@ -315,8 +326,8 @@ class PaymentBookingService
             ]);
         }
 
-        $errors = array_replace($errors, $this->fiveHourBundleCartErrors($prepared));
-        $errors = array_replace($errors, $this->cartOverlapErrors($prepared));
+        $errors = array_replace($errors, $this->cartOverlapErrors($prepared, $bundleGroupsWithIndividualErrors));
+        $errors = array_replace($errors, $this->lessonBundleCartErrors($prepared, $bundleGroupsWithIndividualErrors));
 
         if (! empty($errors)) {
             throw new BookingConflictException('Some cart items are not available.', [
@@ -331,9 +342,11 @@ class PaymentBookingService
     {
         $price = Price::findOrFail($validated['price_id']);
 
-        if ($price->isFiveHourLessonBundle()) {
+        if ($price->isLessonBundle()) {
+            $bundleHours = $price->getLessonBundleHours();
+
             throw ValidationException::withMessages([
-                'price_id' => 'The 5 hour lesson bundle must be booked through the cart with 1-hour and 2-hour lessons totaling exactly 5 hours.',
+                'price_id' => "The {$bundleHours} hour lesson bundle must be booked through the cart with 1-hour and 2-hour lessons totaling exactly {$bundleHours} hours.",
             ]);
         }
 
@@ -476,7 +489,7 @@ class PaymentBookingService
         ];
     }
 
-    private function cartOverlapErrors(array $items): array
+    private function cartOverlapErrors(array $items, array &$bundleGroupsWithIndividualErrors): array
     {
         $errors = [];
 
@@ -492,6 +505,14 @@ class PaymentBookingService
                 ) {
                     $errors[$first['index']] = 'This lesson overlaps another item in your cart.';
                     $errors[$second['index']] = 'This lesson overlaps another item in your cart.';
+
+                    if ($first['price']->isLessonBundle()) {
+                        $bundleGroupsWithIndividualErrors[$first['price']->id] = true;
+                    }
+
+                    if ($second['price']->isLessonBundle()) {
+                        $bundleGroupsWithIndividualErrors[$second['price']->id] = true;
+                    }
                 }
             }
         }
@@ -499,20 +520,37 @@ class PaymentBookingService
         return $errors;
     }
 
-    private function fiveHourBundleCartErrors(array $items): array
+    /**
+     * Validate every lesson-bundle group in the cart (5-hour, 10-hour, or any
+     * future N-hour bundle) totals exactly that bundle's required minutes.
+     *
+     * Bundle groups already present in $bundleGroupsWithIndividualErrors had a
+     * lesson fail on its own (unavailable, duplicate, overlapping) — for those
+     * we skip the "incomplete bundle" cascade so the rest of the bundle's
+     * still-valid lessons aren't wiped out of the cart along with it.
+     */
+    private function lessonBundleCartErrors(array $items, array $bundleGroupsWithIndividualErrors = []): array
     {
         $errors = [];
         $bundleGroups = collect($items)
-            ->filter(fn ($item) => $item['price']->isFiveHourLessonBundle())
+            ->filter(fn ($item) => $item['price']->isLessonBundle())
             ->groupBy(fn ($item) => $item['price']->id);
 
-        foreach ($bundleGroups as $bundleItems) {
-            if ($bundleItems->sum('duration_minutes') === Price::FIVE_HOUR_BUNDLE_TOTAL_MINUTES) {
+        foreach ($bundleGroups as $priceId => $bundleItems) {
+            if (! empty($bundleGroupsWithIndividualErrors[$priceId])) {
+                continue;
+            }
+
+            $price = $bundleItems->first()['price'];
+            $bundleHours = $price->getLessonBundleHours();
+            $requiredMinutes = $price->lessonBundleTotalMinutes();
+
+            if ($bundleItems->sum('duration_minutes') === $requiredMinutes) {
                 continue;
             }
 
             foreach ($bundleItems as $bundleItem) {
-                $errors[$bundleItem['index']] = 'The 5 hour lesson bundle requires selected 1-hour and 2-hour lessons totaling exactly 5 hours.';
+                $errors[$bundleItem['index']] = "The {$bundleHours} hour lesson bundle requires selected 1-hour and 2-hour lessons totaling exactly {$bundleHours} hours.";
             }
         }
 
@@ -523,7 +561,7 @@ class PaymentBookingService
     {
         $bundleSessionNumbers = [];
         $bundleSessionCounts = collect($items)
-            ->filter(fn ($item) => $item['price']->isFiveHourLessonBundle())
+            ->filter(fn ($item) => $item['price']->isLessonBundle())
             ->groupBy(fn ($item) => $item['price']->id)
             ->map->count();
         $chargedBundleIds = [];
@@ -531,11 +569,12 @@ class PaymentBookingService
         foreach ($items as $key => $item) {
             $price = $item['price'];
 
-            if (! $price->isFiveHourLessonBundle()) {
+            if (! $price->isLessonBundle()) {
                 continue;
             }
 
             $bundleId = $price->id;
+            $bundleHours = $price->getLessonBundleHours();
             $bundleSessionNumbers[$bundleId] = ($bundleSessionNumbers[$bundleId] ?? 0) + 1;
             $isFirstBundleSession = ! isset($chargedBundleIds[$bundleId]);
 
@@ -547,10 +586,10 @@ class PaymentBookingService
                 ? (int) round(((float) $price->price) * 100)
                 : 0;
             $items[$key]['metadata'] = array_merge($items[$key]['metadata'] ?? [], [
-                'bundle_type' => '5_hour_lesson_bundle',
+                'bundle_type' => "{$bundleHours}_hour_lesson_bundle",
                 'bundle_session_number' => $bundleSessionNumbers[$bundleId],
                 'bundle_session_count' => $bundleSessionCounts[$bundleId],
-                'bundle_total_minutes' => Price::FIVE_HOUR_BUNDLE_TOTAL_MINUTES,
+                'bundle_total_minutes' => $price->lessonBundleTotalMinutes(),
                 'selected_duration_minutes' => $item['duration_minutes'],
                 'charged_as_bundle' => $isFirstBundleSession,
             ]);
