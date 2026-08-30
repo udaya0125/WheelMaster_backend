@@ -875,14 +875,16 @@ class UserReservationController extends Controller
             'end_time' => $reservation->end_time,
         ];
 
-        // Rescheduling puts the booking back to Pending so the instructor
-        // re-confirms the new time. Drop the 'status' line below if you'd
-        // rather keep an Accepted booking Accepted after a self-reschedule.
+        // FIX: previously this forced 'status' => 'Pending' on every
+        // reschedule, so an Accepted booking silently flipped back to
+        // Pending just from moving its time. The booking's existing
+        // status (Accepted/Pending) is now left untouched — a reschedule
+        // only changes the date/time, nothing else. (Rejected bookings
+        // already can't reach this point — see the guard above.)
         $reservation->update([
             'reservation_date' => $reservationDate,
             'start_time' => $requestStart->format('H:i:s'),
             'end_time' => $requestEnd->format('H:i:s'),
-            'status' => 'Pending',
         ]);
 
         $this->sendTimeUpdateEmail($reservation, $oldSchedule);

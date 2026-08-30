@@ -132,7 +132,7 @@ export default function Login({ status, canResetPassword }) {
                             </div>
 
                             {/* Remember & Forgot */}
-                            {/* <div className="flex items-center justify-between text-sm">
+                            <div className="flex items-center justify-between text-sm">
                                 <label className="flex items-center text-gray-600 cursor-pointer">
                                     <input
                                         type="checkbox"
@@ -151,7 +151,7 @@ export default function Login({ status, canResetPassword }) {
                                         Forgot password?
                                     </Link>
                                 )}
-                            </div> */}
+                            </div>
 
                             {/* Login Button */}
                             <button
