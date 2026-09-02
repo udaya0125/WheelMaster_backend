@@ -767,10 +767,12 @@ class UserReservationController extends Controller
         }
     }
 
-    private function sendTimeUpdateEmail(UserReservation $reservation, array $oldSchedule): void
+
+
+        private function sendTimeUpdateEmail(UserReservation $reservation, array $oldSchedule): void
     {
         try {
-            Mail::to($reservation->email)->send(new ReservationTimeUpdated($reservation, $oldSchedule));
+            Mail::to($reservation->email)->send(new ReservationTimeUpdated($reservation, $oldSchedule, false));
         } catch (\Exception $e) {
             Log::error('Failed to send reservation time update email', [
                 'reservation_id' => $reservation->getKey(),
@@ -778,7 +780,30 @@ class UserReservationController extends Controller
                 'error' => $e->getMessage(),
             ]);
         }
+
+        try {
+            Mail::to(config('services.onlinepay.admin_email', 'Wheelmasterdriving@gmail.com'))
+                ->send(new ReservationTimeUpdated($reservation, $oldSchedule, true));
+        } catch (\Exception $e) {
+            Log::error('Failed to send admin reservation time update email', [
+                'reservation_id' => $reservation->getKey(),
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
+
+    // private function sendTimeUpdateEmail(UserReservation $reservation, array $oldSchedule): void
+    // {
+    //     try {
+    //         Mail::to($reservation->email)->send(new ReservationTimeUpdated($reservation, $oldSchedule));
+    //     } catch (\Exception $e) {
+    //         Log::error('Failed to send reservation time update email', [
+    //             'reservation_id' => $reservation->getKey(),
+    //             'customer_email' => $reservation->email,
+    //             'error' => $e->getMessage(),
+    //         ]);
+    //     }
+    // }
 
     // This is for the Rescheduling
 

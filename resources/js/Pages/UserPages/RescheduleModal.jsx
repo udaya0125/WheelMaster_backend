@@ -585,7 +585,7 @@ import { X, Calendar as CalendarIcon, Clock, Loader2 } from "lucide-react";
  * Lets a logged-in user move an existing UserReservation to a new
  * date/time. Reuses the same slot-availability endpoints and the same
  * date/time display conventions as CalendarIntegrationMobile:
- * 
+ * year-month format
  *   - dates grouped by month, with "✓ Available" / "✗ Fully booked" suffix
  *   - a colored status banner under the date select
  *   - times shown as "9:00 AM - 10:00 AM"
