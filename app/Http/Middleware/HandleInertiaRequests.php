@@ -27,16 +27,29 @@ class HandleInertiaRequests extends Middleware
      *
      * @return array<string, mixed>
      */
+    // public function share(Request $request): array
+    // {
+    //     return [
+    //         ...parent::share($request),
+    //         'auth' => [
+    //             'user' => $request->user(),
+    //         ],
+    //         'payment' => [
+    //             'bookingMode' => config('services.onlinepay.payment_mode'),
+    //         ],
+    //     ];
+    // }
+
     public function share(Request $request): array
-    {
-        return [
-            ...parent::share($request),
-            'auth' => [
-                'user' => $request->user(),
-            ],
-            'payment' => [
-                'bookingMode' => config('services.onlinepay.payment_mode'),
-            ],
-        ];
-    }
+{
+    return [
+        ...parent::share($request),
+        'auth' => [
+            'user' => $request->user()?->load('profile'),
+        ],
+        'payment' => [
+            'bookingMode' => config('services.onlinepay.payment_mode'),
+        ],
+    ];
+}
 }

@@ -1,3 +1,1094 @@
+// import { Calendar, Clock, Package, X } from "lucide-react";
+// import { usePage } from "@inertiajs/react";
+// import React, { useState, useEffect, useRef } from "react";
+// import axios from "axios";
+// import toast from "react-hot-toast";
+// import { getCartSubtotal } from "./packageRules";
+
+// const MEETPOINT_AREA = "meetpoint-mandurah-dot";
+
+// // Location label for meetpoint
+// // const MEETPOINT_LOCATION_LABEL = "Mandurah, Western Australia 6210";
+
+// const MEETPOINT_LOCATION_LABEL =
+//     "Ranceby Avenue, Mandurah, Western Australia 6210";
+
+// // Full location object for meetpoint
+// const MEETPOINT_LOCATION = {
+//     label: MEETPOINT_LOCATION_LABEL,
+//     name: "Mandurah",
+//     housenumber: null,
+//     postcode: "6210",
+//     city: "Mandurah",
+//     district: null,
+//     state: "Western Australia",
+//     source: "fixed",
+// };
+
+// const normaliseAddressText = (text = "") => {
+//     const ordinals = {
+//         "1st": "first",
+//         "2nd": "second",
+//         "3rd": "third",
+//         "4th": "fourth",
+//         "5th": "fifth",
+//         "6th": "sixth",
+//         "7th": "seventh",
+//         "8th": "eighth",
+//         "9th": "ninth",
+//         "10th": "tenth",
+//         "11th": "eleventh",
+//         "12th": "twelfth",
+//         "13th": "thirteenth",
+//         "14th": "fourteenth",
+//         "15th": "fifteenth",
+//         "16th": "sixteenth",
+//         "17th": "seventeenth",
+//         "18th": "eighteenth",
+//         "19th": "nineteenth",
+//         "20th": "twentieth",
+//     };
+
+//     return text
+//         .toLowerCase()
+//         .replace(
+//             /\b([0-9]{1,2}(?:st|nd|rd|th))\b/g,
+//             (match) => ordinals[match] || match,
+//         )
+//         .replace(/\bav\b|\bave\b/g, "avenue")
+//         .replace(/\brd\b/g, "road")
+//         .replace(/\bst\b/g, "street")
+//         .replace(/\bdr\b/g, "drive")
+//         .replace(/\bct\b/g, "court")
+//         .replace(/\bpde\b/g, "parade")
+//         .replace(/[^a-z0-9]+/g, " ")
+//         .replace(/\s+/g, " ")
+//         .trim();
+// };
+
+// const locationMatchesTypedAddress = (location, typedAddress) => {
+//     if (!location || !typedAddress?.trim()) return false;
+
+//     const typed = normaliseAddressText(typedAddress);
+//     const streetAnchor = normaliseAddressText(
+//         location.street || location.name || "",
+//     );
+//     const suburbAnchors = [location.city, location.district, location.postcode]
+//         .filter(Boolean)
+//         .map(normaliseAddressText);
+
+//     if (streetAnchor && typed.includes(streetAnchor)) return true;
+//     return suburbAnchors.some((anchor) => anchor && typed.includes(anchor));
+// };
+
+// const LocationAutocomplete = ({
+//     id,
+//     name,
+//     label,
+//     value,
+//     error,
+//     selectedLocation,
+//     placeholder,
+//     onInputChange,
+//     onLocationSelect,
+//     action,
+//     locked,
+// }) => {
+//     const [suggestions, setSuggestions] = useState([]);
+//     const [loading, setLoading] = useState(false);
+//     const [searchError, setSearchError] = useState("");
+//     const [isOpen, setIsOpen] = useState(false);
+//     const blurTimeout = useRef(null);
+
+//     useEffect(() => {
+//         if (locked) {
+//             setSuggestions([]);
+//             setSearchError("");
+//             setLoading(false);
+//             return undefined;
+//         }
+
+//         const query = value.trim();
+//         if (
+//             query.length < 3 ||
+//             locationMatchesTypedAddress(selectedLocation, query)
+//         ) {
+//             setSuggestions([]);
+//             setSearchError("");
+//             setLoading(false);
+//             return undefined;
+//         }
+
+//         const controller = new AbortController();
+//         const timeout = setTimeout(async () => {
+//             try {
+//                 setLoading(true);
+//                 setSearchError("");
+//                 const response = await axios.get(route("locations.search"), {
+//                     params: { q: query },
+//                     signal: controller.signal,
+//                 });
+//                 setSuggestions(response.data.suggestions || []);
+//                 setIsOpen(true);
+//             } catch (err) {
+//                 if (err.code !== "ERR_CANCELED") {
+//                     setSuggestions([]);
+//                     setSearchError(
+//                         "Address search is unavailable. Please try again.",
+//                     );
+//                 }
+//             } finally {
+//                 setLoading(false);
+//             }
+//         }, 350);
+
+//         return () => {
+//             clearTimeout(timeout);
+//             controller.abort();
+//         };
+//     }, [value, selectedLocation, locked]);
+
+//     useEffect(
+//         () => () => {
+//             if (blurTimeout.current) clearTimeout(blurTimeout.current);
+//         },
+//         [],
+//     );
+
+//     const handleBlur = () => {
+//         blurTimeout.current = setTimeout(() => setIsOpen(false), 150);
+//     };
+
+//     const shouldShowSuggestions =
+//         !locked &&
+//         isOpen &&
+//         value.trim().length >= 3 &&
+//         !locationMatchesTypedAddress(selectedLocation, value);
+
+//     const lockedInputClass =
+//         "w-full px-4 py-2 border rounded-lg outline-none transition bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed select-none";
+
+//     return (
+//         <div>
+//             <div className="flex justify-between items-center gap-3 mb-2">
+//                 <label
+//                     htmlFor={id}
+//                     className="block text-sm font-medium text-gray-700"
+//                 >
+//                     {label}
+//                 </label>
+//                 {!locked && action}
+//             </div>
+//             <div className="relative">
+//                 <input
+//                     type="text"
+//                     id={id}
+//                     name={name}
+//                     value={value}
+//                     onChange={(e) =>
+//                         !locked && onInputChange(name, e.target.value)
+//                     }
+//                     onFocus={() => !locked && setIsOpen(true)}
+//                     onBlur={handleBlur}
+//                     required
+//                     readOnly={locked}
+//                     autoComplete="off"
+//                     className={
+//                         locked
+//                             ? lockedInputClass
+//                             : `w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
+//                                   error ? "border-red-500" : "border-gray-300"
+//                               }`
+//                     }
+//                     placeholder={placeholder}
+//                 />
+//                 {shouldShowSuggestions && (
+//                     <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+//                         {loading && (
+//                             <div className="px-4 py-3 text-sm text-gray-500">
+//                                 Searching service area...
+//                             </div>
+//                         )}
+//                         {!loading &&
+//                             suggestions.map((suggestion) => (
+//                                 <button
+//                                     key={`${suggestion.source}-${suggestion.label}`}
+//                                     type="button"
+//                                     onMouseDown={(e) => {
+//                                         e.preventDefault();
+//                                         onLocationSelect(name, suggestion);
+//                                         setIsOpen(false);
+//                                     }}
+//                                     className="block w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-indigo-50 focus:bg-indigo-50 focus:outline-none"
+//                                 >
+//                                     <span className="block font-medium">
+//                                         {suggestion.label}
+//                                     </span>
+//                                     {suggestion.postcode && (
+//                                         <span className="block text-xs text-gray-500">
+//                                             Postcode {suggestion.postcode}
+//                                         </span>
+//                                     )}
+//                                 </button>
+//                             ))}
+//                         {!loading &&
+//                             suggestions.length === 0 &&
+//                             !searchError && (
+//                                 <div className="px-4 py-3 text-sm text-gray-500">
+//                                     No service-area address found.
+//                                 </div>
+//                             )}
+//                         {!loading && searchError && (
+//                             <div className="px-4 py-3 text-sm text-red-600">
+//                                 {searchError}
+//                             </div>
+//                         )}
+//                     </div>
+//                 )}
+//             </div>
+//             {!locked && error ? (
+//                 <p className="mt-1 text-sm text-red-600">{error}</p>
+//             ) : !locked ? (
+//                 <p className="mt-1 text-xs text-gray-500">
+//                     Choose a service-area suggestion
+//                 </p>
+//             ) : (
+//                 <p className="mt-1 text-xs text-gray-400">
+//                     Set by meetpoint selection.
+//                 </p>
+//             )}
+//         </div>
+//     );
+// };
+
+// // ─── BookingForm ─────────────────────────────────────────────────────────────
+// const BookingForm = ({
+//     selectedDate,
+//     selectedTime,
+//     testTime,
+//     priceId,
+//     price,
+//     isTestPackage = false,
+//     bookingDetails = null,
+//     cartItems = [],
+//     onClose,
+//     onBookingSuccess,
+//     onCartItemsUnavailable,
+// }) => {
+//     const { payment } = usePage().props;
+//     const useOnlinePay = payment?.bookingMode === "onlinepay";
+//     const isCartCheckout = cartItems.length > 0;
+//     const [bookingForm, setBookingForm] = useState({
+//         user_name: "",
+//         email: "",
+//         phone: "",
+//         address: "",
+//         test_location: isTestPackage ? "Mandurah licensing center" : "",
+//         test_type: "",
+//         pickup_location: "",
+//         dropoff_location: "",
+//         comment: "",
+//     });
+
+//     const [loading, setLoading] = useState(false);
+//     const [errors, setErrors] = useState({});
+//     const [acceptTerms, setAcceptTerms] = useState(false);
+//     const [selectedLocations, setSelectedLocations] = useState({
+//         pickup_location: null,
+//         dropoff_location: null,
+//     });
+
+//     const isMeetpoint = bookingForm.address === MEETPOINT_AREA;
+
+//     useEffect(() => {
+//         if (bookingDetails) {
+//             setBookingForm((prev) => ({
+//                 ...prev,
+//                 pickup_location:
+//                     bookingDetails.pickup_location ||
+//                     bookingDetails.test_location ||
+//                     "",
+//                 dropoff_location:
+//                     bookingDetails.dropoff_location ||
+//                     bookingDetails.test_location ||
+//                     "",
+//                 test_location:
+//                     bookingDetails.test_location ||
+//                     (isTestPackage ? "Mandurah licensing center" : "") ||
+//                     "",
+//             }));
+//         } else if (isTestPackage) {
+//             setBookingForm((prev) => ({
+//                 ...prev,
+//                 test_location: "Mandurah licensing center",
+//             }));
+//         }
+//     }, [bookingDetails, isTestPackage]);
+
+//     useEffect(() => {
+//         document.body.style.overflow = "hidden";
+//         document.body.style.position = "fixed";
+//         document.body.style.width = "100%";
+//         return () => {
+//             document.body.style.overflow = "unset";
+//             document.body.style.position = "static";
+//             document.body.style.width = "auto";
+//         };
+//     }, []);
+
+//     const parseDuration = (durationString) => {
+//         if (!durationString) return 60;
+//         const s = durationString.trim().toLowerCase();
+//         const hourMatch = s.match(/(\d+(?:\.\d+)?)\s*(?:hrs|hr|hour|hours)/);
+//         const minuteMatch = s.match(/(\d+)\s*(?:min|mins|minute|minutes)/);
+//         let total = 0;
+//         if (hourMatch) total += parseFloat(hourMatch[1]) * 60;
+//         if (minuteMatch) total += parseInt(minuteMatch[1]);
+//         if (total === 0) {
+//             const n = s.match(/(\d+(?:\.\d+)?)/);
+//             if (n) {
+//                 const v = parseFloat(n[1]);
+//                 total = v < 10 ? Math.round(v * 60) : Math.round(v);
+//             }
+//         }
+//         return total || 60;
+//     };
+
+//     const extractPackageName = (description) => {
+//         if (!description) return "";
+//         return description.includes(":")
+//             ? description.split(":").pop().trim()
+//             : description.trim();
+//     };
+
+//     const handleChange = (e) => {
+//         const { name, value } = e.target;
+
+//         if (name === "address") {
+//             if (value === MEETPOINT_AREA) {
+//                 setBookingForm((prev) => ({
+//                     ...prev,
+//                     address: value,
+//                     pickup_location: MEETPOINT_LOCATION_LABEL,
+//                     dropoff_location: MEETPOINT_LOCATION_LABEL,
+//                 }));
+//                 setSelectedLocations({
+//                     pickup_location: MEETPOINT_LOCATION,
+//                     dropoff_location: MEETPOINT_LOCATION,
+//                 });
+//             } else {
+//                 setBookingForm((prev) => {
+//                     const wasMeetpoint =
+//                         prev.pickup_location === MEETPOINT_LOCATION_LABEL ||
+//                         prev.dropoff_location === MEETPOINT_LOCATION_LABEL;
+//                     return {
+//                         ...prev,
+//                         address: value,
+//                         pickup_location: wasMeetpoint
+//                             ? ""
+//                             : prev.pickup_location,
+//                         dropoff_location: wasMeetpoint
+//                             ? ""
+//                             : prev.dropoff_location,
+//                     };
+//                 });
+//                 setSelectedLocations((prev) => {
+//                     const pickupWasMeetpoint =
+//                         prev.pickup_location?.source === "fixed";
+//                     const dropoffWasMeetpoint =
+//                         prev.dropoff_location?.source === "fixed";
+//                     return {
+//                         pickup_location: pickupWasMeetpoint
+//                             ? null
+//                             : prev.pickup_location,
+//                         dropoff_location: dropoffWasMeetpoint
+//                             ? null
+//                             : prev.dropoff_location,
+//                     };
+//                 });
+//             }
+
+//             setErrors((prev) => ({
+//                 ...prev,
+//                 address: "",
+//                 pickup_location: "",
+//                 dropoff_location: "",
+//             }));
+//             return;
+//         }
+
+//         setBookingForm((prev) => ({ ...prev, [name]: value }));
+//         if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
+//     };
+
+//     const handleLocationInputChange = (name, value) => {
+//         setBookingForm((prev) => ({ ...prev, [name]: value }));
+//         setSelectedLocations((prev) => ({
+//             ...prev,
+//             [name]: locationMatchesTypedAddress(prev[name], value)
+//                 ? prev[name]
+//                 : null,
+//         }));
+//         if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
+//     };
+
+//     const handleLocationSelect = (name, location) => {
+//         setBookingForm((prev) => ({ ...prev, [name]: location.label }));
+//         setSelectedLocations((prev) => ({ ...prev, [name]: location }));
+//         if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
+//     };
+
+//     const validateSelectedLocations = () => {
+//         const errs = {};
+
+//         [
+//             ["pickup_location", "pickup address"],
+//             ["dropoff_location", "dropoff address"],
+//         ].forEach(([field, label]) => {
+//             if (!bookingForm[field]?.trim()) {
+//                 errs[field] = `Please enter a ${label}.`;
+//                 return;
+//             }
+//             if (
+//                 !selectedLocations[field] ||
+//                 !locationMatchesTypedAddress(
+//                     selectedLocations[field],
+//                     bookingForm[field],
+//                 )
+//             ) {
+//                 errs[field] =
+//                     `Please choose a service-area suggestion for the ${label}.`;
+//             }
+//         });
+
+//         return errs;
+//     };
+
+//     const setDropoffSameAsPickup = () => {
+//         if (
+//             bookingForm.pickup_location &&
+//             locationMatchesTypedAddress(
+//                 selectedLocations.pickup_location,
+//                 bookingForm.pickup_location,
+//             )
+//         ) {
+//             setBookingForm((prev) => ({
+//                 ...prev,
+//                 dropoff_location: prev.pickup_location,
+//             }));
+//             setSelectedLocations((prev) => ({
+//                 ...prev,
+//                 dropoff_location: prev.pickup_location,
+//             }));
+//             setErrors((prev) => ({
+//                 ...prev,
+//                 dropoff_location: "",
+//             }));
+//         } else {
+//             toast.error("Please select a pickup address from the suggestions first");
+//         }
+//     };
+
+//     const handleSubmit = async (e) => {
+//         e.preventDefault();
+//         setLoading(true);
+//         setErrors({});
+
+//         if (!acceptTerms) {
+//             setErrors({
+//                 terms: "Please accept the Terms & Conditions and Privacy Policy",
+//             });
+//             setLoading(false);
+//             return;
+//         }
+
+//         const locationErrors = validateSelectedLocations();
+//         if (Object.keys(locationErrors).length > 0) {
+//             setErrors(locationErrors);
+//             setLoading(false);
+//             return;
+//         }
+
+//         try {
+//             const bookingData = {
+//                 ...bookingForm,
+//                 accepted_terms: acceptTerms,
+//             };
+//             let routeName = "ourreservations.store";
+//             let bookingType = "lesson";
+
+//             if (isCartCheckout) {
+//                 routeName = "ourreservations.cart";
+//                 bookingType = "cart";
+//                 Object.assign(bookingData, {
+//                     items: cartItems.map((item) => ({
+//                         price_id: item.price_id,
+//                         reservation_date: item.reservation_date,
+//                         start_time: item.start_time,
+//                         ...(item.duration_minutes && {
+//                             duration_minutes: item.duration_minutes,
+//                         }),
+//                     })),
+//                 });
+//             } else if (isTestPackage) {
+//                 const durationMinutes = parseDuration(price.duration);
+//                 const packageName = extractPackageName(price.description);
+//                 routeName = "test-packages.store";
+//                 bookingType = "test";
+//                 Object.assign(bookingData, {
+//                     reservation_date: formatDateKey(selectedDate),
+//                     price_id: priceId,
+//                     duration_minutes: durationMinutes,
+//                     start_time: bookingDetails?.start_time || selectedTime,
+//                     end_time:
+//                         bookingDetails?.end_time ||
+//                         calculateEndTime(selectedTime, price.duration),
+//                     test_time: testTime || selectedTime,
+//                     test_location: bookingForm.test_location,
+//                     test_type: packageName,
+//                 });
+//             } else {
+//                 const durationMinutes = parseDuration(price.duration);
+//                 const packageName = extractPackageName(price.description);
+//                 Object.assign(bookingData, {
+//                     reservation_date: formatDateKey(selectedDate),
+//                     price_id: priceId,
+//                     duration_minutes: durationMinutes,
+//                     start_time: selectedTime,
+//                     end_time: calculateEndTime(selectedTime, price.duration),
+//                     package_type: packageName,
+//                     package_price: price.price,
+//                 });
+//             }
+
+//             const response = await axios.post(
+//                 route(useOnlinePay ? "payments.onlinepay.checkout" : routeName),
+//                 {
+//                     ...bookingData,
+//                     booking_type: bookingType,
+//                 },
+//             );
+
+//             if (useOnlinePay) {
+//                 if (response.data.checkout_url) {
+//                     toast.success("Redirecting to secure payment...");
+//                     window.location.assign(response.data.checkout_url);
+//                     return;
+//                 }
+
+//                 toast.error("Secure payment could not be started. Please try again.");
+//                 return;
+//             }
+
+//             if (response.data.success || response.data.message) {
+//                 toast.success(
+//                     isCartCheckout
+//                         ? `${response.data.data?.length || cartItems.length} lessons booked successfully!`
+//                         : isTestPackage
+//                         ? "Test package booked successfully!"
+//                         : "Booking confirmed successfully!",
+//                 );
+//                 await onBookingSuccess(response.data);
+//                 onClose();
+//             } else {
+//                 toast.error("Error confirming booking: " + response.data.message);
+//             }
+//         } catch (error) {
+//             const cartItemErrors = error.response?.data?.errors?.items;
+//             if (isCartCheckout && cartItemErrors) {
+//                 const unavailableIndexes = Object.keys(cartItemErrors).map(
+//                     (index) => Number(index),
+//                 );
+//                 onCartItemsUnavailable?.(unavailableIndexes);
+//                 setErrors({ items: cartItemErrors });
+//                 toast.error(
+//                     "Some lessons in your cart are no longer available. They have been removed from your cart.",
+//                 );
+//                 return;
+//             }
+
+//             if (error.response?.data?.message) {
+//                 const msg = error.response.data.message;
+//                 if (msg.includes("already reserved for this service")) {
+//                     toast.error(
+//                         "This time slot has just been booked by someone else. Please select another time.",
+//                     );
+//                     if (onBookingSuccess) await onBookingSuccess();
+//                 } else {
+//                     toast.error("Booking error: " + msg);
+//                 }
+//             } else if (error.response?.data?.errors) {
+//                 setErrors(error.response.data.errors);
+//                 toast.error("Please fix the errors in the form.");
+//             } else if (error.response?.data?.error) {
+//                 toast.error("Booking error: " + error.response.data.error);
+//             } else {
+//                 toast.error("Error confirming booking. Please try again.");
+//             }
+//         } finally {
+//             setLoading(false);
+//         }
+//     };
+
+//     const formatDateKey = (date) => {
+//         if (!date) return "";
+//         return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+//     };
+
+//     const formatDisplayDate = (date) => {
+//         if (!date) return "";
+//         return date.toLocaleDateString("en-US", {
+//             weekday: "long",
+//             year: "numeric",
+//             month: "long",
+//             day: "numeric",
+//         });
+//     };
+
+//     const calculateEndTime = (startTime, durationString) => {
+//         const mins = parseDuration(durationString);
+//         const [h, m] = startTime.split(":").map(Number);
+//         const total = h * 60 + m + mins;
+//         return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+//     };
+
+//     const displayTime = isTestPackage ? testTime || selectedTime : selectedTime;
+//     const displayEndTime =
+//         !isCartCheckout && displayTime
+//             ? calculateEndTime(displayTime, price.duration)
+//             : "";
+//     const displayPackageName = price ? extractPackageName(price.description) : "";
+//     const cartSubtotal = getCartSubtotal(cartItems);
+
+//     return (
+//         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+//             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+//                 {/* Header */}
+//                 <div className="border-b border-gray-200 px-6 py-5">
+//                     <div className="flex items-start justify-between gap-3">
+//                         <div>
+//                             {(isTestPackage || isCartCheckout) && (
+//                                 <p className="text-xs uppercase tracking-widest text-gray-400 font-medium mb-1">
+//                                     {isCartCheckout ? "Cart Checkout" : "Test Package"}
+//                                 </p>
+//                             )}
+//                             <h2 className="text-lg font-medium text-gray-900">
+//                                 {isCartCheckout
+//                                     ? useOnlinePay
+//                                         ? "Pay for your cart booking"
+//                                         : "Complete your cart booking"
+//                                     : useOnlinePay
+//                                     ? "Pay for your booking"
+//                                     : "Complete your booking"}
+//                             </h2>
+//                         </div>
+//                         <button
+//                             type="button"
+//                             onClick={onClose}
+//                             className="mt-0.5 flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
+//                         >
+//                             <X size={16} />
+//                         </button>
+//                     </div>
+
+//                     {!isCartCheckout && (
+//                     <div className="flex flex-wrap gap-2 mt-4">
+//                         <span className="inline-flex items-center gap-1.5 text-sm px-3 py-1 rounded-full border border-gray-200 text-gray-500 bg-gray-50">
+//                             <Calendar size={14} />
+//                             {formatDisplayDate(selectedDate)}
+//                         </span>
+//                         <span className="inline-flex items-center gap-1.5 text-sm px-3 py-1 rounded-full border border-gray-200 text-gray-500 bg-gray-50">
+//                             <Clock size={14} />
+//                             {displayTime} – {displayEndTime}
+//                         </span>
+//                     </div>
+//                     )}
+//                 </div>
+
+//                 {isCartCheckout ? (
+//                     <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+//                         <div className="flex items-center justify-between mb-3">
+//                             <div className="flex items-center gap-2.5">
+//                                 <div className="w-9 h-9 rounded-md bg-blue-100 flex items-center justify-center">
+//                                     <Package size={18} className="text-blue-600" />
+//                                 </div>
+//                                 <div>
+//                                     <p className="text-xs text-gray-400">Cart</p>
+//                                     <p className="text-sm font-medium text-gray-900">
+//                                         {cartItems.length} lessons
+//                                     </p>
+//                                 </div>
+//                             </div>
+//                             <p className="text-lg font-medium text-gray-900">
+//                                 ${cartSubtotal.toFixed(2)}
+//                             </p>
+//                         </div>
+//                         <div className="space-y-2">
+//                             {cartItems.map((item) => (
+//                                 <div
+//                                     key={item.key}
+//                                     className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
+//                                 >
+//                                     <div className="font-medium text-gray-900">
+//                                         {item.price?.description || "Driving lesson"}
+//                                     </div>
+//                                     <div className="text-gray-500">
+//                                         {item.reservation_date} at {item.start_time}
+//                                     </div>
+//                                 </div>
+//                             ))}
+//                         </div>
+//                     </div>
+//                 ) : (
+//                 <div className="flex items-center justify-between px-6 py-4 bg-gray-50">
+//                     <div className="flex items-center gap-2.5">
+//                         <div className="w-9 h-9 rounded-md bg-blue-100 flex items-center justify-center">
+//                             <Package size={18} className="text-blue-600" />
+//                         </div>
+//                         <div>
+//                             <p className="text-xs text-gray-400">Package</p>
+//                             <p className="text-sm font-medium text-gray-900">
+//                                 {displayPackageName}
+//                             </p>
+//                         </div>
+//                     </div>
+//                     <p className="text-lg font-medium text-gray-900">
+//                         ${price.price}
+//                     </p>
+//                 </div>
+//                 )}
+
+//                 {/* Form */}
+//                 <form onSubmit={handleSubmit} className="p-6 space-y-6">
+//                     {/* Full Name */}
+//                     <div>
+//                         <label
+//                             htmlFor="user_name"
+//                             className="block text-sm font-medium text-gray-700 mb-2"
+//                         >
+//                             Full Name <span className="text-red-500">*</span>
+//                         </label>
+//                         <input
+//                             type="text"
+//                             id="user_name"
+//                             name="user_name"
+//                             value={bookingForm.user_name}
+//                             onChange={handleChange}
+//                             required
+//                             className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
+//                                 errors.user_name
+//                                     ? "border-red-500"
+//                                     : "border-gray-300"
+//                             }`}
+//                             placeholder="WheelMaster Driving"
+//                         />
+//                         {errors.user_name && (
+//                             <p className="mt-1 text-sm text-red-600">
+//                                 {errors.user_name}
+//                             </p>
+//                         )}
+//                     </div>
+
+//                     {/* Email */}
+//                     <div>
+//                         <label
+//                             htmlFor="email"
+//                             className="block text-sm font-medium text-gray-700 mb-2"
+//                         >
+//                             Email Address{" "}
+//                             <span className="text-red-500">*</span>
+//                         </label>
+//                         <input
+//                             type="email"
+//                             id="email"
+//                             name="email"
+//                             value={bookingForm.email}
+//                             onChange={handleChange}
+//                             required
+//                             className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
+//                                 errors.email
+//                                     ? "border-red-500"
+//                                     : "border-gray-300"
+//                             }`}
+//                             placeholder="wheelmasterdriving@outlook.com.au"
+//                         />
+//                         {errors.email && (
+//                             <p className="mt-1 text-sm text-red-600">
+//                                 {errors.email}
+//                             </p>
+//                         )}
+//                     </div>
+
+//                     {/* Phone */}
+//                     <div>
+//                         <label
+//                             htmlFor="phone"
+//                             className="block text-sm font-medium text-gray-700 mb-2"
+//                         >
+//                             Phone Number <span className="text-red-500">*</span>
+//                         </label>
+//                         <input
+//                             type="tel"
+//                             id="phone"
+//                             name="phone"
+//                             value={bookingForm.phone}
+//                             onChange={handleChange}
+//                             required
+//                             className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
+//                                 errors.phone
+//                                     ? "border-red-500"
+//                                     : "border-gray-300"
+//                             }`}
+//                             placeholder="0481 488 216"
+//                         />
+//                         {errors.phone && (
+//                             <p className="mt-1 text-sm text-red-600">
+//                                 {errors.phone}
+//                             </p>
+//                         )}
+//                     </div>
+
+//                     {/* Area */}
+//                     <div>
+//                         <label
+//                             htmlFor="address"
+//                             className="block text-sm font-medium text-gray-700 mb-2"
+//                         >
+//                             Area <span className="text-red-500">*</span>
+//                         </label>
+//                         <select
+//                             id="address"
+//                             name="address"
+//                             value={bookingForm.address}
+//                             onChange={handleChange}
+//                             required
+//                             className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition bg-white ${
+//                                 errors.address
+//                                     ? "border-red-500"
+//                                     : "border-gray-300"
+//                             }`}
+//                         >
+//                             <option value="">Select your Area</option>
+//                             <option value="mandurah">Mandurah</option>
+//                             <option value="meadow-springs">
+//                                 Meadow Springs
+//                             </option>
+//                             <option value="silver-sands">Silver Sands</option>
+//                             <option value="lakelands">Lakelands</option>
+//                             <option value="dudley-park">Dudley Park</option>
+//                             <option value="halls-head">Halls Head</option>
+//                             <option value="madora-bay">Madora Bay</option>
+//                             <option value="greenfields">Greenfields</option>
+//                             <option value="erskine">Erskine</option>
+//                             <option value="singleton">Singleton</option>
+//                             <option value="parklands">Parklands</option>
+//                             <option value="stake-hill">Stake Hill</option>
+//                             <option value="san-remo">San Remo</option>
+//                             <option value="meetpoint-mandurah-dot">
+//                                 Meetpoint Mandurah Dot
+//                             </option>
+//                         </select>
+//                         {errors.address && (
+//                             <p className="mt-1 text-sm text-red-600">
+//                                 {errors.address}
+//                             </p>
+//                         )}
+//                         <p className="mt-1 text-sm text-gray-500">
+//                             Currently serving only these areas with postcode
+//                             6210, 6180, or 6175.{" "}
+//                             <span className="block">
+//                                 If your address is not available, please select
+//                                 "Meetpoint Mandurah Dot" where you will be
+//                                 meeting the instructor.
+//                             </span>
+//                         </p>
+//                     </div>
+
+//                     {/* Test Location */}
+//                     {isTestPackage && (
+//                         <div>
+//                             <label
+//                                 htmlFor="test_location"
+//                                 className="block text-sm font-medium text-gray-700 mb-2"
+//                             >
+//                                 Test Location{" "}
+//                                 <span className="text-red-500">*</span>
+//                             </label>
+//                             <input
+//                                 type="text"
+//                                 id="test_location"
+//                                 name="test_location"
+//                                 value={bookingForm.test_location}
+//                                 onChange={handleChange}
+//                                 required={isTestPackage}
+//                                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
+//                                     errors.test_location
+//                                         ? "border-red-500"
+//                                         : "border-gray-300"
+//                                 }`}
+//                                 placeholder="Enter test location"
+//                             />
+//                             {errors.test_location && (
+//                                 <p className="mt-1 text-sm text-red-600">
+//                                     {errors.test_location}
+//                                 </p>
+//                             )}
+//                         </div>
+//                     )}
+
+//                     {/* Pickup Location */}
+//                     <LocationAutocomplete
+//                         id="pickup_location"
+//                         name="pickup_location"
+//                         label={
+//                             <>
+//                                 Pickup Address{" "}
+//                                 <span className="text-red-500">*</span>
+//                             </>
+//                         }
+//                         value={bookingForm.pickup_location}
+//                         selectedLocation={selectedLocations.pickup_location}
+//                         error={errors.pickup_location}
+//                         placeholder="Start typing pickup address"
+//                         onInputChange={handleLocationInputChange}
+//                         onLocationSelect={handleLocationSelect}
+//                         locked={isMeetpoint}
+//                     />
+
+//                     {/* Dropoff Location */}
+//                     <LocationAutocomplete
+//                         id="dropoff_location"
+//                         name="dropoff_location"
+//                         label={
+//                             <>
+//                                 Dropoff Address{" "}
+//                                 <span className="text-red-500">*</span>
+//                             </>
+//                         }
+//                         value={bookingForm.dropoff_location}
+//                         selectedLocation={selectedLocations.dropoff_location}
+//                         error={errors.dropoff_location}
+//                         placeholder="Start typing dropoff address"
+//                         onInputChange={handleLocationInputChange}
+//                         onLocationSelect={handleLocationSelect}
+//                         locked={isMeetpoint}
+//                         action={
+//                             <button
+//                                 type="button"
+//                                 onClick={setDropoffSameAsPickup}
+//                                 className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors whitespace-nowrap"
+//                             >
+//                                 Same as Pickup Address
+//                             </button>
+//                         }
+//                     />
+
+//                     {/* Comment */}
+//                     <div>
+//                         <label
+//                             htmlFor="comment"
+//                             className="block text-sm font-medium text-gray-700 mb-2"
+//                         >
+//                             Comment
+//                         </label>
+//                         <textarea
+//                             id="comment"
+//                             name="comment"
+//                             value={bookingForm.comment}
+//                             onChange={handleChange}
+//                             rows={3}
+//                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition resize-none"
+//                             placeholder="Any special requests, notes for your instructor, etc."
+//                         />
+//                     </div>
+
+//                     {/* Terms */}
+//                     <div className="border-t border-gray-200 pt-4">
+//                         <div className="flex items-start gap-3">
+//                             <input
+//                                 type="checkbox"
+//                                 id="acceptTerms"
+//                                 checked={acceptTerms}
+//                                 onChange={(e) => {
+//                                     setAcceptTerms(e.target.checked);
+//                                     if (errors.terms)
+//                                         setErrors((prev) => ({
+//                                             ...prev,
+//                                             terms: "",
+//                                         }));
+//                                 }}
+//                                 className="mt-1 h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+//                                 required
+//                             />
+//                             <label
+//                                 htmlFor="acceptTerms"
+//                                 className="text-sm text-gray-700"
+//                             >
+//                                 I agree to the{" "}
+//                                 <a
+//                                     href="https://wheelmasterdriving.com.au/terms"
+//                                     target="_blank"
+//                                     rel="noopener noreferrer"
+//                                     className="text-indigo-600 hover:text-indigo-800 underline font-medium"
+//                                 >
+//                                     Terms & Conditions
+//                                 </a>{" "}
+//                                 and{" "}
+//                                 <a
+//                                     href="https://wheelmasterdriving.com.au/policy"
+//                                     target="_blank"
+//                                     rel="noopener noreferrer"
+//                                     className="text-indigo-600 hover:text-indigo-800 underline font-medium"
+//                                 >
+//                                     Privacy Policy
+//                                 </a>{" "}
+//                                 <span className="text-red-500">*</span>
+//                             </label>
+//                         </div>
+//                         {errors.terms && (
+//                             <p className="mt-1 text-sm text-red-600">
+//                                 {errors.terms}
+//                             </p>
+//                         )}
+//                     </div>
+
+//                     {/* Buttons */}
+//                     <div className="flex gap-4 pt-4">
+//                         <button
+//                             type="button"
+//                             onClick={onClose}
+//                             disabled={loading}
+//                             className="flex-1 py-3 px-6 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors duration-200 disabled:opacity-50"
+//                         >
+//                             Cancel
+//                         </button>
+//                         <button
+//                             type="submit"
+//                             disabled={loading || !acceptTerms}
+//                             className="flex-1 bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+//                         >
+//                             {loading ? (
+//                                 <div className="flex items-center justify-center">
+//                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+//                                     Processing...
+//                                 </div>
+//                             ) : useOnlinePay ? (
+//                                 "Continue to secure payment"
+//                             ) : isCartCheckout ? (
+//                                 "Book Cart"
+//                             ) : (
+//                                 "Confirm Booking"
+//                             )}
+//                         </button>
+//                     </div>
+//                 </form>
+//             </div>
+//         </div>
+//     );
+// };
+
+// export default BookingForm;
+
 
 
 import { Calendar, Clock, Package, X } from "lucide-react";
@@ -25,6 +1116,24 @@ const MEETPOINT_LOCATION = {
     district: null,
     state: "Western Australia",
     source: "fixed",
+};
+
+// Display labels for the Area select, used to render the saved-profile summary
+const AREA_LABELS = {
+    mandurah: "Mandurah",
+    "meadow-springs": "Meadow Springs",
+    "silver-sands": "Silver Sands",
+    lakelands: "Lakelands",
+    "dudley-park": "Dudley Park",
+    "halls-head": "Halls Head",
+    "madora-bay": "Madora Bay",
+    greenfields: "Greenfields",
+    erskine: "Erskine",
+    singleton: "Singleton",
+    parklands: "Parklands",
+    "stake-hill": "Stake Hill",
+    "san-remo": "San Remo",
+    [MEETPOINT_AREA]: "Meetpoint Mandurah Dot",
 };
 
 const normaliseAddressText = (text = "") => {
@@ -82,6 +1191,15 @@ const locationMatchesTypedAddress = (location, typedAddress) => {
     if (streetAnchor && typed.includes(streetAnchor)) return true;
     return suburbAnchors.some((anchor) => anchor && typed.includes(anchor));
 };
+
+// Builds a "selected location" stand-in for an address pulled from the saved
+// profile (we only have a free-text string, not geocoded suburb/postcode
+// data), so it satisfies locationMatchesTypedAddress against itself.
+const buildSavedProfileLocation = (address) => ({
+    label: address,
+    name: address,
+    source: "profile",
+});
 
 const LocationAutocomplete = ({
     id,
@@ -277,9 +1395,23 @@ const BookingForm = ({
     onBookingSuccess,
     onCartItemsUnavailable,
 }) => {
-    const { payment } = usePage().props;
+    const { payment, auth } = usePage().props;
     const useOnlinePay = payment?.bookingMode === "onlinepay";
     const isCartCheckout = cartItems.length > 0;
+
+    // Saved profile info (authenticated users only)
+    const savedUser = auth?.user || null;
+    const savedProfile = savedUser?.profile || null;
+    const hasSavedInfo = Boolean(
+        savedUser &&
+            (savedUser.name ||
+                savedUser.email ||
+                savedUser.phone_number ||
+                savedProfile?.area ||
+                savedProfile?.pickup_address ||
+                savedProfile?.dropoff_address),
+    );
+
     const [bookingForm, setBookingForm] = useState({
         user_name: "",
         email: "",
@@ -438,6 +1570,67 @@ const BookingForm = ({
         setBookingForm((prev) => ({ ...prev, [name]: location.label }));
         setSelectedLocations((prev) => ({ ...prev, [name]: location }));
         if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
+    };
+
+    // Fills the form from the authenticated user's saved profile. Any field
+    // with no saved value is left as-is (i.e. empty if it was empty).
+    const handleAutofillFromProfile = () => {
+        if (!savedUser) return;
+
+        const isMeetpointArea = savedProfile?.area === MEETPOINT_AREA;
+
+        setBookingForm((prev) => {
+            const next = { ...prev };
+
+            if (savedUser.name) next.user_name = savedUser.name;
+            if (savedUser.email) next.email = savedUser.email;
+            if (savedUser.phone_number) next.phone = savedUser.phone_number;
+            if (savedProfile?.area) next.address = savedProfile.area;
+
+            if (isMeetpointArea) {
+                next.pickup_location = MEETPOINT_LOCATION_LABEL;
+                next.dropoff_location = MEETPOINT_LOCATION_LABEL;
+            } else {
+                if (savedProfile?.pickup_address) {
+                    next.pickup_location = savedProfile.pickup_address;
+                }
+                if (savedProfile?.dropoff_address) {
+                    next.dropoff_location = savedProfile.dropoff_address;
+                }
+            }
+
+            return next;
+        });
+
+        setSelectedLocations((prev) => {
+            if (isMeetpointArea) {
+                return {
+                    pickup_location: MEETPOINT_LOCATION,
+                    dropoff_location: MEETPOINT_LOCATION,
+                };
+            }
+
+            return {
+                pickup_location: savedProfile?.pickup_address
+                    ? buildSavedProfileLocation(savedProfile.pickup_address)
+                    : prev.pickup_location,
+                dropoff_location: savedProfile?.dropoff_address
+                    ? buildSavedProfileLocation(savedProfile.dropoff_address)
+                    : prev.dropoff_location,
+            };
+        });
+
+        setErrors((prev) => ({
+            ...prev,
+            user_name: "",
+            email: "",
+            phone: "",
+            address: "",
+            pickup_location: "",
+            dropoff_location: "",
+        }));
+
+        toast.success("Filled in your saved details");
     };
 
     const validateSelectedLocations = () => {
@@ -758,6 +1951,55 @@ const BookingForm = ({
                         ${price.price}
                     </p>
                 </div>
+                )}
+
+                {/* Saved profile summary + autofill */}
+                {hasSavedInfo && (
+                    <div className="mx-6 mt-4 rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="text-sm">
+                                <p className="font-medium text-indigo-900 mb-1.5">
+                                    Use your saved details
+                                </p>
+                                <ul className="space-y-0.5 text-gray-600">
+                                    {savedUser.name && (
+                                        <li>Name: {savedUser.name}</li>
+                                    )}
+                                    {savedUser.email && (
+                                        <li>Email: {savedUser.email}</li>
+                                    )}
+                                    {savedUser.phone_number && (
+                                        <li>Phone: {savedUser.phone_number}</li>
+                                    )}
+                                    {savedProfile?.area && (
+                                        <li>
+                                            Area:{" "}
+                                            {AREA_LABELS[savedProfile.area] ||
+                                                savedProfile.area}
+                                        </li>
+                                    )}
+                                    {savedProfile?.pickup_address && (
+                                        <li>
+                                            Pickup: {savedProfile.pickup_address}
+                                        </li>
+                                    )}
+                                    {savedProfile?.dropoff_address && (
+                                        <li>
+                                            Dropoff:{" "}
+                                            {savedProfile.dropoff_address}
+                                        </li>
+                                    )}
+                                </ul>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleAutofillFromProfile}
+                                className="shrink-0 text-sm font-medium text-indigo-600 hover:text-indigo-800 border border-indigo-200 bg-white px-3 py-1.5 rounded-md transition-colors"
+                            >
+                                Autofill
+                            </button>
+                        </div>
+                    </div>
                 )}
 
                 {/* Form */}
