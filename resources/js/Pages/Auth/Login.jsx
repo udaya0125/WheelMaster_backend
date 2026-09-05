@@ -43,7 +43,7 @@ export default function Login({ status, canResetPassword }) {
                         WheelMaster
                     </h1>
                     <p className="text-gray-500 text-sm">
-                        Driving Institute Portal
+                        Driving Academy Portal
                     </p>
                 </div>
 
