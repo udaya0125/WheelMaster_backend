@@ -282,15 +282,15 @@ const UserNavBar = ({ onMenuToggle }) => {
                     </div>
 
                     {/* Right: Book More Lessons + User */}
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2 sm:space-x-3">
                         {/* Book More Lessons */}
                         <Link
                             href="/"
-                            className="flex items-center space-x-0 sm:space-x-1.5 px-2.5 sm:px-4 py-2 rounded-full bg-gradient-to-br from-[#2f2e7f] to-[#4a48b0] text-white text-sm font-medium shadow-sm hover:shadow-md hover:brightness-110 active:scale-95 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#2f2e7f]/30"
+                            className="flex items-center space-x-1.5 px-3 sm:px-4 py-2 rounded-full bg-gradient-to-br from-[#2f2e7f] to-[#4a48b0] text-white text-xs sm:text-sm font-medium shadow-sm hover:shadow-md hover:brightness-110 active:scale-95 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#2f2e7f]/30 whitespace-nowrap"
                             aria-label="Book More Lessons"
                         >
-                            <CalendarPlus className="w-4 h-4" />
-                            <span className="hidden sm:inline">Book More Lessons</span>
+                            <CalendarPlus className="w-4 h-4 flex-shrink-0" />
+                            <span>Book More Lessons</span>
                         </Link>
 
                         <div className="relative" ref={userMenuRef}>

@@ -205,7 +205,7 @@ Route::get('/', function () {
 
     Route::get('/ouruserreservations', [UserReservationController::class, 'index'])->name('ouruserreservations.index');
     Route::post('/ouruserreservations', [UserReservationController::class, 'store'])->name('ouruserreservations.store');
-    Route::put('/ouruserreservations/{id}', [UserReservationController::class, 'update'])->name('ouruserreservations.update');
+
     Route::delete('/ouruserreservations/{id}', [UserReservationController::class, 'destroy'])->name('ouruserreservations.destroy');
     Route::post('/ouruserreservations/check-availability', [UserReservationController::class, 'checkAvailability'])->name('ouruserreservations.check-availability');
 
@@ -337,8 +337,10 @@ Route::get('/', function () {
         return Inertia::render('UserPages/MyBookings');
     });
 
+
     Route::get('/ourbookings', [BookingHistoryController::class, 'index'])->name('ourbookings.history')->middleware('auth');
     
+        Route::put('/ouruserreservations/{id}', [UserReservationController::class, 'update'])->name('ouruserreservations.update');
 
     Route::get('/user-dashboard', function () {
         return Inertia::render('UserPages/UserDashboard');
