@@ -8,6 +8,7 @@ use App\Models\PaymentIntent;
 use App\Models\PaymentWebhookEvent;
 use App\Services\OnlinePayClient;
 use App\Services\PaymentBookingService;
+use App\Services\VoucherPaymentService;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -142,7 +143,12 @@ class PaymentController extends Controller
         }
 
         if ($this->isSuccessfulWebhook($payload)) {
-            $bookingService->finalizeSuccessfulPayment($intent);
+            if (data_get($intent->booking_payload, 'type') === 'voucher') {
+                app(VoucherPaymentService::class)->finalize($intent);
+            } else {
+                $bookingService->finalizeSuccessfulPayment($intent);
+            }
+
             $event->update([
                 'status' => 'processed',
                 'processed_at' => now(),
@@ -255,6 +261,27 @@ class PaymentController extends Controller
 
     private function returnContent(PaymentIntent $paymentIntent): array
     {
+        if (data_get($paymentIntent->booking_payload, 'type') === 'voucher') {
+            $heading = match ($paymentIntent->status) {
+                'paid' => 'Voucher purchased!',
+                'failed', 'expired', 'cancelled' => 'Payment was not completed',
+                default => 'Payment is processing',
+            };
+
+            $message = match ($paymentIntent->status) {
+                'paid' => 'Your gift voucher has been emailed to the recipient.',
+                'failed', 'expired', 'cancelled' => 'Your voucher purchase was not completed because the payment was not finished.',
+                default => 'We are waiting for payment confirmation. You can close this page once your confirmation email arrives.',
+            };
+
+            return [
+                'status' => $paymentIntent->status,
+                'heading' => $heading,
+                'message' => $message,
+                'clear_lesson_cart' => false,
+            ];
+        }
+
         $heading = match ($paymentIntent->status) {
             'paid' => 'Payment received',
             'failed', 'expired', 'cancelled' => 'Payment was not completed',

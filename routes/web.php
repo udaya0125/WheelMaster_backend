@@ -1,4 +1,4 @@
-<?php
+ <?php
 
 use App\Http\Controllers\BlockReservationController;
 use App\Http\Controllers\BlogController;
@@ -23,6 +23,7 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\TimeSlotController;
 use App\Http\Controllers\BookingHistoryController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\VoucherController;
 
 
 Route::get('/', function () {
@@ -360,6 +361,16 @@ Route::get('/', function () {
 
     Route::patch('/user-reservations/{id}/reschedule', [UserReservationController::class, 'reschedule'])->middleware('auth')->name('ourreservations.reschedule');
 
+
+    Route::get('/gift-a-friend', [VoucherController::class, 'create'])->name('vouchers.create');
+    Route::post('/gift-a-friend', [VoucherController::class, 'store'])->name('vouchers.store');
+    Route::post('/vouchers/validate', [VoucherController::class, 'validateCode'])->name('vouchers.validate');
+    Route::post('/vouchers/checkout', [VoucherController::class, 'checkout'])->name('vouchers.checkout');
+
+
+    // Route::get('/voucher-crete', function () {
+    //     return Inertia::render('Vouchers/Create');
+    // });
  
 
 require __DIR__.'/auth.php';

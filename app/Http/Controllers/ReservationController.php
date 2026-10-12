@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use App\Models\Voucher;
 
 class ReservationController extends Controller
 {
@@ -79,7 +80,7 @@ class ReservationController extends Controller
         ]);
     }
 
-        // Helper method to get available slots for a specific date and price
+    // Helper method to get available slots for a specific date and price
     private function getAvailableSlotsForDate($date, $priceId = null)
     {
         $now = Carbon::now();
@@ -280,43 +281,43 @@ class ReservationController extends Controller
     // }
 
     /**
- * Validate every lesson-bundle group in the cart (5-hour, 10-hour, or any
- * future N-hour bundle) totals exactly that bundle's required minutes.
- *
- * $bundleGroupsWithIndividualErrors is keyed by price_id: any bundle group
- * present there already has one of its own lessons failing for its own
- * reason (unavailable, duplicate, overlapping). In that case we skip the
- * "incomplete bundle" cascade for the group entirely — only the lesson
- * that actually failed gets an error, so the rest of the bundle's lessons
- * stay in the cart instead of being wiped out along with it.
- */
-private function lessonBundleCartErrors(array $items, array $bundleGroupsWithIndividualErrors = []): array
-{
-    $errors = [];
-    $bundleGroups = collect($items)
-        ->filter(fn ($item) => $item['price']->isLessonBundle())
-        ->groupBy(fn ($item) => $item['price']->id);
+     * Validate every lesson-bundle group in the cart (5-hour, 10-hour, or any
+     * future N-hour bundle) totals exactly that bundle's required minutes.
+     *
+     * $bundleGroupsWithIndividualErrors is keyed by price_id: any bundle group
+     * present there already has one of its own lessons failing for its own
+     * reason (unavailable, duplicate, overlapping). In that case we skip the
+     * "incomplete bundle" cascade for the group entirely — only the lesson
+     * that actually failed gets an error, so the rest of the bundle's lessons
+     * stay in the cart instead of being wiped out along with it.
+     */
+    private function lessonBundleCartErrors(array $items, array $bundleGroupsWithIndividualErrors = []): array
+    {
+        $errors = [];
+        $bundleGroups = collect($items)
+            ->filter(fn ($item) => $item['price']->isLessonBundle())
+            ->groupBy(fn ($item) => $item['price']->id);
 
-    foreach ($bundleGroups as $priceId => $bundleItems) {
-        if (! empty($bundleGroupsWithIndividualErrors[$priceId])) {
-            continue;
+        foreach ($bundleGroups as $priceId => $bundleItems) {
+            if (! empty($bundleGroupsWithIndividualErrors[$priceId])) {
+                continue;
+            }
+
+            $price = $bundleItems->first()['price'];
+            $bundleHours = $price->getLessonBundleHours();
+            $requiredMinutes = $price->lessonBundleTotalMinutes();
+
+            if ($bundleItems->sum('duration_minutes') === $requiredMinutes) {
+                continue;
+            }
+
+            foreach ($bundleItems as $bundleItem) {
+                $errors[$bundleItem['index']] = "The {$bundleHours} hour lesson bundle requires selected 1-hour and 2-hour lessons totaling exactly {$bundleHours} hours.";
+            }
         }
 
-        $price = $bundleItems->first()['price'];
-        $bundleHours = $price->getLessonBundleHours();
-        $requiredMinutes = $price->lessonBundleTotalMinutes();
-
-        if ($bundleItems->sum('duration_minutes') === $requiredMinutes) {
-            continue;
-        }
-
-        foreach ($bundleItems as $bundleItem) {
-            $errors[$bundleItem['index']] = "The {$bundleHours} hour lesson bundle requires selected 1-hour and 2-hour lessons totaling exactly {$bundleHours} hours.";
-        }
+        return $errors;
     }
-
-    return $errors;
-}
 
     private function cartTotalAmount(array $items): float
     {
@@ -431,7 +432,196 @@ private function lessonBundleCartErrors(array $items, array $bundleGroupsWithInd
         ];
     }
 
+    // public function storeCart(Request $request)
+    // {
+    //     $validated = $request->validate([
+    //         'user_name' => 'required|string',
+    //         'email' => 'required|email',
+    //         'phone' => 'required|string',
+    //         'address' => 'required|string',
+    //         'pickup_location' => 'required|string',
+    //         'dropoff_location' => 'required|string',
+    //         'comment' => 'nullable|string',
+    //         'accepted_terms' => 'accepted',
+    //         'items' => 'required|array|min:1|max:20',
+    //         'items.*.price_id' => 'required|exists:prices,id',
+    //         'items.*.reservation_date' => 'required|date',
+    //         'items.*.start_time' => 'required',
+    //         'items.*.duration_minutes' => 'nullable|integer|in:60,120',
+    //     ]);
 
+    //     $slotHoldService = new SlotHoldService;
+
+    //     try {
+    //         ['reservations' => $createdReservations, 'total_amount' => $totalAmount] = DB::transaction(
+    //             function () use ($validated, $slotHoldService) {
+    //                 $slotHoldService->releaseExpired();
+
+    //                 $preparedItems = [];
+    //                 $errors = [];
+    //                 $seenKeys = [];
+    //                 $holdToken = null;
+    //                 $bundleGroupsWithIndividualErrors = [];
+
+    //                 foreach ($validated['items'] as $index => $item) {
+    //                     $price = Price::find($item['price_id']);
+    //                     $dateKey = Carbon::parse($item['reservation_date'])->format('Y-m-d');
+    //                     $startKey = Carbon::parse($item['start_time'])->format('H:i');
+    //                     $cartKey = $item['price_id'].'|'.$dateKey.'|'.$startKey;
+
+    //                     if (isset($seenKeys[$cartKey])) {
+    //                         $errors[$index] = 'This lesson is duplicated in your cart.';
+
+    //                         if ($price?->isLessonBundle()) {
+    //                             $bundleGroupsWithIndividualErrors[$price->id] = true;
+    //                         }
+
+    //                         continue;
+    //                     }
+
+    //                     $seenKeys[$cartKey] = true;
+
+    //                     if (! $price || ! $this->isNormalLessonPackage($price)) {
+    //                         $errors[$index] = 'This package cannot be booked through the lesson cart.';
+
+    //                         continue;
+    //                     }
+
+    //                     $availability = $this->validateCartItemAvailability($item, $price, $slotHoldService);
+
+    //                     if (! $availability['available']) {
+    //                         $errors[$index] = $availability['message'];
+
+    //                         if ($price->isLessonBundle()) {
+    //                             $bundleGroupsWithIndividualErrors[$price->id] = true;
+    //                         }
+
+    //                         continue;
+    //                     }
+
+    //                     $preparedItems[] = [
+    //                         'index' => $index,
+    //                         'price' => $price,
+    //                         ...$availability,
+    //                     ];
+    //                 }
+
+    //                 for ($i = 0; $i < count($preparedItems); $i++) {
+    //                     for ($j = $i + 1; $j < count($preparedItems); $j++) {
+    //                         $first = $preparedItems[$i];
+    //                         $second = $preparedItems[$j];
+
+    //                         if (
+    //                             $first['reservation_date'] === $second['reservation_date'] &&
+    //                             $first['start'] < $second['buffer_end'] &&
+    //                             $second['start'] < $first['buffer_end']
+    //                         ) {
+    //                             $errors[$first['index']] = 'This lesson overlaps another item in your cart.';
+    //                             $errors[$second['index']] = 'This lesson overlaps another item in your cart.';
+
+    //                             if ($first['price']->isLessonBundle()) {
+    //                                 $bundleGroupsWithIndividualErrors[$first['price']->id] = true;
+    //                             }
+
+    //                             if ($second['price']->isLessonBundle()) {
+    //                                 $bundleGroupsWithIndividualErrors[$second['price']->id] = true;
+    //                             }
+    //                         }
+    //                     }
+    //                 }
+
+    //                 $errors = array_replace($errors, $this->lessonBundleCartErrors($preparedItems, $bundleGroupsWithIndividualErrors));
+
+    //                 if (! empty($errors)) {
+    //                     throw new BookingConflictException('Some cart items are not available.', [
+    //                         'items' => $errors,
+    //                     ]);
+    //                 }
+
+    //                 foreach ($preparedItems as $item) {
+    //                     try {
+    //                         $holdToken = $slotHoldService->acquire(
+    //                             $item['reservation_date'],
+    //                             $item['start'],
+    //                             $item['buffer_end'],
+    //                             $holdToken
+    //                         );
+    //                     } catch (BookingConflictException) {
+    //                         throw new BookingConflictException('Some cart items are not available.', [
+    //                             'items' => [
+    //                                 $item['index'] => 'This time slot is no longer available.',
+    //                             ],
+    //                         ]);
+    //                     }
+    //                 }
+
+    //                 $createdReservations = collect();
+    //                 $totalAmount = $this->cartTotalAmount($preparedItems);
+
+    //                 foreach ($preparedItems as $item) {
+    //                     $reservation = UserReservation::create([
+    //                         'user_name' => $validated['user_name'],
+    //                         'email' => $validated['email'],
+    //                         'phone' => $validated['phone'],
+    //                         'address' => $validated['address'],
+    //                         'pickup_location' => $validated['pickup_location'],
+    //                         'dropoff_location' => $validated['dropoff_location'],
+    //                         'reservation_date' => $item['reservation_date'],
+    //                         'start_time' => $item['start']->format('H:i:s'),
+    //                         'end_time' => $item['end']->format('H:i:s'),
+    //                         'price_id' => $item['price']->id,
+    //                         'package_type' => $this->extractPackageName($item['price']->description),
+    //                         'status' => 'Pending',
+    //                         'comment' => $validated['comment'] ?? null,
+    //                     ]);
+
+    //                     $createdReservations->push($reservation->load('price'));
+    //                 }
+
+    //                 if ($holdToken) {
+    //                     $slotHoldService->releaseToken($holdToken);
+    //                 }
+
+    //                 Notification::create([
+    //                     'message' => "New cart booking from {$validated['user_name']} with ".$createdReservations->count().' lessons',
+    //                     'is_read' => false,
+    //                 ]);
+
+    //                 return [
+    //                     'reservations' => $createdReservations,
+    //                     'total_amount' => $totalAmount,
+    //                 ];
+    //             },
+    //             3
+    //         );
+    //     } catch (BookingConflictException $exception) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => $exception->getMessage(),
+    //             'errors' => $exception->errors(),
+    //         ], $exception->statusCode());
+    //     }
+
+    //     try {
+    //         Mail::to($validated['email'])->send(new CartReservationsCreated($createdReservations, false, $totalAmount));
+    //     } catch (\Exception $e) {
+    //         Log::error('Failed to send customer cart email: '.$e->getMessage());
+    //     }
+
+    //     try {
+    //         Mail::to(config('services.onlinepay.admin_email', 'Wheelmasterdriving@gmail.com'))
+    //             ->send(new CartReservationsCreated($createdReservations, true, $totalAmount));
+    //     } catch (\Exception $e) {
+    //         Log::error('Failed to send admin cart email: '.$e->getMessage());
+    //     }
+
+    //     return response()->json([
+    //         'success' => true,
+    //         'message' => 'Cart booking created successfully',
+    //         'data' => $createdReservations,
+    //         'total_amount' => $totalAmount,
+    //     ], 201);
+    // }
     public function storeCart(Request $request)
 {
     $validated = $request->validate([
@@ -448,6 +638,7 @@ private function lessonBundleCartErrors(array $items, array $bundleGroupsWithInd
         'items.*.reservation_date' => 'required|date',
         'items.*.start_time' => 'required',
         'items.*.duration_minutes' => 'nullable|integer|in:60,120',
+        'voucher_code' => 'nullable|string',
     ]);
 
     $slotHoldService = new SlotHoldService();
@@ -537,6 +728,51 @@ private function lessonBundleCartErrors(array $items, array $bundleGroupsWithInd
                     ]);
                 }
 
+                // ─── Voucher validation (single-package carts only — a
+                // voucher is tied to one price_id, so it can only cover a
+                // cart where every item is the same package, e.g. a
+                // completed lesson bundle) ───
+                $voucher = null;
+                $voucherTotalAmount = null;
+
+                if (! empty($validated['voucher_code'])) {
+                    $uniquePriceIds = collect($preparedItems)
+                        ->map(fn ($item) => $item['price']->id)
+                        ->unique();
+
+                    if ($uniquePriceIds->count() !== 1) {
+                        throw new BookingConflictException('A gift voucher can only be used when your cart contains a single package.', [
+                            'voucher_code' => ['A gift voucher can only be used when your cart contains a single package.'],
+                        ], 422);
+                    }
+
+                    $voucher = Voucher::where('code', $validated['voucher_code'])
+                        ->lockForUpdate()
+                        ->first();
+
+                    if (! $voucher || ! $voucher->isValid()) {
+                        throw new BookingConflictException('Invalid or expired voucher code.', [
+                            'voucher_code' => ['Invalid or expired voucher code.'],
+                        ], 422);
+                    }
+
+                    $cartPriceId = $uniquePriceIds->first();
+
+                    if ($voucher->price_id && (int) $voucher->price_id !== (int) $cartPriceId) {
+                        throw new BookingConflictException("This voucher can't be used for this package.", [
+                            'voucher_code' => ["This voucher can't be used for this package."],
+                        ], 422);
+                    }
+
+                    $voucherTotalAmount = $this->cartTotalAmount($preparedItems);
+
+                    if ($voucher->balance < $voucherTotalAmount) {
+                        throw new BookingConflictException("This voucher's balance doesn't cover this package.", [
+                            'voucher_code' => ["This voucher's balance doesn't cover this package."],
+                        ], 422);
+                    }
+                }
+
                 foreach ($preparedItems as $item) {
                     try {
                         $holdToken = $slotHoldService->acquire(
@@ -555,7 +791,7 @@ private function lessonBundleCartErrors(array $items, array $bundleGroupsWithInd
                 }
 
                 $createdReservations = collect();
-                $totalAmount = $this->cartTotalAmount($preparedItems);
+                $totalAmount = $voucherTotalAmount ?? $this->cartTotalAmount($preparedItems);
 
                 foreach ($preparedItems as $item) {
                     $reservation = UserReservation::create([
@@ -575,6 +811,11 @@ private function lessonBundleCartErrors(array $items, array $bundleGroupsWithInd
                     ]);
 
                     $createdReservations->push($reservation->load('price'));
+                }
+
+                // Redeem only after every reservation in the cart is confirmed successful
+                if ($voucher) {
+                    $voucher->redeem($totalAmount, $validated['email']);
                 }
 
                 if ($holdToken) {
@@ -824,139 +1065,308 @@ private function lessonBundleCartErrors(array $items, array $bundleGroupsWithInd
     }
 
     // Store reservation with improved validation
-    public function store(Request $request)
-    {
-        $request->validate([
-            'user_name' => 'required',
-            'email' => 'required|email',
-            'phone' => 'required',
-            'address' => 'required',
-            'pickup_location' => 'required',
-            'dropoff_location' => 'required',
-            'reservation_date' => 'required|date',
-            'start_time' => 'required',
-            'end_time' => 'required',
-            'price_id' => 'required|exists:prices,id',
-            'package_type' => 'required|string',
-            'package_price' => 'required|numeric',
-            'duration_minutes' => 'required|integer',
-            'comment' => 'nullable|string',
-        ]);
+    // public function store(Request $request)
+    // {
+    //     $request->validate([
+    //         'user_name' => 'required',
+    //         'email' => 'required|email',
+    //         'phone' => 'required',
+    //         'address' => 'required',
+    //         'pickup_location' => 'required',
+    //         'dropoff_location' => 'required',
+    //         'reservation_date' => 'required|date',
+    //         'start_time' => 'required',
+    //         'end_time' => 'required',
+    //         'price_id' => 'required|exists:prices,id',
+    //         'package_type' => 'required|string',
+    //         'package_price' => 'required|numeric',
+    //         'duration_minutes' => 'required|integer',
+    //         'comment' => 'nullable|string',
+    //     ]);
 
-        // Convert times to Carbon for easier comparison
-        $requestStart = Carbon::parse($request->start_time);
-        $requestEnd = Carbon::parse($request->end_time);
-        $requestBufferEnd = $requestEnd->copy()->addMinutes(self::BOOKING_BUFFER_MINUTES);
-        $reservationDate = Carbon::parse($request->reservation_date)->format('Y-m-d');
-        $priceId = $request->price_id;
-        $price = Price::findOrFail($priceId);
-        $slotHoldService = new SlotHoldService();
+    //     // Convert times to Carbon for easier comparison
+    //     $requestStart = Carbon::parse($request->start_time);
+    //     $requestEnd = Carbon::parse($request->end_time);
+    //     $requestBufferEnd = $requestEnd->copy()->addMinutes(self::BOOKING_BUFFER_MINUTES);
+    //     $reservationDate = Carbon::parse($request->reservation_date)->format('Y-m-d');
+    //     $priceId = $request->price_id;
+    //     $price = Price::findOrFail($priceId);
+    //     $slotHoldService = new SlotHoldService;
 
-        if ($price->isLessonBundle()) {
-            $bundleHours = $price->getLessonBundleHours();
+    //     if ($price->isLessonBundle()) {
+    //         $bundleHours = $price->getLessonBundleHours();
 
-            return response()->json([
-                'message' => "The {$bundleHours} hour lesson bundle must be booked through the cart with lessons totaling exactly {$bundleHours} hours.",
-                'errors' => [
-                    'price_id' => ["The {$bundleHours} hour lesson bundle must be booked through the lesson cart with 1-hour and 2-hour lessons totaling {$bundleHours} hours."],
-                ],
-            ], 422);
-        }
+    //         return response()->json([
+    //             'message' => "The {$bundleHours} hour lesson bundle must be booked through the cart with lessons totaling exactly {$bundleHours} hours.",
+    //             'errors' => [
+    //                 'price_id' => ["The {$bundleHours} hour lesson bundle must be booked through the lesson cart with 1-hour and 2-hour lessons totaling {$bundleHours} hours."],
+    //             ],
+    //         ], 422);
+    //     }
 
-        try {
-            $reservation = DB::transaction(function () use (
-                $request,
-                $slotHoldService,
-                $reservationDate,
-                $requestStart,
-                $requestEnd,
-                $requestBufferEnd,
-                $priceId
-            ) {
-                $slotHoldService->releaseExpired();
+    //     try {
+    //         $reservation = DB::transaction(function () use (
+    //             $request,
+    //             $slotHoldService,
+    //             $reservationDate,
+    //             $requestStart,
+    //             $requestEnd,
+    //             $requestBufferEnd,
+    //             $priceId
+    //         ) {
+    //             $slotHoldService->releaseExpired();
 
-                $existingBlock = BlockReservation::overlapsDrivingWindow(
-                    $reservationDate,
-                    $requestStart,
-                    $requestBufferEnd,
-                    self::BOOKING_BUFFER_MINUTES
-                );
+    //             $existingBlock = BlockReservation::overlapsDrivingWindow(
+    //                 $reservationDate,
+    //                 $requestStart,
+    //                 $requestBufferEnd,
+    //                 self::BOOKING_BUFFER_MINUTES
+    //             );
 
-                if ($existingBlock) {
-                    throw new BookingConflictException('Selected time slot is blocked', [], 403);
-                }
+    //             if ($existingBlock) {
+    //                 throw new BookingConflictException('Selected time slot is blocked', [], 403);
+    //             }
 
-                $existingReservation = $this->reservationOverlaps($reservationDate, $requestStart, $requestBufferEnd);
+    //             $existingReservation = $this->reservationOverlaps($reservationDate, $requestStart, $requestBufferEnd);
 
-                if ($existingReservation) {
-                    throw new BookingConflictException('Selected time slot is already reserved', [], 409);
-                }
+    //             if ($existingReservation) {
+    //                 throw new BookingConflictException('Selected time slot is already reserved', [], 409);
+    //             }
 
-                if ($slotHoldService->activeHoldExists($reservationDate, $requestStart, $requestBufferEnd)) {
-                    throw new BookingConflictException('Selected time slot is temporarily held by another checkout', [], 409);
-                }
+    //             if ($slotHoldService->activeHoldExists($reservationDate, $requestStart, $requestBufferEnd)) {
+    //                 throw new BookingConflictException('Selected time slot is temporarily held by another checkout', [], 409);
+    //             }
 
-                $holdToken = $slotHoldService->acquire(
-                    $reservationDate,
-                    $requestStart,
-                    $requestBufferEnd
-                );
+    //             $holdToken = $slotHoldService->acquire(
+    //                 $reservationDate,
+    //                 $requestStart,
+    //                 $requestBufferEnd
+    //             );
 
-                $reservation = UserReservation::create([
-                    'user_name' => $request->user_name,
-                    'email' => $request->email,
-                    'phone' => $request->phone,
-                    'address' => $request->address,
-                    'pickup_location' => $request->pickup_location,
-                    'dropoff_location' => $request->dropoff_location,
-                    'reservation_date' => $reservationDate,
-                    'start_time' => $requestStart->format('H:i:s'),
-                    'end_time' => $requestEnd->format('H:i:s'),
-                    'price_id' => $priceId,
-                    'package_type' => $request->package_type,
-                    'package_price' => $request->package_price,
-                    'duration_minutes' => $request->duration_minutes,
-                    'status' => 'Pending',
-                    'comment' => $request->comment,
-                ]);
+    //             $reservation = UserReservation::create([
+    //                 'user_name' => $request->user_name,
+    //                 'email' => $request->email,
+    //                 'phone' => $request->phone,
+    //                 'address' => $request->address,
+    //                 'pickup_location' => $request->pickup_location,
+    //                 'dropoff_location' => $request->dropoff_location,
+    //                 'reservation_date' => $reservationDate,
+    //                 'start_time' => $requestStart->format('H:i:s'),
+    //                 'end_time' => $requestEnd->format('H:i:s'),
+    //                 'price_id' => $priceId,
+    //                 'package_type' => $request->package_type,
+    //                 'package_price' => $request->package_price,
+    //                 'duration_minutes' => $request->duration_minutes,
+    //                 'status' => 'Pending',
+    //                 'comment' => $request->comment,
+    //             ]);
 
-                $slotHoldService->releaseToken($holdToken);
+    //             $slotHoldService->releaseToken($holdToken);
 
-                Notification::create([
-                    'message' => "New reservation from {$reservation->user_name} for {$reservationDate} ({$requestStart->format('h:i A')} - {$requestEnd->format('h:i A')})".Price::find($priceId)->name,
-                    'is_read' => false,
-                ]);
+    //             Notification::create([
+    //                 'message' => "New reservation from {$reservation->user_name} for {$reservationDate} ({$requestStart->format('h:i A')} - {$requestEnd->format('h:i A')})".Price::find($priceId)->name,
+    //                 'is_read' => false,
+    //             ]);
 
-                return $reservation;
-            }, 3);
-        } catch (BookingConflictException $exception) {
-            return response()->json([
-                'error' => $exception->getMessage(),
-                'message' => $exception->getMessage(),
-                'errors' => $exception->errors(),
-            ], $exception->statusCode());
-        }
+    //             return $reservation;
+    //         }, 3);
+    //     } catch (BookingConflictException $exception) {
+    //         return response()->json([
+    //             'error' => $exception->getMessage(),
+    //             'message' => $exception->getMessage(),
+    //             'errors' => $exception->errors(),
+    //         ], $exception->statusCode());
+    //     }
 
-        // Send email to customer
-        try {
-            Mail::to($reservation->email)->send(new ReservationCreated($reservation, false));
-        } catch (\Exception $e) {
-            Log::error('Failed to send customer email: '.$e->getMessage());
-        }
+    //     // Send email to customer
+    //     try {
+    //         Mail::to($reservation->email)->send(new ReservationCreated($reservation, false));
+    //     } catch (\Exception $e) {
+    //         Log::error('Failed to send customer email: '.$e->getMessage());
+    //     }
 
-        // Send email to admin
-        try {
-            Mail::to(config('services.onlinepay.admin_email', 'Wheelmasterdriving@gmail.com'))
-                ->send(new ReservationCreated($reservation, true));
-        } catch (\Exception $e) {
-            Log::error('Failed to send admin email: '.$e->getMessage());
-        }
+    //     // Send email to admin
+    //     try {
+    //         Mail::to(config('services.onlinepay.admin_email', 'Wheelmasterdriving@gmail.com'))
+    //             ->send(new ReservationCreated($reservation, true));
+    //     } catch (\Exception $e) {
+    //         Log::error('Failed to send admin email: '.$e->getMessage());
+    //     }
+
+    //     return response()->json([
+    //         'message' => 'Reservation created successfully',
+    //         'data' => $reservation,
+    //     ]);
+    // }
+
+    // Store reservation with improved validation
+public function store(Request $request)
+{
+    $request->validate([
+        'user_name' => 'required',
+        'email' => 'required|email',
+        'phone' => 'required',
+        'address' => 'required',
+        'pickup_location' => 'required',
+        'dropoff_location' => 'required',
+        'reservation_date' => 'required|date',
+        'start_time' => 'required',
+        'end_time' => 'required',
+        'price_id' => 'required|exists:prices,id',
+        'package_type' => 'required|string',
+        'package_price' => 'required|numeric',
+        'duration_minutes' => 'required|integer',
+        'comment' => 'nullable|string',
+        'voucher_code' => 'nullable|string',
+    ]);
+
+    // Convert times to Carbon for easier comparison
+    $requestStart = Carbon::parse($request->start_time);
+    $requestEnd = Carbon::parse($request->end_time);
+    $requestBufferEnd = $requestEnd->copy()->addMinutes(self::BOOKING_BUFFER_MINUTES);
+    $reservationDate = Carbon::parse($request->reservation_date)->format('Y-m-d');
+    $priceId = $request->price_id;
+    $price = Price::findOrFail($priceId);
+    $slotHoldService = new SlotHoldService();
+
+    if ($price->isLessonBundle()) {
+        $bundleHours = $price->getLessonBundleHours();
 
         return response()->json([
-            'message' => 'Reservation created successfully',
-            'data' => $reservation,
-        ]);
+            'message' => "The {$bundleHours} hour lesson bundle must be booked through the cart with lessons totaling exactly {$bundleHours} hours.",
+            'errors' => [
+                'price_id' => ["The {$bundleHours} hour lesson bundle must be booked through the lesson cart with 1-hour and 2-hour lessons totaling {$bundleHours} hours."],
+            ],
+        ], 422);
     }
+
+    try {
+        $reservation = DB::transaction(function () use (
+            $request,
+            $slotHoldService,
+            $reservationDate,
+            $requestStart,
+            $requestEnd,
+            $requestBufferEnd,
+            $priceId,
+            $price
+        ) {
+            $slotHoldService->releaseExpired();
+
+            $existingBlock = BlockReservation::overlapsDrivingWindow(
+                $reservationDate,
+                $requestStart,
+                $requestBufferEnd,
+                self::BOOKING_BUFFER_MINUTES
+            );
+
+            if ($existingBlock) {
+                throw new BookingConflictException('Selected time slot is blocked', [], 403);
+            }
+
+            $existingReservation = $this->reservationOverlaps($reservationDate, $requestStart, $requestBufferEnd);
+
+            if ($existingReservation) {
+                throw new BookingConflictException('Selected time slot is already reserved', [], 409);
+            }
+
+            if ($slotHoldService->activeHoldExists($reservationDate, $requestStart, $requestBufferEnd)) {
+                throw new BookingConflictException('Selected time slot is temporarily held by another checkout', [], 409);
+            }
+
+            // ─── Voucher validation (server-side, never trust the earlier /validate call alone) ───
+            $voucher = null;
+
+            if ($request->filled('voucher_code')) {
+                $voucher = Voucher::where('code', $request->voucher_code)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $voucher || ! $voucher->isValid()) {
+                    throw new BookingConflictException('Invalid or expired voucher code.', [
+                        'voucher_code' => ['Invalid or expired voucher code.'],
+                    ], 422);
+                }
+
+                if ($voucher->price_id && (int) $voucher->price_id !== (int) $priceId) {
+                    throw new BookingConflictException("This voucher can't be used for this package.", [
+                        'voucher_code' => ["This voucher can't be used for this package."],
+                    ], 422);
+                }
+
+                if ($voucher->balance < $price->price) {
+                    throw new BookingConflictException("This voucher's balance doesn't cover this package.", [
+                        'voucher_code' => ["This voucher's balance doesn't cover this package."],
+                    ], 422);
+                }
+            }
+
+            $holdToken = $slotHoldService->acquire(
+                $reservationDate,
+                $requestStart,
+                $requestBufferEnd
+            );
+
+            $reservation = UserReservation::create([
+                'user_name' => $request->user_name,
+                'email' => $request->email,
+                'phone' => $request->phone,
+                'address' => $request->address,
+                'pickup_location' => $request->pickup_location,
+                'dropoff_location' => $request->dropoff_location,
+                'reservation_date' => $reservationDate,
+                'start_time' => $requestStart->format('H:i:s'),
+                'end_time' => $requestEnd->format('H:i:s'),
+                'price_id' => $priceId,
+                'package_type' => $request->package_type,
+                'package_price' => $request->package_price,
+                'duration_minutes' => $request->duration_minutes,
+                'status' => 'Pending',
+                'comment' => $request->comment,
+            ]);
+
+            // Redeem the voucher only after the reservation is confirmed successful
+            if ($voucher) {
+                $voucher->redeem($price->price, $request->email);
+            }
+
+            $slotHoldService->releaseToken($holdToken);
+
+            Notification::create([
+                'message' => "New reservation from {$reservation->user_name} for {$reservationDate} ({$requestStart->format('h:i A')} - {$requestEnd->format('h:i A')})".Price::find($priceId)->name,
+                'is_read' => false,
+            ]);
+
+            return $reservation;
+        }, 3);
+    } catch (BookingConflictException $exception) {
+        return response()->json([
+            'error' => $exception->getMessage(),
+            'message' => $exception->getMessage(),
+            'errors' => $exception->errors(),
+        ], $exception->statusCode());
+    }
+
+    // Send email to customer
+    try {
+        Mail::to($reservation->email)->send(new ReservationCreated($reservation, false));
+    } catch (\Exception $e) {
+        Log::error('Failed to send customer email: '.$e->getMessage());
+    }
+
+    // Send email to admin
+    try {
+        Mail::to(config('services.onlinepay.admin_email', 'Wheelmasterdriving@gmail.com'))
+            ->send(new ReservationCreated($reservation, true));
+    } catch (\Exception $e) {
+        Log::error('Failed to send admin email: '.$e->getMessage());
+    }
+
+    return response()->json([
+        'message' => 'Reservation created successfully',
+        'data' => $reservation,
+    ]);
+}
 
     // Get timeslots for frontend calendar - Now requires price_id
     public function timeSlots(Request $request)
@@ -1052,7 +1462,7 @@ private function lessonBundleCartErrors(array $items, array $bundleGroupsWithInd
                 })
                 ->exists();
 
-            $hasHold = (new SlotHoldService())->activeHoldExists($date, $bufferStart, $bufferEnd);
+            $hasHold = (new SlotHoldService)->activeHoldExists($date, $bufferStart, $bufferEnd);
 
             if (! $hasReservation && ! $hasBlock && ! $hasHold &&
                 $bufferStart >= $workingHoursStart &&

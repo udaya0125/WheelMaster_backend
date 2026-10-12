@@ -25,6 +25,24 @@
 //     source: "fixed",
 // };
 
+// // Display labels for the Area select, used to render the saved-profile summary
+// const AREA_LABELS = {
+//     mandurah: "Mandurah",
+//     "meadow-springs": "Meadow Springs",
+//     "silver-sands": "Silver Sands",
+//     lakelands: "Lakelands",
+//     "dudley-park": "Dudley Park",
+//     "halls-head": "Halls Head",
+//     "madora-bay": "Madora Bay",
+//     greenfields: "Greenfields",
+//     erskine: "Erskine",
+//     singleton: "Singleton",
+//     parklands: "Parklands",
+//     "stake-hill": "Stake Hill",
+//     "san-remo": "San Remo",
+//     [MEETPOINT_AREA]: "Meetpoint Mandurah Dot",
+// };
+
 // const normaliseAddressText = (text = "") => {
 //     const ordinals = {
 //         "1st": "first",
@@ -80,6 +98,15 @@
 //     if (streetAnchor && typed.includes(streetAnchor)) return true;
 //     return suburbAnchors.some((anchor) => anchor && typed.includes(anchor));
 // };
+
+// // Builds a "selected location" stand-in for an address pulled from the saved
+// // profile (we only have a free-text string, not geocoded suburb/postcode
+// // data), so it satisfies locationMatchesTypedAddress against itself.
+// const buildSavedProfileLocation = (address) => ({
+//     label: address,
+//     name: address,
+//     source: "profile",
+// });
 
 // const LocationAutocomplete = ({
 //     id,
@@ -275,9 +302,23 @@
 //     onBookingSuccess,
 //     onCartItemsUnavailable,
 // }) => {
-//     const { payment } = usePage().props;
+//     const { payment, auth } = usePage().props;
 //     const useOnlinePay = payment?.bookingMode === "onlinepay";
 //     const isCartCheckout = cartItems.length > 0;
+
+//     // Saved profile info (authenticated users only)
+//     const savedUser = auth?.user || null;
+//     const savedProfile = savedUser?.profile || null;
+//     const hasSavedInfo = Boolean(
+//         savedUser &&
+//             (savedUser.name ||
+//                 savedUser.email ||
+//                 savedUser.phone_number ||
+//                 savedProfile?.area ||
+//                 savedProfile?.pickup_address ||
+//                 savedProfile?.dropoff_address),
+//     );
+
 //     const [bookingForm, setBookingForm] = useState({
 //         user_name: "",
 //         email: "",
@@ -436,6 +477,67 @@
 //         setBookingForm((prev) => ({ ...prev, [name]: location.label }));
 //         setSelectedLocations((prev) => ({ ...prev, [name]: location }));
 //         if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
+//     };
+
+//     // Fills the form from the authenticated user's saved profile. Any field
+//     // with no saved value is left as-is (i.e. empty if it was empty).
+//     const handleAutofillFromProfile = () => {
+//         if (!savedUser) return;
+
+//         const isMeetpointArea = savedProfile?.area === MEETPOINT_AREA;
+
+//         setBookingForm((prev) => {
+//             const next = { ...prev };
+
+//             if (savedUser.name) next.user_name = savedUser.name;
+//             if (savedUser.email) next.email = savedUser.email;
+//             if (savedUser.phone_number) next.phone = savedUser.phone_number;
+//             if (savedProfile?.area) next.address = savedProfile.area;
+
+//             if (isMeetpointArea) {
+//                 next.pickup_location = MEETPOINT_LOCATION_LABEL;
+//                 next.dropoff_location = MEETPOINT_LOCATION_LABEL;
+//             } else {
+//                 if (savedProfile?.pickup_address) {
+//                     next.pickup_location = savedProfile.pickup_address;
+//                 }
+//                 if (savedProfile?.dropoff_address) {
+//                     next.dropoff_location = savedProfile.dropoff_address;
+//                 }
+//             }
+
+//             return next;
+//         });
+
+//         setSelectedLocations((prev) => {
+//             if (isMeetpointArea) {
+//                 return {
+//                     pickup_location: MEETPOINT_LOCATION,
+//                     dropoff_location: MEETPOINT_LOCATION,
+//                 };
+//             }
+
+//             return {
+//                 pickup_location: savedProfile?.pickup_address
+//                     ? buildSavedProfileLocation(savedProfile.pickup_address)
+//                     : prev.pickup_location,
+//                 dropoff_location: savedProfile?.dropoff_address
+//                     ? buildSavedProfileLocation(savedProfile.dropoff_address)
+//                     : prev.dropoff_location,
+//             };
+//         });
+
+//         setErrors((prev) => ({
+//             ...prev,
+//             user_name: "",
+//             email: "",
+//             phone: "",
+//             address: "",
+//             pickup_location: "",
+//             dropoff_location: "",
+//         }));
+
+//         toast.success("Filled in your saved details");
 //     };
 
 //     const validateSelectedLocations = () => {
@@ -756,6 +858,55 @@
 //                         ${price.price}
 //                     </p>
 //                 </div>
+//                 )}
+
+//                 {/* Saved profile summary + autofill */}
+//                 {hasSavedInfo && (
+//                     <div className="mx-6 mt-4 rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3">
+//                         <div className="flex items-start justify-between gap-3">
+//                             <div className="text-sm">
+//                                 <p className="font-medium text-indigo-900 mb-1.5">
+//                                     Use your saved details
+//                                 </p>
+//                                 <ul className="space-y-0.5 text-gray-600">
+//                                     {savedUser.name && (
+//                                         <li>Name: {savedUser.name}</li>
+//                                     )}
+//                                     {savedUser.email && (
+//                                         <li>Email: {savedUser.email}</li>
+//                                     )}
+//                                     {savedUser.phone_number && (
+//                                         <li>Phone: {savedUser.phone_number}</li>
+//                                     )}
+//                                     {savedProfile?.area && (
+//                                         <li>
+//                                             Area:{" "}
+//                                             {AREA_LABELS[savedProfile.area] ||
+//                                                 savedProfile.area}
+//                                         </li>
+//                                     )}
+//                                     {savedProfile?.pickup_address && (
+//                                         <li>
+//                                             Pickup: {savedProfile.pickup_address}
+//                                         </li>
+//                                     )}
+//                                     {savedProfile?.dropoff_address && (
+//                                         <li>
+//                                             Dropoff:{" "}
+//                                             {savedProfile.dropoff_address}
+//                                         </li>
+//                                     )}
+//                                 </ul>
+//                             </div>
+//                             <button
+//                                 type="button"
+//                                 onClick={handleAutofillFromProfile}
+//                                 className="shrink-0 text-sm font-medium text-indigo-600 hover:text-indigo-800 border border-indigo-200 bg-white px-3 py-1.5 rounded-md transition-colors"
+//                             >
+//                                 Autofill
+//                             </button>
+//                         </div>
+//                     </div>
 //                 )}
 
 //                 {/* Form */}
@@ -1091,7 +1242,7 @@
 
 
 
-import { Calendar, Clock, Package, X } from "lucide-react";
+import { Calendar, Clock, Package, X, Tag, Check, XCircle } from "lucide-react";
 import { usePage } from "@inertiajs/react";
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
@@ -1100,13 +1251,9 @@ import { getCartSubtotal } from "./packageRules";
 
 const MEETPOINT_AREA = "meetpoint-mandurah-dot";
 
-// Location label for meetpoint
-// const MEETPOINT_LOCATION_LABEL = "Mandurah, Western Australia 6210";
-
 const MEETPOINT_LOCATION_LABEL =
     "Ranceby Avenue, Mandurah, Western Australia 6210";
 
-// Full location object for meetpoint
 const MEETPOINT_LOCATION = {
     label: MEETPOINT_LOCATION_LABEL,
     name: "Mandurah",
@@ -1118,7 +1265,6 @@ const MEETPOINT_LOCATION = {
     source: "fixed",
 };
 
-// Display labels for the Area select, used to render the saved-profile summary
 const AREA_LABELS = {
     mandurah: "Mandurah",
     "meadow-springs": "Meadow Springs",
@@ -1432,6 +1578,24 @@ const BookingForm = ({
         dropoff_location: null,
     });
 
+    // ─── Gift voucher redemption ───────────────────────────────────────
+    // A voucher can be used for a single-lesson booking, OR for a cart
+    // checkout as long as every item in the cart shares the same price_id
+    // (i.e. it's one lesson bundle split across multiple time slots) —
+    // mixed-package carts can't use a voucher since a voucher is only ever
+    // tied to one price_id.
+    const [voucherCode, setVoucherCode] = useState("");
+    const [voucherStatus, setVoucherStatus] = useState(null); // null | 'checking' | 'valid' | 'invalid'
+    const [voucherMessage, setVoucherMessage] = useState("");
+    const [voucherApplied, setVoucherApplied] = useState(null); // { code } when valid & matching
+
+    const cartPriceIds = isCartCheckout
+        ? [...new Set(cartItems.map((item) => item.price_id))]
+        : [];
+    const isSinglePackageCart = isCartCheckout && cartPriceIds.length === 1;
+    const voucherEligible = !isCartCheckout || isSinglePackageCart;
+    const voucherTargetPriceId = isCartCheckout ? cartPriceIds[0] : priceId;
+
     const isMeetpoint = bookingForm.address === MEETPOINT_AREA;
 
     useEffect(() => {
@@ -1469,6 +1633,16 @@ const BookingForm = ({
             document.body.style.width = "auto";
         };
     }, []);
+
+    // If the cart changes into a mixed-package state after a voucher was
+    // applied (e.g. a second, different package gets added), drop it —
+    // it no longer matches a single price_id.
+    useEffect(() => {
+        if (voucherApplied && !voucherEligible) {
+            removeVoucher();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [cartItems]);
 
     const parseDuration = (durationString) => {
         if (!durationString) return 60;
@@ -1684,6 +1858,39 @@ const BookingForm = ({
         }
     };
 
+    // ─── Voucher apply handler ───────────────────────────────────────
+    const applyVoucher = async () => {
+        if (!voucherCode.trim() || !voucherEligible || !voucherTargetPriceId) return;
+
+        setVoucherStatus("checking");
+        setVoucherMessage("");
+        setVoucherApplied(null);
+
+        try {
+            const res = await axios.post(route("vouchers.validate"), {
+                code: voucherCode.trim(),
+                price_id: voucherTargetPriceId,
+            });
+
+            setVoucherStatus("valid");
+            setVoucherMessage("Voucher applied — this booking will be confirmed without payment.");
+            setVoucherApplied({ code: voucherCode.trim() });
+        } catch (err) {
+            setVoucherStatus("invalid");
+            setVoucherMessage(
+                err.response?.data?.message || "Invalid or non-matching voucher code.",
+            );
+            setVoucherApplied(null);
+        }
+    };
+
+    const removeVoucher = () => {
+        setVoucherCode("");
+        setVoucherStatus(null);
+        setVoucherMessage("");
+        setVoucherApplied(null);
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -1704,10 +1911,15 @@ const BookingForm = ({
             return;
         }
 
+        // A matching, applied voucher (single lesson, or a single-package
+        // cart like a completed bundle) skips online payment entirely
+        const useVoucherInsteadOfPayment = Boolean(voucherApplied) && voucherEligible;
+
         try {
             const bookingData = {
                 ...bookingForm,
                 accepted_terms: acceptTerms,
+                ...(useVoucherInsteadOfPayment && { voucher_code: voucherApplied.code }),
             };
             let routeName = "ourreservations.store";
             let bookingType = "lesson";
@@ -1756,15 +1968,19 @@ const BookingForm = ({
                 });
             }
 
+            // Voucher covers it fully → always hit the normal store route,
+            // regardless of whether online payment is otherwise enabled.
+            const shouldUseOnlinePay = useOnlinePay && !useVoucherInsteadOfPayment;
+
             const response = await axios.post(
-                route(useOnlinePay ? "payments.onlinepay.checkout" : routeName),
+                route(shouldUseOnlinePay ? "payments.onlinepay.checkout" : routeName),
                 {
                     ...bookingData,
                     booking_type: bookingType,
                 },
             );
 
-            if (useOnlinePay) {
+            if (shouldUseOnlinePay) {
                 if (response.data.checkout_url) {
                     toast.success("Redirecting to secure payment...");
                     window.location.assign(response.data.checkout_url);
@@ -1777,7 +1993,9 @@ const BookingForm = ({
 
             if (response.data.success || response.data.message) {
                 toast.success(
-                    isCartCheckout
+                    useVoucherInsteadOfPayment
+                        ? "Booking confirmed with your gift voucher!"
+                        : isCartCheckout
                         ? `${response.data.data?.length || cartItems.length} lessons booked successfully!`
                         : isTestPackage
                         ? "Test package booked successfully!"
@@ -2246,6 +2464,60 @@ const BookingForm = ({
                         />
                     </div>
 
+                    {/* Gift voucher */}
+                    {voucherEligible ? (
+                        <div className="border-t border-gray-200 pt-4">
+                            <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-2">
+                                <Tag className="w-4 h-4" /> Have a gift voucher?
+                            </label>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={voucherCode}
+                                    onChange={(e) => {
+                                        setVoucherCode(e.target.value.toUpperCase());
+                                        if (voucherApplied) removeVoucher();
+                                    }}
+                                    placeholder="GIFT-XXXXXXXX"
+                                    disabled={Boolean(voucherApplied)}
+                                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition disabled:bg-gray-100"
+                                />
+                                {voucherApplied ? (
+                                    <button
+                                        type="button"
+                                        onClick={removeVoucher}
+                                        className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+                                    >
+                                        Remove
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={applyVoucher}
+                                        disabled={voucherStatus === "checking" || !voucherCode.trim()}
+                                        className="px-4 py-2 bg-gray-800 text-white rounded-lg text-sm font-medium hover:bg-gray-900 transition-colors disabled:opacity-50"
+                                    >
+                                        {voucherStatus === "checking" ? "Checking..." : "Apply"}
+                                    </button>
+                                )}
+                            </div>
+                            {voucherStatus === "valid" && (
+                                <p className="flex items-center gap-1 text-green-600 text-xs mt-2">
+                                    <Check className="w-3 h-3" /> {voucherMessage}
+                                </p>
+                            )}
+                            {voucherStatus === "invalid" && (
+                                <p className="flex items-center gap-1 text-red-600 text-xs mt-2">
+                                    <XCircle className="w-3 h-3" /> {voucherMessage}
+                                </p>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-500">
+                            Gift vouchers can only be applied to a cart containing a single package (like one lesson bundle)  mixed carts can't use a voucher.
+                        </div>
+                    )}
+
                     {/* Terms */}
                     <div className="border-t border-gray-200 pt-4">
                         <div className="flex items-start gap-3">
@@ -2316,6 +2588,8 @@ const BookingForm = ({
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                                     Processing...
                                 </div>
+                            ) : voucherApplied && voucherEligible ? (
+                                "Confirm Booking with Voucher"
                             ) : useOnlinePay ? (
                                 "Continue to secure payment"
                             ) : isCartCheckout ? (
@@ -2333,21 +2607,47 @@ const BookingForm = ({
 
 export default BookingForm;
 
-// import { X } from "lucide-react";
+
+
+
+// import { Calendar, Clock, Package, X, Tag, Check, XCircle } from "lucide-react";
+// import { usePage } from "@inertiajs/react";
 // import React, { useState, useEffect, useRef } from "react";
 // import axios from "axios";
+// import toast from "react-hot-toast";
+// import { getCartSubtotal } from "./packageRules";
 
 // const MEETPOINT_AREA = "meetpoint-mandurah-dot";
+
+// const MEETPOINT_LOCATION_LABEL =
+//     "Ranceby Avenue, Mandurah, Western Australia 6210";
+
 // const MEETPOINT_LOCATION = {
-//     label: "Ranceby Avenue, Mandurah, Western Australia 6210",
-//     name: "Ranceby Avenue",
-//     street: "Ranceby Avenue",
+//     label: MEETPOINT_LOCATION_LABEL,
+//     name: "Mandurah",
 //     housenumber: null,
 //     postcode: "6210",
 //     city: "Mandurah",
 //     district: null,
 //     state: "Western Australia",
 //     source: "fixed",
+// };
+
+// const AREA_LABELS = {
+//     mandurah: "Mandurah",
+//     "meadow-springs": "Meadow Springs",
+//     "silver-sands": "Silver Sands",
+//     lakelands: "Lakelands",
+//     "dudley-park": "Dudley Park",
+//     "halls-head": "Halls Head",
+//     "madora-bay": "Madora Bay",
+//     greenfields: "Greenfields",
+//     erskine: "Erskine",
+//     singleton: "Singleton",
+//     parklands: "Parklands",
+//     "stake-hill": "Stake Hill",
+//     "san-remo": "San Remo",
+//     [MEETPOINT_AREA]: "Meetpoint Mandurah Dot",
 // };
 
 // const normaliseAddressText = (text = "") => {
@@ -2376,9 +2676,10 @@ export default BookingForm;
 
 //     return text
 //         .toLowerCase()
-//         .replace(/\b([0-9]{1,2}(?:st|nd|rd|th))\b/g, (match) => {
-//             return ordinals[match] || match;
-//         })
+//         .replace(
+//             /\b([0-9]{1,2}(?:st|nd|rd|th))\b/g,
+//             (match) => ordinals[match] || match,
+//         )
 //         .replace(/\bav\b|\bave\b/g, "avenue")
 //         .replace(/\brd\b/g, "road")
 //         .replace(/\bst\b/g, "street")
@@ -2401,12 +2702,15 @@ export default BookingForm;
 //         .filter(Boolean)
 //         .map(normaliseAddressText);
 
-//     if (streetAnchor && typed.includes(streetAnchor)) {
-//         return true;
-//     }
-
+//     if (streetAnchor && typed.includes(streetAnchor)) return true;
 //     return suburbAnchors.some((anchor) => anchor && typed.includes(anchor));
 // };
+
+// const buildSavedProfileLocation = (address) => ({
+//     label: address,
+//     name: address,
+//     source: "profile",
+// });
 
 // const LocationAutocomplete = ({
 //     id,
@@ -2419,6 +2723,7 @@ export default BookingForm;
 //     onInputChange,
 //     onLocationSelect,
 //     action,
+//     locked,
 // }) => {
 //     const [suggestions, setSuggestions] = useState([]);
 //     const [loading, setLoading] = useState(false);
@@ -2427,8 +2732,14 @@ export default BookingForm;
 //     const blurTimeout = useRef(null);
 
 //     useEffect(() => {
-//         const query = value.trim();
+//         if (locked) {
+//             setSuggestions([]);
+//             setSearchError("");
+//             setLoading(false);
+//             return undefined;
+//         }
 
+//         const query = value.trim();
 //         if (
 //             query.length < 3 ||
 //             locationMatchesTypedAddress(selectedLocation, query)
@@ -2444,16 +2755,14 @@ export default BookingForm;
 //             try {
 //                 setLoading(true);
 //                 setSearchError("");
-
 //                 const response = await axios.get(route("locations.search"), {
 //                     params: { q: query },
 //                     signal: controller.signal,
 //                 });
-
 //                 setSuggestions(response.data.suggestions || []);
 //                 setIsOpen(true);
-//             } catch (error) {
-//                 if (error.code !== "ERR_CANCELED") {
+//             } catch (err) {
+//                 if (err.code !== "ERR_CANCELED") {
 //                     setSuggestions([]);
 //                     setSearchError(
 //                         "Address search is unavailable. Please try again.",
@@ -2468,35 +2777,38 @@ export default BookingForm;
 //             clearTimeout(timeout);
 //             controller.abort();
 //         };
-//     }, [value, selectedLocation]);
+//     }, [value, selectedLocation, locked]);
 
-//     useEffect(() => {
-//         return () => {
-//             if (blurTimeout.current) {
-//                 clearTimeout(blurTimeout.current);
-//             }
-//         };
-//     }, []);
+//     useEffect(
+//         () => () => {
+//             if (blurTimeout.current) clearTimeout(blurTimeout.current);
+//         },
+//         [],
+//     );
 
 //     const handleBlur = () => {
 //         blurTimeout.current = setTimeout(() => setIsOpen(false), 150);
 //     };
 
 //     const shouldShowSuggestions =
+//         !locked &&
 //         isOpen &&
 //         value.trim().length >= 3 &&
 //         !locationMatchesTypedAddress(selectedLocation, value);
 
+//     const lockedInputClass =
+//         "w-full px-4 py-2 border rounded-lg outline-none transition bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed select-none";
+
 //     return (
 //         <div>
-//             <div className="flex justify-between items-center mb-2 gap-3">
+//             <div className="flex justify-between items-center gap-3 mb-2">
 //                 <label
 //                     htmlFor={id}
 //                     className="block text-sm font-medium text-gray-700"
 //                 >
 //                     {label}
 //                 </label>
-//                 {action}
+//                 {!locked && action}
 //             </div>
 //             <div className="relative">
 //                 <input
@@ -2504,19 +2816,23 @@ export default BookingForm;
 //                     id={id}
 //                     name={name}
 //                     value={value}
-//                     onChange={(event) =>
-//                         onInputChange(name, event.target.value)
+//                     onChange={(e) =>
+//                         !locked && onInputChange(name, e.target.value)
 //                     }
-//                     onFocus={() => setIsOpen(true)}
+//                     onFocus={() => !locked && setIsOpen(true)}
 //                     onBlur={handleBlur}
 //                     required
+//                     readOnly={locked}
 //                     autoComplete="off"
-//                     className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
-//                         error ? "border-red-500" : "border-gray-300"
-//                     }`}
+//                     className={
+//                         locked
+//                             ? lockedInputClass
+//                             : `w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition ${
+//                                   error ? "border-red-500" : "border-gray-300"
+//                               }`
+//                     }
 //                     placeholder={placeholder}
 //                 />
-
 //                 {shouldShowSuggestions && (
 //                     <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
 //                         {loading && (
@@ -2524,14 +2840,13 @@ export default BookingForm;
 //                                 Searching service area...
 //                             </div>
 //                         )}
-
 //                         {!loading &&
 //                             suggestions.map((suggestion) => (
 //                                 <button
 //                                     key={`${suggestion.source}-${suggestion.label}`}
 //                                     type="button"
-//                                     onMouseDown={(event) => {
-//                                         event.preventDefault();
+//                                     onMouseDown={(e) => {
+//                                         e.preventDefault();
 //                                         onLocationSelect(name, suggestion);
 //                                         setIsOpen(false);
 //                                     }}
@@ -2547,7 +2862,6 @@ export default BookingForm;
 //                                     )}
 //                                 </button>
 //                             ))}
-
 //                         {!loading &&
 //                             suggestions.length === 0 &&
 //                             !searchError && (
@@ -2555,7 +2869,6 @@ export default BookingForm;
 //                                     No service-area address found.
 //                                 </div>
 //                             )}
-
 //                         {!loading && searchError && (
 //                             <div className="px-4 py-3 text-sm text-red-600">
 //                                 {searchError}
@@ -2564,17 +2877,22 @@ export default BookingForm;
 //                     </div>
 //                 )}
 //             </div>
-//             {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
-//             {!error && (
+//             {!locked && error ? (
+//                 <p className="mt-1 text-sm text-red-600">{error}</p>
+//             ) : !locked ? (
 //                 <p className="mt-1 text-xs text-gray-500">
-//                     Choose a service-area suggestion, then add house number,
-//                     unit.
+//                     Choose a service-area suggestion
+//                 </p>
+//             ) : (
+//                 <p className="mt-1 text-xs text-gray-400">
+//                     Set by meetpoint selection.
 //                 </p>
 //             )}
 //         </div>
 //     );
 // };
 
+// // ─── BookingForm ─────────────────────────────────────────────────────────────
 // const BookingForm = ({
 //     selectedDate,
 //     selectedTime,
@@ -2583,9 +2901,27 @@ export default BookingForm;
 //     price,
 //     isTestPackage = false,
 //     bookingDetails = null,
+//     cartItems = [],
 //     onClose,
 //     onBookingSuccess,
+//     onCartItemsUnavailable,
 // }) => {
+//     const { payment, auth } = usePage().props;
+//     const useOnlinePay = payment?.bookingMode === "onlinepay";
+//     const isCartCheckout = cartItems.length > 0;
+
+//     const savedUser = auth?.user || null;
+//     const savedProfile = savedUser?.profile || null;
+//     const hasSavedInfo = Boolean(
+//         savedUser &&
+//             (savedUser.name ||
+//                 savedUser.email ||
+//                 savedUser.phone_number ||
+//                 savedProfile?.area ||
+//                 savedProfile?.pickup_address ||
+//                 savedProfile?.dropoff_address),
+//     );
+
 //     const [bookingForm, setBookingForm] = useState({
 //         user_name: "",
 //         email: "",
@@ -2605,6 +2941,14 @@ export default BookingForm;
 //         pickup_location: null,
 //         dropoff_location: null,
 //     });
+
+//     // ─── Gift voucher redemption ───────────────────────────────────────
+//     const [voucherCode, setVoucherCode] = useState("");
+//     const [voucherStatus, setVoucherStatus] = useState(null); // null | 'checking' | 'valid' | 'invalid'
+//     const [voucherMessage, setVoucherMessage] = useState("");
+//     const [voucherApplied, setVoucherApplied] = useState(null); // { code } when valid & matching
+
+//     const isMeetpoint = bookingForm.address === MEETPOINT_AREA;
 
 //     useEffect(() => {
 //         if (bookingDetails) {
@@ -2635,7 +2979,6 @@ export default BookingForm;
 //         document.body.style.overflow = "hidden";
 //         document.body.style.position = "fixed";
 //         document.body.style.width = "100%";
-
 //         return () => {
 //             document.body.style.overflow = "unset";
 //             document.body.style.position = "static";
@@ -2645,126 +2988,176 @@ export default BookingForm;
 
 //     const parseDuration = (durationString) => {
 //         if (!durationString) return 60;
-
-//         const cleanString = durationString.trim().toLowerCase();
-//         const hourMatch = cleanString.match(
-//             /(\d+(?:\.\d+)?)\s*(?:hrs|hr|hour|hours)/,
-//         );
-//         const minuteMatch = cleanString.match(
-//             /(\d+)\s*(?:min|mins|minute|minutes)/,
-//         );
-
-//         let totalMinutes = 0;
-//         if (hourMatch) totalMinutes += parseFloat(hourMatch[1]) * 60;
-//         if (minuteMatch) totalMinutes += parseInt(minuteMatch[1]);
-
-//         if (totalMinutes === 0) {
-//             const numberMatch = cleanString.match(/(\d+(?:\.\d+)?)/);
-//             if (numberMatch) {
-//                 const num = parseFloat(numberMatch[1]);
-//                 totalMinutes =
-//                     num < 10 ? Math.round(num * 60) : Math.round(num);
+//         const s = durationString.trim().toLowerCase();
+//         const hourMatch = s.match(/(\d+(?:\.\d+)?)\s*(?:hrs|hr|hour|hours)/);
+//         const minuteMatch = s.match(/(\d+)\s*(?:min|mins|minute|minutes)/);
+//         let total = 0;
+//         if (hourMatch) total += parseFloat(hourMatch[1]) * 60;
+//         if (minuteMatch) total += parseInt(minuteMatch[1]);
+//         if (total === 0) {
+//             const n = s.match(/(\d+(?:\.\d+)?)/);
+//             if (n) {
+//                 const v = parseFloat(n[1]);
+//                 total = v < 10 ? Math.round(v * 60) : Math.round(v);
 //             }
 //         }
-
-//         return totalMinutes || 60;
+//         return total || 60;
 //     };
 
 //     const extractPackageName = (description) => {
 //         if (!description) return "";
-
-//         if (description.includes(":")) {
-//             return description.split(":").pop().trim();
-//         }
-
-//         return description.trim();
+//         return description.includes(":")
+//             ? description.split(":").pop().trim()
+//             : description.trim();
 //     };
 
 //     const handleChange = (e) => {
 //         const { name, value } = e.target;
-//         setBookingForm((prev) => ({
-//             ...prev,
-//             [name]: value,
-//             ...(name === "address" && value === MEETPOINT_AREA
-//                 ? {
-//                       pickup_location: MEETPOINT_LOCATION.label,
-//                       dropoff_location: MEETPOINT_LOCATION.label,
-//                   }
-//                 : {}),
-//         }));
-//         if (name === "address" && value === MEETPOINT_AREA) {
-//             setSelectedLocations({
-//                 pickup_location: MEETPOINT_LOCATION,
-//                 dropoff_location: MEETPOINT_LOCATION,
-//             });
-//         }
-//         if (
-//             errors[name] ||
-//             (name === "address" &&
-//                 value === MEETPOINT_AREA &&
-//                 (errors.pickup_location || errors.dropoff_location))
-//         ) {
+
+//         if (name === "address") {
+//             if (value === MEETPOINT_AREA) {
+//                 setBookingForm((prev) => ({
+//                     ...prev,
+//                     address: value,
+//                     pickup_location: MEETPOINT_LOCATION_LABEL,
+//                     dropoff_location: MEETPOINT_LOCATION_LABEL,
+//                 }));
+//                 setSelectedLocations({
+//                     pickup_location: MEETPOINT_LOCATION,
+//                     dropoff_location: MEETPOINT_LOCATION,
+//                 });
+//             } else {
+//                 setBookingForm((prev) => {
+//                     const wasMeetpoint =
+//                         prev.pickup_location === MEETPOINT_LOCATION_LABEL ||
+//                         prev.dropoff_location === MEETPOINT_LOCATION_LABEL;
+//                     return {
+//                         ...prev,
+//                         address: value,
+//                         pickup_location: wasMeetpoint
+//                             ? ""
+//                             : prev.pickup_location,
+//                         dropoff_location: wasMeetpoint
+//                             ? ""
+//                             : prev.dropoff_location,
+//                     };
+//                 });
+//                 setSelectedLocations((prev) => {
+//                     const pickupWasMeetpoint =
+//                         prev.pickup_location?.source === "fixed";
+//                     const dropoffWasMeetpoint =
+//                         prev.dropoff_location?.source === "fixed";
+//                     return {
+//                         pickup_location: pickupWasMeetpoint
+//                             ? null
+//                             : prev.pickup_location,
+//                         dropoff_location: dropoffWasMeetpoint
+//                             ? null
+//                             : prev.dropoff_location,
+//                     };
+//                 });
+//             }
+
 //             setErrors((prev) => ({
 //                 ...prev,
-//                 [name]: "",
-//                 ...(name === "address" && value === MEETPOINT_AREA
-//                     ? {
-//                           pickup_location: "",
-//                           dropoff_location: "",
-//                       }
-//                     : {}),
+//                 address: "",
+//                 pickup_location: "",
+//                 dropoff_location: "",
 //             }));
+//             return;
 //         }
+
+//         setBookingForm((prev) => ({ ...prev, [name]: value }));
+//         if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
 //     };
 
 //     const handleLocationInputChange = (name, value) => {
-//         setBookingForm((prev) => ({
-//             ...prev,
-//             [name]: value,
-//         }));
+//         setBookingForm((prev) => ({ ...prev, [name]: value }));
 //         setSelectedLocations((prev) => ({
 //             ...prev,
 //             [name]: locationMatchesTypedAddress(prev[name], value)
 //                 ? prev[name]
 //                 : null,
 //         }));
-//         if (errors[name]) {
-//             setErrors((prev) => ({
-//                 ...prev,
-//                 [name]: "",
-//             }));
-//         }
+//         if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
 //     };
 
 //     const handleLocationSelect = (name, location) => {
-//         setBookingForm((prev) => ({
+//         setBookingForm((prev) => ({ ...prev, [name]: location.label }));
+//         setSelectedLocations((prev) => ({ ...prev, [name]: location }));
+//         if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
+//     };
+
+//     const handleAutofillFromProfile = () => {
+//         if (!savedUser) return;
+
+//         const isMeetpointArea = savedProfile?.area === MEETPOINT_AREA;
+
+//         setBookingForm((prev) => {
+//             const next = { ...prev };
+
+//             if (savedUser.name) next.user_name = savedUser.name;
+//             if (savedUser.email) next.email = savedUser.email;
+//             if (savedUser.phone_number) next.phone = savedUser.phone_number;
+//             if (savedProfile?.area) next.address = savedProfile.area;
+
+//             if (isMeetpointArea) {
+//                 next.pickup_location = MEETPOINT_LOCATION_LABEL;
+//                 next.dropoff_location = MEETPOINT_LOCATION_LABEL;
+//             } else {
+//                 if (savedProfile?.pickup_address) {
+//                     next.pickup_location = savedProfile.pickup_address;
+//                 }
+//                 if (savedProfile?.dropoff_address) {
+//                     next.dropoff_location = savedProfile.dropoff_address;
+//                 }
+//             }
+
+//             return next;
+//         });
+
+//         setSelectedLocations((prev) => {
+//             if (isMeetpointArea) {
+//                 return {
+//                     pickup_location: MEETPOINT_LOCATION,
+//                     dropoff_location: MEETPOINT_LOCATION,
+//                 };
+//             }
+
+//             return {
+//                 pickup_location: savedProfile?.pickup_address
+//                     ? buildSavedProfileLocation(savedProfile.pickup_address)
+//                     : prev.pickup_location,
+//                 dropoff_location: savedProfile?.dropoff_address
+//                     ? buildSavedProfileLocation(savedProfile.dropoff_address)
+//                     : prev.dropoff_location,
+//             };
+//         });
+
+//         setErrors((prev) => ({
 //             ...prev,
-//             [name]: location.label,
+//             user_name: "",
+//             email: "",
+//             phone: "",
+//             address: "",
+//             pickup_location: "",
+//             dropoff_location: "",
 //         }));
-//         setSelectedLocations((prev) => ({
-//             ...prev,
-//             [name]: location,
-//         }));
-//         if (errors[name]) {
-//             setErrors((prev) => ({
-//                 ...prev,
-//                 [name]: "",
-//             }));
-//         }
+
+//         toast.success("Filled in your saved details");
 //     };
 
 //     const validateSelectedLocations = () => {
-//         const locationErrors = {};
+//         const errs = {};
 
 //         [
-//             ["pickup_location", "pickup location"],
-//             ["dropoff_location", "dropoff location"],
+//             ["pickup_location", "pickup address"],
+//             ["dropoff_location", "dropoff address"],
 //         ].forEach(([field, label]) => {
 //             if (!bookingForm[field]?.trim()) {
-//                 locationErrors[field] = `Please enter a ${label}.`;
+//                 errs[field] = `Please enter a ${label}.`;
 //                 return;
 //             }
-
 //             if (
 //                 !selectedLocations[field] ||
 //                 !locationMatchesTypedAddress(
@@ -2772,29 +3165,12 @@ export default BookingForm;
 //                     bookingForm[field],
 //                 )
 //             ) {
-//                 locationErrors[field] =
-//                     `Please choose a service-area suggestion for the ${label}, then add house/unit details if needed.`;
+//                 errs[field] =
+//                     `Please choose a service-area suggestion for the ${label}.`;
 //             }
 //         });
 
-//         return locationErrors;
-//     };
-
-//     const setPickupSameAsAddress = () => {
-//         if (bookingForm.address) {
-//             setBookingForm((prev) => ({
-//                 ...prev,
-//                 pickup_location: prev.address,
-//             }));
-//             if (errors.pickup_location) {
-//                 setErrors((prev) => ({
-//                     ...prev,
-//                     pickup_location: "",
-//                 }));
-//             }
-//         } else {
-//             alert("Please select an address first");
-//         }
+//         return errs;
 //     };
 
 //     const setDropoffSameAsPickup = () => {
@@ -2813,15 +3189,46 @@ export default BookingForm;
 //                 ...prev,
 //                 dropoff_location: prev.pickup_location,
 //             }));
-//             if (errors.dropoff_location) {
-//                 setErrors((prev) => ({
-//                     ...prev,
-//                     dropoff_location: "",
-//                 }));
-//             }
+//             setErrors((prev) => ({
+//                 ...prev,
+//                 dropoff_location: "",
+//             }));
 //         } else {
-//             alert("Please select a pickup location from the suggestions first");
+//             toast.error("Please select a pickup address from the suggestions first");
 //         }
+//     };
+
+//     // ─── Voucher apply handler ───────────────────────────────────────
+//     const applyVoucher = async () => {
+//         if (!voucherCode.trim() || isCartCheckout) return;
+
+//         setVoucherStatus("checking");
+//         setVoucherMessage("");
+//         setVoucherApplied(null);
+
+//         try {
+//             const res = await axios.post(route("vouchers.validate"), {
+//                 code: voucherCode.trim(),
+//                 price_id: priceId,
+//             });
+
+//             setVoucherStatus("valid");
+//             setVoucherMessage("Voucher applied — this booking will be confirmed without payment.");
+//             setVoucherApplied({ code: voucherCode.trim() });
+//         } catch (err) {
+//             setVoucherStatus("invalid");
+//             setVoucherMessage(
+//                 err.response?.data?.message || "Invalid or non-matching voucher code.",
+//             );
+//             setVoucherApplied(null);
+//         }
+//     };
+
+//     const removeVoucher = () => {
+//         setVoucherCode("");
+//         setVoucherStatus(null);
+//         setVoucherMessage("");
+//         setVoucherApplied(null);
 //     };
 
 //     const handleSubmit = async (e) => {
@@ -2829,7 +3236,6 @@ export default BookingForm;
 //         setLoading(true);
 //         setErrors({});
 
-//         // Check terms and conditions acceptance
 //         if (!acceptTerms) {
 //             setErrors({
 //                 terms: "Please accept the Terms & Conditions and Privacy Policy",
@@ -2845,86 +3251,131 @@ export default BookingForm;
 //             return;
 //         }
 
+//         // A matching, applied voucher on a non-cart booking skips online payment entirely
+//         const useVoucherInsteadOfPayment = Boolean(voucherApplied) && !isCartCheckout;
+
 //         try {
-//             const durationMinutes = parseDuration(price.duration);
-//             const routeName = isTestPackage
-//                 ? "test-packages.store"
-//                 : "ourreservations.store";
-
-//             const fullAddress = bookingForm.address;
-//             const packageName = extractPackageName(price.description);
-
 //             const bookingData = {
 //                 ...bookingForm,
-//                 address: fullAddress,
-//                 reservation_date: formatDateKey(selectedDate),
-//                 price_id: priceId,
-//                 duration_minutes: durationMinutes,
 //                 accepted_terms: acceptTerms,
+//                 ...(useVoucherInsteadOfPayment && { voucher_code: voucherApplied.code }),
 //             };
+//             let routeName = "ourreservations.store";
+//             let bookingType = "lesson";
 
-//             if (isTestPackage) {
+//             if (isCartCheckout) {
+//                 routeName = "ourreservations.cart";
+//                 bookingType = "cart";
 //                 Object.assign(bookingData, {
+//                     items: cartItems.map((item) => ({
+//                         price_id: item.price_id,
+//                         reservation_date: item.reservation_date,
+//                         start_time: item.start_time,
+//                         ...(item.duration_minutes && {
+//                             duration_minutes: item.duration_minutes,
+//                         }),
+//                     })),
+//                 });
+//             } else if (isTestPackage) {
+//                 const durationMinutes = parseDuration(price.duration);
+//                 const packageName = extractPackageName(price.description);
+//                 routeName = "test-packages.store";
+//                 bookingType = "test";
+//                 Object.assign(bookingData, {
+//                     reservation_date: formatDateKey(selectedDate),
+//                     price_id: priceId,
+//                     duration_minutes: durationMinutes,
 //                     start_time: bookingDetails?.start_time || selectedTime,
 //                     end_time:
 //                         bookingDetails?.end_time ||
 //                         calculateEndTime(selectedTime, price.duration),
 //                     test_time: testTime || selectedTime,
 //                     test_location: bookingForm.test_location,
-//                     pickup_location: bookingForm.pickup_location,
-//                     dropoff_location: bookingForm.dropoff_location,
 //                     test_type: packageName,
 //                 });
 //             } else {
+//                 const durationMinutes = parseDuration(price.duration);
+//                 const packageName = extractPackageName(price.description);
 //                 Object.assign(bookingData, {
+//                     reservation_date: formatDateKey(selectedDate),
+//                     price_id: priceId,
+//                     duration_minutes: durationMinutes,
 //                     start_time: selectedTime,
 //                     end_time: calculateEndTime(selectedTime, price.duration),
 //                     package_type: packageName,
 //                     package_price: price.price,
-//                     pickup_location: bookingForm.pickup_location,
-//                     dropoff_location: bookingForm.dropoff_location,
 //                 });
 //             }
 
-//             console.log("Submitting booking data:", bookingData);
+//             // Voucher covers it fully → always hit the normal store route,
+//             // regardless of whether online payment is otherwise enabled.
+//             const shouldUseOnlinePay = useOnlinePay && !useVoucherInsteadOfPayment;
 
-//             const response = await axios.post(route(routeName), bookingData);
+//             const response = await axios.post(
+//                 route(shouldUseOnlinePay ? "payments.onlinepay.checkout" : routeName),
+//                 {
+//                     ...bookingData,
+//                     booking_type: bookingType,
+//                 },
+//             );
+
+//             if (shouldUseOnlinePay) {
+//                 if (response.data.checkout_url) {
+//                     toast.success("Redirecting to secure payment...");
+//                     window.location.assign(response.data.checkout_url);
+//                     return;
+//                 }
+
+//                 toast.error("Secure payment could not be started. Please try again.");
+//                 return;
+//             }
 
 //             if (response.data.success || response.data.message) {
-//                 alert(
-//                     isTestPackage
+//                 toast.success(
+//                     useVoucherInsteadOfPayment
+//                         ? "Booking confirmed with your gift voucher!"
+//                         : isCartCheckout
+//                         ? `${response.data.data?.length || cartItems.length} lessons booked successfully!`
+//                         : isTestPackage
 //                         ? "Test package booked successfully!"
 //                         : "Booking confirmed successfully!",
 //                 );
-//                 await onBookingSuccess();
+//                 await onBookingSuccess(response.data);
 //                 onClose();
 //             } else {
-//                 alert("Error confirming booking: " + response.data.message);
+//                 toast.error("Error confirming booking: " + response.data.message);
 //             }
 //         } catch (error) {
-//             console.error("Booking error:", error);
-//             console.error("Error response:", error.response);
+//             const cartItemErrors = error.response?.data?.errors?.items;
+//             if (isCartCheckout && cartItemErrors) {
+//                 const unavailableIndexes = Object.keys(cartItemErrors).map(
+//                     (index) => Number(index),
+//                 );
+//                 onCartItemsUnavailable?.(unavailableIndexes);
+//                 setErrors({ items: cartItemErrors });
+//                 toast.error(
+//                     "Some lessons in your cart are no longer available. They have been removed from your cart.",
+//                 );
+//                 return;
+//             }
 
 //             if (error.response?.data?.message) {
-//                 const errorMsg = error.response.data.message;
-
-//                 if (errorMsg.includes("already reserved for this service")) {
-//                     alert(
+//                 const msg = error.response.data.message;
+//                 if (msg.includes("already reserved for this service")) {
+//                     toast.error(
 //                         "This time slot has just been booked by someone else. Please select another time.",
 //                     );
-//                     if (onBookingSuccess) {
-//                         await onBookingSuccess();
-//                     }
+//                     if (onBookingSuccess) await onBookingSuccess();
 //                 } else {
-//                     alert("Booking error: " + errorMsg);
+//                     toast.error("Booking error: " + msg);
 //                 }
 //             } else if (error.response?.data?.errors) {
 //                 setErrors(error.response.data.errors);
-//                 alert("Please fix the errors in the form.");
+//                 toast.error("Please fix the errors in the form.");
 //             } else if (error.response?.data?.error) {
-//                 alert("Booking error: " + error.response.data.error);
+//                 toast.error("Booking error: " + error.response.data.error);
 //             } else {
-//                 alert("Error confirming booking. Please try again.");
+//                 toast.error("Error confirming booking. Please try again.");
 //             }
 //         } finally {
 //             setLoading(false);
@@ -2933,10 +3384,7 @@ export default BookingForm;
 
 //     const formatDateKey = (date) => {
 //         if (!date) return "";
-//         const year = date.getFullYear();
-//         const month = String(date.getMonth() + 1).padStart(2, "0");
-//         const day = String(date.getDate()).padStart(2, "0");
-//         return `${year}-${month}-${day}`;
+//         return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 //     };
 
 //     const formatDisplayDate = (date) => {
@@ -2950,51 +3398,166 @@ export default BookingForm;
 //     };
 
 //     const calculateEndTime = (startTime, durationString) => {
-//         const durationMinutes = parseDuration(durationString);
-//         const [hours, minutes] = startTime.split(":").map(Number);
-//         const totalMinutes = hours * 60 + minutes + durationMinutes;
-//         const endHours = Math.floor(totalMinutes / 60);
-//         const endMinutes = totalMinutes % 60;
-//         return `${String(endHours).padStart(2, "0")}:${String(
-//             endMinutes,
-//         ).padStart(2, "0")}`;
+//         const mins = parseDuration(durationString);
+//         const [h, m] = startTime.split(":").map(Number);
+//         const total = h * 60 + m + mins;
+//         return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 //     };
 
 //     const displayTime = isTestPackage ? testTime || selectedTime : selectedTime;
-//     const displayEndTime = calculateEndTime(displayTime, price.duration);
-//     const displayPackageName = extractPackageName(price.description);
+//     const displayEndTime =
+//         !isCartCheckout && displayTime
+//             ? calculateEndTime(displayTime, price.duration)
+//             : "";
+//     const displayPackageName = price ? extractPackageName(price.description) : "";
+//     const cartSubtotal = getCartSubtotal(cartItems);
 
 //     return (
 //         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
 //             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
 //                 {/* Header */}
-//                 <div className="p-6 rounded-t-lg bg-indigo-600 text-white">
-//                     <div className="flex justify-between items-center">
-//                         <h2 className="text-2xl font-bold">
-//                             {isTestPackage
-//                                 ? "Complete Your Test Booking"
-//                                 : "Complete Your Booking"}
-//                         </h2>
+//                 <div className="border-b border-gray-200 px-6 py-5">
+//                     <div className="flex items-start justify-between gap-3">
+//                         <div>
+//                             {(isTestPackage || isCartCheckout) && (
+//                                 <p className="text-xs uppercase tracking-widest text-gray-400 font-medium mb-1">
+//                                     {isCartCheckout ? "Cart Checkout" : "Test Package"}
+//                                 </p>
+//                             )}
+//                             <h2 className="text-lg font-medium text-gray-900">
+//                                 {isCartCheckout
+//                                     ? useOnlinePay
+//                                         ? "Pay for your cart booking"
+//                                         : "Complete your cart booking"
+//                                     : useOnlinePay
+//                                     ? "Pay for your booking"
+//                                     : "Complete your booking"}
+//                             </h2>
+//                         </div>
 //                         <button
 //                             type="button"
 //                             onClick={onClose}
-//                             className="text-white hover:opacity-80 transition-colors"
+//                             className="mt-0.5 flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
 //                         >
-//                             <X size={24} />
+//                             <X size={16} />
 //                         </button>
 //                     </div>
-//                     <div className="mt-2">
-//                         <p className="opacity-90">
+
+//                     {!isCartCheckout && (
+//                     <div className="flex flex-wrap gap-2 mt-4">
+//                         <span className="inline-flex items-center gap-1.5 text-sm px-3 py-1 rounded-full border border-gray-200 text-gray-500 bg-gray-50">
+//                             <Calendar size={14} />
 //                             {formatDisplayDate(selectedDate)}
-//                         </p>
-//                         <p className="opacity-90 mt-1">
-//                             Time: {displayTime} to {displayEndTime}
-//                         </p>
-//                         <p className="opacity-90 mt-1">
-//                             Package: {displayPackageName} - ${price.price}
-//                         </p>
+//                         </span>
+//                         <span className="inline-flex items-center gap-1.5 text-sm px-3 py-1 rounded-full border border-gray-200 text-gray-500 bg-gray-50">
+//                             <Clock size={14} />
+//                             {displayTime} – {displayEndTime}
+//                         </span>
 //                     </div>
+//                     )}
 //                 </div>
+
+//                 {isCartCheckout ? (
+//                     <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+//                         <div className="flex items-center justify-between mb-3">
+//                             <div className="flex items-center gap-2.5">
+//                                 <div className="w-9 h-9 rounded-md bg-blue-100 flex items-center justify-center">
+//                                     <Package size={18} className="text-blue-600" />
+//                                 </div>
+//                                 <div>
+//                                     <p className="text-xs text-gray-400">Cart</p>
+//                                     <p className="text-sm font-medium text-gray-900">
+//                                         {cartItems.length} lessons
+//                                     </p>
+//                                 </div>
+//                             </div>
+//                             <p className="text-lg font-medium text-gray-900">
+//                                 ${cartSubtotal.toFixed(2)}
+//                             </p>
+//                         </div>
+//                         <div className="space-y-2">
+//                             {cartItems.map((item) => (
+//                                 <div
+//                                     key={item.key}
+//                                     className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
+//                                 >
+//                                     <div className="font-medium text-gray-900">
+//                                         {item.price?.description || "Driving lesson"}
+//                                     </div>
+//                                     <div className="text-gray-500">
+//                                         {item.reservation_date} at {item.start_time}
+//                                     </div>
+//                                 </div>
+//                             ))}
+//                         </div>
+//                     </div>
+//                 ) : (
+//                 <div className="flex items-center justify-between px-6 py-4 bg-gray-50">
+//                     <div className="flex items-center gap-2.5">
+//                         <div className="w-9 h-9 rounded-md bg-blue-100 flex items-center justify-center">
+//                             <Package size={18} className="text-blue-600" />
+//                         </div>
+//                         <div>
+//                             <p className="text-xs text-gray-400">Package</p>
+//                             <p className="text-sm font-medium text-gray-900">
+//                                 {displayPackageName}
+//                             </p>
+//                         </div>
+//                     </div>
+//                     <p className="text-lg font-medium text-gray-900">
+//                         ${price.price}
+//                     </p>
+//                 </div>
+//                 )}
+
+//                 {/* Saved profile summary + autofill */}
+//                 {hasSavedInfo && (
+//                     <div className="mx-6 mt-4 rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3">
+//                         <div className="flex items-start justify-between gap-3">
+//                             <div className="text-sm">
+//                                 <p className="font-medium text-indigo-900 mb-1.5">
+//                                     Use your saved details
+//                                 </p>
+//                                 <ul className="space-y-0.5 text-gray-600">
+//                                     {savedUser.name && (
+//                                         <li>Name: {savedUser.name}</li>
+//                                     )}
+//                                     {savedUser.email && (
+//                                         <li>Email: {savedUser.email}</li>
+//                                     )}
+//                                     {savedUser.phone_number && (
+//                                         <li>Phone: {savedUser.phone_number}</li>
+//                                     )}
+//                                     {savedProfile?.area && (
+//                                         <li>
+//                                             Area:{" "}
+//                                             {AREA_LABELS[savedProfile.area] ||
+//                                                 savedProfile.area}
+//                                         </li>
+//                                     )}
+//                                     {savedProfile?.pickup_address && (
+//                                         <li>
+//                                             Pickup: {savedProfile.pickup_address}
+//                                         </li>
+//                                     )}
+//                                     {savedProfile?.dropoff_address && (
+//                                         <li>
+//                                             Dropoff:{" "}
+//                                             {savedProfile.dropoff_address}
+//                                         </li>
+//                                     )}
+//                                 </ul>
+//                             </div>
+//                             <button
+//                                 type="button"
+//                                 onClick={handleAutofillFromProfile}
+//                                 className="shrink-0 text-sm font-medium text-indigo-600 hover:text-indigo-800 border border-indigo-200 bg-white px-3 py-1.5 rounded-md transition-colors"
+//                             >
+//                                 Autofill
+//                             </button>
+//                         </div>
+//                     </div>
+//                 )}
 
 //                 {/* Form */}
 //                 <form onSubmit={handleSubmit} className="p-6 space-y-6">
@@ -3004,7 +3567,7 @@ export default BookingForm;
 //                             htmlFor="user_name"
 //                             className="block text-sm font-medium text-gray-700 mb-2"
 //                         >
-//                             Full Name *
+//                             Full Name <span className="text-red-500">*</span>
 //                         </label>
 //                         <input
 //                             type="text"
@@ -3018,7 +3581,7 @@ export default BookingForm;
 //                                     ? "border-red-500"
 //                                     : "border-gray-300"
 //                             }`}
-//                             placeholder="John Doe"
+//                             placeholder="WheelMaster Driving"
 //                         />
 //                         {errors.user_name && (
 //                             <p className="mt-1 text-sm text-red-600">
@@ -3033,7 +3596,8 @@ export default BookingForm;
 //                             htmlFor="email"
 //                             className="block text-sm font-medium text-gray-700 mb-2"
 //                         >
-//                             Email Address *
+//                             Email Address{" "}
+//                             <span className="text-red-500">*</span>
 //                         </label>
 //                         <input
 //                             type="email"
@@ -3047,7 +3611,7 @@ export default BookingForm;
 //                                     ? "border-red-500"
 //                                     : "border-gray-300"
 //                             }`}
-//                             placeholder="john@example.com"
+//                             placeholder="wheelmasterdriving@outlook.com.au"
 //                         />
 //                         {errors.email && (
 //                             <p className="mt-1 text-sm text-red-600">
@@ -3062,7 +3626,7 @@ export default BookingForm;
 //                             htmlFor="phone"
 //                             className="block text-sm font-medium text-gray-700 mb-2"
 //                         >
-//                             Phone Number *
+//                             Phone Number <span className="text-red-500">*</span>
 //                         </label>
 //                         <input
 //                             type="tel"
@@ -3076,7 +3640,7 @@ export default BookingForm;
 //                                     ? "border-red-500"
 //                                     : "border-gray-300"
 //                             }`}
-//                             placeholder="+1 (555) 000-0000"
+//                             placeholder="0481 488 216"
 //                         />
 //                         {errors.phone && (
 //                             <p className="mt-1 text-sm text-red-600">
@@ -3085,13 +3649,13 @@ export default BookingForm;
 //                         )}
 //                     </div>
 
-//                     {/* Address - Dropdown */}
+//                     {/* Area */}
 //                     <div>
 //                         <label
 //                             htmlFor="address"
 //                             className="block text-sm font-medium text-gray-700 mb-2"
 //                         >
-//                             Area *
+//                             Area <span className="text-red-500">*</span>
 //                         </label>
 //                         <select
 //                             id="address"
@@ -3117,7 +3681,7 @@ export default BookingForm;
 //                             <option value="madora-bay">Madora Bay</option>
 //                             <option value="greenfields">Greenfields</option>
 //                             <option value="erskine">Erskine</option>
-//                             <option value="singleton">Singleton </option>
+//                             <option value="singleton">Singleton</option>
 //                             <option value="parklands">Parklands</option>
 //                             <option value="stake-hill">Stake Hill</option>
 //                             <option value="san-remo">San Remo</option>
@@ -3130,26 +3694,26 @@ export default BookingForm;
 //                                 {errors.address}
 //                             </p>
 //                         )}
+//                         <p className="mt-1 text-sm text-gray-500">
+//                             Currently serving only these areas with postcode
+//                             6210, 6180, or 6175.{" "}
+//                             <span className="block">
+//                                 If your address is not available, please select
+//                                 "Meetpoint Mandurah Dot" where you will be
+//                                 meeting the instructor.
+//                             </span>
+//                         </p>
 //                     </div>
 
-//                     <p className="mt-1 text-sm text-gray-500">
-//                         Currently serving only these areas with postcode 6210,
-//                         6180, or 6175.
-//                         <span className="block">
-//                             If your address is not available, please select
-//                             "Meetpoint Mandurah Dot" where you will be meeting
-//                             instructor.
-//                         </span>
-//                     </p>
-
-//                     {/* Test Location - Only shown for test packages */}
+//                     {/* Test Location */}
 //                     {isTestPackage && (
 //                         <div>
 //                             <label
 //                                 htmlFor="test_location"
 //                                 className="block text-sm font-medium text-gray-700 mb-2"
 //                             >
-//                                 Test Location *
+//                                 Test Location{" "}
+//                                 <span className="text-red-500">*</span>
 //                             </label>
 //                             <input
 //                                 type="text"
@@ -3177,33 +3741,45 @@ export default BookingForm;
 //                     <LocationAutocomplete
 //                         id="pickup_location"
 //                         name="pickup_location"
-//                         label="Pickup Location *"
+//                         label={
+//                             <>
+//                                 Pickup Address{" "}
+//                                 <span className="text-red-500">*</span>
+//                             </>
+//                         }
 //                         value={bookingForm.pickup_location}
 //                         selectedLocation={selectedLocations.pickup_location}
 //                         error={errors.pickup_location}
 //                         placeholder="Start typing pickup address"
 //                         onInputChange={handleLocationInputChange}
 //                         onLocationSelect={handleLocationSelect}
+//                         locked={isMeetpoint}
 //                     />
 
 //                     {/* Dropoff Location */}
 //                     <LocationAutocomplete
 //                         id="dropoff_location"
 //                         name="dropoff_location"
-//                         label="Dropoff Location *"
+//                         label={
+//                             <>
+//                                 Dropoff Address{" "}
+//                                 <span className="text-red-500">*</span>
+//                             </>
+//                         }
 //                         value={bookingForm.dropoff_location}
 //                         selectedLocation={selectedLocations.dropoff_location}
 //                         error={errors.dropoff_location}
 //                         placeholder="Start typing dropoff address"
 //                         onInputChange={handleLocationInputChange}
 //                         onLocationSelect={handleLocationSelect}
+//                         locked={isMeetpoint}
 //                         action={
 //                             <button
 //                                 type="button"
 //                                 onClick={setDropoffSameAsPickup}
-//                                 className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
+//                                 className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors whitespace-nowrap"
 //                             >
-//                                 Same as Pickup Location
+//                                 Same as Pickup Address
 //                             </button>
 //                         }
 //                     />
@@ -3215,20 +3791,73 @@ export default BookingForm;
 //                             className="block text-sm font-medium text-gray-700 mb-2"
 //                         >
 //                             Comment
-
 //                         </label>
 //                         <textarea
 //                             id="comment"
 //                             name="comment"
 //                             value={bookingForm.comment}
 //                             onChange={handleChange}
-//                             rows={6}
+//                             rows={3}
 //                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition resize-none"
 //                             placeholder="Any special requests, notes for your instructor, etc."
 //                         />
 //                     </div>
 
-//                     {/* Terms and Conditions Checkbox */}
+//                     {/* Gift voucher */}
+//                     {isCartCheckout ? (
+//                         <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-500">
+//                             Gift vouchers can't be applied to cart checkouts — redeem one when booking a single lesson.
+//                         </div>
+//                     ) : (
+//                         <div className="border-t border-gray-200 pt-4">
+//                             <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-2">
+//                                 <Tag className="w-4 h-4" /> Have a gift voucher?
+//                             </label>
+//                             <div className="flex gap-2">
+//                                 <input
+//                                     type="text"
+//                                     value={voucherCode}
+//                                     onChange={(e) => {
+//                                         setVoucherCode(e.target.value.toUpperCase());
+//                                         if (voucherApplied) removeVoucher();
+//                                     }}
+//                                     placeholder="XXXXXXXX"
+//                                     disabled={Boolean(voucherApplied)}
+//                                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition disabled:bg-gray-100"
+//                                 />
+//                                 {voucherApplied ? (
+//                                     <button
+//                                         type="button"
+//                                         onClick={removeVoucher}
+//                                         className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+//                                     >
+//                                         Remove
+//                                     </button>
+//                                 ) : (
+//                                     <button
+//                                         type="button"
+//                                         onClick={applyVoucher}
+//                                         disabled={voucherStatus === "checking" || !voucherCode.trim()}
+//                                         className="px-4 py-2 bg-gray-800 text-white rounded-lg text-sm font-medium hover:bg-gray-900 transition-colors disabled:opacity-50"
+//                                     >
+//                                         {voucherStatus === "checking" ? "Checking..." : "Apply"}
+//                                     </button>
+//                                 )}
+//                             </div>
+//                             {voucherStatus === "valid" && (
+//                                 <p className="flex items-center gap-1 text-green-600 text-xs mt-2">
+//                                     <Check className="w-3 h-3" /> {voucherMessage}
+//                                 </p>
+//                             )}
+//                             {voucherStatus === "invalid" && (
+//                                 <p className="flex items-center gap-1 text-red-600 text-xs mt-2">
+//                                     <XCircle className="w-3 h-3" /> {voucherMessage}
+//                                 </p>
+//                             )}
+//                         </div>
+//                     )}
+
+//                     {/* Terms */}
 //                     <div className="border-t border-gray-200 pt-4">
 //                         <div className="flex items-start gap-3">
 //                             <input
@@ -3237,12 +3866,11 @@ export default BookingForm;
 //                                 checked={acceptTerms}
 //                                 onChange={(e) => {
 //                                     setAcceptTerms(e.target.checked);
-//                                     if (errors.terms) {
+//                                     if (errors.terms)
 //                                         setErrors((prev) => ({
 //                                             ...prev,
 //                                             terms: "",
 //                                         }));
-//                                     }
 //                                 }}
 //                                 className="mt-1 h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
 //                                 required
@@ -3269,7 +3897,7 @@ export default BookingForm;
 //                                 >
 //                                     Privacy Policy
 //                                 </a>{" "}
-//                                 *
+//                                 <span className="text-red-500">*</span>
 //                             </label>
 //                         </div>
 //                         {errors.terms && (
@@ -3299,6 +3927,12 @@ export default BookingForm;
 //                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
 //                                     Processing...
 //                                 </div>
+//                             ) : voucherApplied && !isCartCheckout ? (
+//                                 "Confirm Booking with Voucher"
+//                             ) : useOnlinePay ? (
+//                                 "Continue to secure payment"
+//                             ) : isCartCheckout ? (
+//                                 "Book Cart"
 //                             ) : (
 //                                 "Confirm Booking"
 //                             )}

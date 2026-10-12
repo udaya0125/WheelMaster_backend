@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use App\Models\Voucher;
 
 class TestPackageController extends Controller
 {
@@ -245,74 +246,177 @@ class TestPackageController extends Controller
         $startTime = $testTime->copy()->subHour();
         $endTime = $testTime->copy()->addMinutes($durationMinutes);
 
+
         $slotHoldService = new SlotHoldService();
 
-        try {
-            $reservation = DB::transaction(function () use (
-                $request,
-                $slotHoldService,
-                $date,
-                $startTime,
-                $endTime,
-                $testType,
-                $durationMinutes
-            ) {
-                $slotHoldService->releaseExpired();
+try {
+    $reservation = DB::transaction(function () use (
+        $request,
+        $slotHoldService,
+        $date,
+        $startTime,
+        $endTime,
+        $testType,
+        $durationMinutes,
+        $price
+    ) {
+        $slotHoldService->releaseExpired();
 
-                if (! $this->isTestTimeAvailable($date, $startTime, $endTime, $request->price_id)) {
-                    throw new BookingConflictException('Time slot no longer available.');
-                }
-
-                $holdToken = $slotHoldService->acquire($date, $startTime, $endTime);
-
-                $reservation = UserReservation::create([
-                    'user_name' => $request->user_name,
-                    'email' => $request->email,
-                    'phone' => $request->phone,
-                    'address' => $request->address,
-                    'pickup_location' => $request->pickup_location,
-                    'dropoff_location' => $request->dropoff_location,
-                    'reservation_date' => $date,
-                    'start_time' => $startTime->format('H:i:s'),
-                    'end_time' => $endTime->format('H:i:s'),
-                    'test_time' => $request->test_time,
-                    'test_location' => $request->test_location,
-                    'price_id' => $request->price_id,
-                    'package_type' => 'Test Package: '.$testType,
-                    'test_type' => $testType,
-                    'status' => 'Pending',
-                    'notes' => json_encode([
-                        'test_type' => $testType,
-                        'actual_test_time' => $request->test_time,
-                        'test_location' => $request->test_location,
-                        'test_duration' => $durationMinutes.' minutes',
-                        'buffer_before_test' => '1 hour',
-                        'calculated_start_time' => $startTime->format('H:i:s'),
-                        'calculated_end_time' => $endTime->format('H:i:s'),
-                        'price_id' => $request->price_id,
-                    ]),
-                    'comment' => $request->comment,
-                ]);
-
-                $slotHoldService->releaseToken($holdToken);
-
-                Notification::create([
-                    'message' => "New test package reservation from {$reservation->user_name} for {$reservation->reservation_date} ".
-                                "({$startTime->format('h:i A')} - {$endTime->format('h:i A')})",
-                    'is_read' => false,
-                    'type' => 'test_package',
-                    'reservation_id' => $reservation->id,
-                ]);
-
-                return $reservation;
-            }, 3);
-        } catch (BookingConflictException $exception) {
-            return response()->json([
-                'success' => false,
-                'message' => $exception->getMessage(),
-                'alternative_times' => $this->findAlternativeTestTimes($date, $durationMinutes, $request->price_id),
-            ], $exception->statusCode());
+        if (! $this->isTestTimeAvailable($date, $startTime, $endTime, $request->price_id)) {
+            throw new BookingConflictException('Time slot no longer available.');
         }
+
+        // ─── Voucher validation ───
+        $voucher = null;
+
+        if ($request->filled('voucher_code')) {
+            $voucher = Voucher::where('code', $request->voucher_code)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $voucher || ! $voucher->isValid()) {
+                throw new BookingConflictException('Invalid or expired voucher code.', [
+                    'voucher_code' => ['Invalid or expired voucher code.'],
+                ], 422);
+            }
+
+            if ($voucher->price_id && (int) $voucher->price_id !== (int) $request->price_id) {
+                throw new BookingConflictException("This voucher can't be used for this package.", [
+                    'voucher_code' => ["This voucher can't be used for this package."],
+                ], 422);
+            }
+
+            if ($voucher->balance < $price->price) {
+                throw new BookingConflictException("This voucher's balance doesn't cover this package.", [
+                    'voucher_code' => ["This voucher's balance doesn't cover this package."],
+                ], 422);
+            }
+        }
+
+        $holdToken = $slotHoldService->acquire($date, $startTime, $endTime);
+
+        $reservation = UserReservation::create([
+            'user_name' => $request->user_name,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'address' => $request->address,
+            'pickup_location' => $request->pickup_location,
+            'dropoff_location' => $request->dropoff_location,
+            'reservation_date' => $date,
+            'start_time' => $startTime->format('H:i:s'),
+            'end_time' => $endTime->format('H:i:s'),
+            'test_time' => $request->test_time,
+            'test_location' => $request->test_location,
+            'price_id' => $request->price_id,
+            'package_type' => 'Test Package: '.$testType,
+            'test_type' => $testType,
+            'status' => 'Pending',
+            'notes' => json_encode([
+                'test_type' => $testType,
+                'actual_test_time' => $request->test_time,
+                'test_location' => $request->test_location,
+                'test_duration' => $durationMinutes.' minutes',
+                'buffer_before_test' => '1 hour',
+                'calculated_start_time' => $startTime->format('H:i:s'),
+                'calculated_end_time' => $endTime->format('H:i:s'),
+                'price_id' => $request->price_id,
+            ]),
+            'comment' => $request->comment,
+        ]);
+
+        if ($voucher) {
+            $voucher->redeem($price->price, $request->email);
+        }
+
+        $slotHoldService->releaseToken($holdToken);
+
+        Notification::create([
+            'message' => "New test package reservation from {$reservation->user_name} for {$reservation->reservation_date} ".
+                        "({$startTime->format('h:i A')} - {$endTime->format('h:i A')})",
+            'is_read' => false,
+            'type' => 'test_package',
+            'reservation_id' => $reservation->id,
+        ]);
+
+        return $reservation;
+    }, 3);
+} catch (BookingConflictException $exception) {
+    return response()->json([
+        'success' => false,
+        'message' => $exception->getMessage(),
+        'errors' => $exception->errors(),
+        'alternative_times' => $this->findAlternativeTestTimes($date, $durationMinutes, $request->price_id),
+    ], $exception->statusCode());
+}
+
+        // $slotHoldService = new SlotHoldService();
+
+        // try {
+        //     $reservation = DB::transaction(function () use (
+        //         $request,
+        //         $slotHoldService,
+        //         $date,
+        //         $startTime,
+        //         $endTime,
+        //         $testType,
+        //         $durationMinutes
+        //     ) {
+        //         $slotHoldService->releaseExpired();
+
+        //         if (! $this->isTestTimeAvailable($date, $startTime, $endTime, $request->price_id)) {
+        //             throw new BookingConflictException('Time slot no longer available.');
+        //         }
+
+        //         $holdToken = $slotHoldService->acquire($date, $startTime, $endTime);
+
+        //         $reservation = UserReservation::create([
+        //             'user_name' => $request->user_name,
+        //             'email' => $request->email,
+        //             'phone' => $request->phone,
+        //             'address' => $request->address,
+        //             'pickup_location' => $request->pickup_location,
+        //             'dropoff_location' => $request->dropoff_location,
+        //             'reservation_date' => $date,
+        //             'start_time' => $startTime->format('H:i:s'),
+        //             'end_time' => $endTime->format('H:i:s'),
+        //             'test_time' => $request->test_time,
+        //             'test_location' => $request->test_location,
+        //             'price_id' => $request->price_id,
+        //             'package_type' => 'Test Package: '.$testType,
+        //             'test_type' => $testType,
+        //             'status' => 'Pending',
+        //             'notes' => json_encode([
+        //                 'test_type' => $testType,
+        //                 'actual_test_time' => $request->test_time,
+        //                 'test_location' => $request->test_location,
+        //                 'test_duration' => $durationMinutes.' minutes',
+        //                 'buffer_before_test' => '1 hour',
+        //                 'calculated_start_time' => $startTime->format('H:i:s'),
+        //                 'calculated_end_time' => $endTime->format('H:i:s'),
+        //                 'price_id' => $request->price_id,
+        //             ]),
+        //             'comment' => $request->comment,
+        //         ]);
+
+        //         $slotHoldService->releaseToken($holdToken);
+
+        //         Notification::create([
+        //             'message' => "New test package reservation from {$reservation->user_name} for {$reservation->reservation_date} ".
+        //                         "({$startTime->format('h:i A')} - {$endTime->format('h:i A')})",
+        //             'is_read' => false,
+        //             'type' => 'test_package',
+        //             'reservation_id' => $reservation->id,
+        //         ]);
+
+        //         return $reservation;
+        //     }, 3);
+        // } catch (BookingConflictException $exception) {
+        //     return response()->json([
+        //         'success' => false,
+        //         'message' => $exception->getMessage(),
+        //         'alternative_times' => $this->findAlternativeTestTimes($date, $durationMinutes, $request->price_id),
+        //     ], $exception->statusCode());
+        // }
 
         // Send confirmation emails
         try {
