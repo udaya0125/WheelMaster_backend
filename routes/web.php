@@ -324,6 +324,20 @@ Route::get('/', function () {
 
     Route::get('/block-time/{slug}', [PriceController::class, 'blockTimeBySlug'])->name('block-time.show');
 
+    // --------------------------------------------------------------------------
+    // Voucher Controller routes
+    // --------------------------------------------------------------------------
+
+    Route::get('/ourvoucher', [VoucherController::class, 'index'])->name('ourvoucher.index');
+    Route::post('/ourvoucher', [VoucherController::class, 'store'])->name('ourvoucher.store');
+    Route::post('/ourvoucher/generate-code', [VoucherController::class, 'generateCode'])->name('ourvoucher.generate-code');
+    Route::put('/ourvoucher/{voucher}', [VoucherController::class, 'update'])->name('ourvoucher.update');
+    Route::delete('/ourvoucher/{voucher}', [VoucherController::class, 'destroy'])->name('ourvoucher.destroy');
+
+    Route::get('/voucher', function () {
+        return Inertia::render('Voucher');
+    });
+
     
     });
 
@@ -363,7 +377,6 @@ Route::get('/', function () {
 
 
     Route::get('/gift-a-friend', [VoucherController::class, 'create'])->name('vouchers.create');
-    Route::post('/gift-a-friend', [VoucherController::class, 'store'])->name('vouchers.store');
     Route::post('/vouchers/validate', [VoucherController::class, 'validateCode'])->name('vouchers.validate');
     Route::post('/vouchers/checkout', [VoucherController::class, 'checkout'])->name('vouchers.checkout');
 
@@ -371,6 +384,5 @@ Route::get('/', function () {
     // Route::get('/voucher-crete', function () {
     //     return Inertia::render('Vouchers/Create');
     // });
- 
 
 require __DIR__.'/auth.php';

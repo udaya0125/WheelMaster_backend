@@ -8,11 +8,105 @@ use App\Models\Price;
 use App\Models\Voucher;
 use App\Services\OnlinePayClient;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class VoucherController extends Controller
 {
+    /**
+     * Vouchers issued from the dashboard do not have a payment intent. They are
+     * intentional, admin-issued credits and are active immediately.
+     */
+    public function index()
+    {
+        return response()->json([
+            'vouchers' => Voucher::with('price:id,description,price')
+                ->latest()
+                ->get(),
+            'packageOptions' => $this->voucherEligiblePackages(),
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        // Keep manually-entered codes in the same uppercase format as the
+        // model-generated codes before applying format/uniqueness validation.
+        $request->merge([
+            'code' => strtoupper((string) $request->input('code')),
+        ]);
+
+        $validated = $request->validate([
+            'price_id'        => 'required|integer|exists:prices,id',
+            'code'            => ['required', 'string', 'size:8', 'regex:/^[A-Z0-9]{8}$/', 'unique:vouchers,code'],
+            'buyer_name'      => 'required|string|max:100',
+            'buyer_email'     => 'required|email|max:255',
+            'recipient_email' => 'nullable|email|max:255',
+            'message'         => 'nullable|string',
+        ]);
+
+        $price = Price::findOrFail($validated['price_id']);
+        $this->ensureVoucherEligiblePackage($price);
+
+        $voucher = DB::transaction(function () use ($validated, $price) {
+            return Voucher::create([
+                'price_id'        => $price->id,
+                'code'            => $validated['code'],
+                'amount'          => $price->price,
+                'balance'         => $price->price,
+                'status'          => 'active',
+                'buyer_name'      => $validated['buyer_name'],
+                'buyer_email'     => $validated['buyer_email'],
+                'recipient_email' => $validated['recipient_email'] ?? $validated['buyer_email'],
+                'message'         => $validated['message'] ?? null,
+                'expires_at'      => now()->addYear(),
+            ]);
+        });
+
+        return response()->json([
+            'message' => 'Voucher created successfully without payment.',
+            'voucher' => $voucher->load('price:id,description,price'),
+        ], 201);
+    }
+
+    public function generateCode()
+    {
+        return response()->json([
+            'code' => Voucher::generateCode(),
+        ]);
+    }
+
+    public function update(Request $request, Voucher $voucher)
+    {
+        $validated = $request->validate([
+            'buyer_name'      => 'required|string|max:100',
+            'buyer_email'     => 'required|email|max:255',
+            'recipient_email' => 'nullable|email|max:255',
+            'message'         => 'nullable|string',
+            'status'          => 'required|in:active,used,expired,cancelled',
+        ]);
+
+        $voucher->update([
+            ...$validated,
+            'recipient_email' => $validated['recipient_email'] ?? $validated['buyer_email'],
+        ]);
+
+        return response()->json([
+            'message' => 'Voucher updated successfully.',
+            'voucher' => $voucher->fresh()->load('price:id,description,price'),
+        ]);
+    }
+
+    public function destroy(Voucher $voucher)
+    {
+        $voucher->delete();
+
+        return response()->json([
+            'message' => 'Voucher deleted successfully.',
+        ]);
+    }
+
     public function create()
     {
         return Inertia::render('Vouchers/Create', [
@@ -34,7 +128,7 @@ class VoucherController extends Controller
             'buyer_email'     => 'required|email',
             'price_id'        => 'required|integer|exists:prices,id',
             'recipient_email' => 'nullable|email',
-            'message'         => 'nullable|string|max:500',
+            'message'         => 'nullable|string',
         ]);
 
         $price = Price::findOrFail($validated['price_id']);
@@ -149,5 +243,14 @@ class VoucherController extends Controller
         return Price::all(['id', 'description', 'price', 'duration', 'category', 'slug'])
             ->filter(fn ($price) => $price->isCartBookableLessonPackage())
             ->values();
+    }
+
+    private function ensureVoucherEligiblePackage(Price $price): void
+    {
+        if (! $price->isCartBookableLessonPackage()) {
+            throw ValidationException::withMessages([
+                'price_id' => 'Choose a package that can be booked with a voucher.',
+            ]);
+        }
     }
 }

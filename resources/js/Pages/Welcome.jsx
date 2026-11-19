@@ -184,6 +184,7 @@ const Welcome = () => {
             </div> */}
 
             {/* Trust strip */}
+            
             {/* <div className="mt-10 flex flex-wrap justify-center gap-x-8 gap-y-3 text-sm text-gray-300">
               {stats.map(({ icon: Icon, label }) => (
                 <div key={label} className="flex items-center gap-2">

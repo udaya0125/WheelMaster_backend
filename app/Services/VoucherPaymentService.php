@@ -32,7 +32,7 @@ class VoucherPaymentService
                 'buyer_email'       => $details['buyer_email'] ?? $intent->customer_email,
                 'recipient_email'   => $details['recipient_email'] ?? $intent->customer_email,
                 'message'           => $details['message'] ?? null,
-                'expires_at'        => now()->addMonths(6),
+                'expires_at'        => now()->addYear(),
             ]);
 
             $intent->update([

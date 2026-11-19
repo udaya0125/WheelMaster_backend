@@ -14,6 +14,7 @@ import {
     MdOutlineShield,
     MdOutlinePeople,
     MdOutlineAccessTimeFilled,
+    MdCardGiftcard,
 } from "react-icons/md";
 import { FaRegCalendarTimes } from "react-icons/fa";
 import { PiTimer } from "react-icons/pi";
@@ -38,6 +39,7 @@ const SideBar = ({
         { href: "/calendar-booking", label: "Booking", icon: MdOutlineCalendarToday },
         { href: "/time-management", label: "Time Management", icon: MdOutlineAccessTime },
         {href: "/block-time", label: "Block Time", icon: PiTimer }, 
+        {href: "/voucher", label: "Voucher", icon: MdCardGiftcard}, 
         { href: "/user-reservation", label: "User Reservation", icon: MdOutlineCalendarMonth },
         { href: "/block-reservation", label: "Block Reservation", icon: FaRegCalendarTimes },
         { href: "/user-management", label: "User Management", icon: MdOutlinePeople },

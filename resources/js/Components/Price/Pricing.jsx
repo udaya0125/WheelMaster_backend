@@ -223,7 +223,7 @@
 //             if (isPackageBundle || isTestOnly) {
 //                 return (
 //                     <a
-//                         href="tel:+1234567890"
+//                         href="tel:+0481 488 216"
 //                         className={`w-full py-3 sm:py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 mt-auto text-white shadow-lg hover:shadow-xl text-sm sm:text-base ${getButtonColor()}`}
 //                     >
 //                         <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -633,7 +633,7 @@
 //             if ((isPackageBundle && !isBookableFiveHourBundle) || isTestOnly) {
 //                 return (
 //                     <a
-//                         href="tel:+1234567890"
+//                         href="tel:+0481 488 216"
 //                         className="w-full py-3.5 sm:py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 mt-auto text-white shadow-md hover:shadow-lg bg-blue-600 hover:bg-blue-700 text-sm sm:text-base"
 //                     >
 //                         <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -989,7 +989,7 @@
 //             if ((isPackageBundle && !isBookableFiveHourBundle) || isTestOnly) {
 //                 return (
 //                     <a
-//                         href="tel:+1234567890"
+//                         href="tel:+0481 488 216"
 //                         className="w-full py-3.5 sm:py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 mt-auto text-white shadow-md hover:shadow-lg bg-blue-600 hover:bg-blue-700 text-sm sm:text-base"
 //                     >
 //                         <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -1347,7 +1347,7 @@
 //             if ((isPackageBundle && !isBookableLessonBundle) || isTestOnly) {
 //                 return (
 //                     <a
-//                         href="tel:+1234567890"
+//                         href="tel:+0481 488 216"
 //                         className="w-full py-3.5 sm:py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 mt-auto text-white shadow-md hover:shadow-lg bg-blue-600 hover:bg-blue-700 text-sm sm:text-base"
 //                     >
 //                         <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -1719,7 +1719,7 @@
 //             if ((isPackageBundle && !isBookableLessonBundle) || isTestOnly) {
 //                 return (
 //                     <a
-//                         href="tel:+1234567890"
+//                         href="tel:+0481 488 216"
 //                         className="w-full py-3.5 sm:py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 mt-auto text-white shadow-md hover:shadow-lg bg-blue-600 hover:bg-blue-700 text-sm sm:text-base"
 //                     >
 //                         <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -2113,7 +2113,7 @@ const Pricing = () => {
             if ((isPackageBundle && !isBookableLessonBundle) || isTestOnly) {
                 return (
                     <a
-                        href="tel:+1234567890"
+                        href="tel:+0481 488 216"
                         className="w-full py-3.5 sm:py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 mt-auto text-white shadow-md hover:shadow-lg bg-blue-600 hover:bg-blue-700 text-sm sm:text-base"
                     >
                         <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -2202,7 +2202,7 @@ const Pricing = () => {
             <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-10">
                 <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-end gap-3">
                     <Link
-                        href="/gift-a-friend"
+                        href={route("vouchers.create")}
                         className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold pl-5 pr-4 sm:pl-6 sm:pr-5 py-3 sm:py-3.5 rounded-full shadow-lg shadow-blue-900/30 hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 text-sm sm:text-base"
                     >
                         Gift your loved ones
@@ -2315,6 +2315,7 @@ const Pricing = () => {
                     </div>
                 )}
             </div>
+
         </div>
     );
 };
@@ -2508,7 +2509,7 @@ export default Pricing;
 //             if ((isPackageBundle && !isBookableLessonBundle) || isTestOnly) {
 //                 return (
 //                     <a
-//                         href="tel:+1234567890"
+//                         href="tel:+0481 488 216"
 //                         className="w-full py-3.5 sm:py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 mt-auto text-white shadow-md hover:shadow-lg bg-blue-600 hover:bg-blue-700 text-sm sm:text-base"
 //                     >
 //                         <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -2877,7 +2878,7 @@ export default Pricing;
 //             if ((isPackageBundle && !isBookableFiveHourBundle) || isTestOnly) {
 //                 return (
 //                     <a
-//                         href="tel:+1234567890"
+//                         href="tel:+0481 488 216"
 //                         className="w-full py-3.5 sm:py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 mt-auto text-white shadow-md hover:shadow-lg bg-blue-600 hover:bg-blue-700 text-sm sm:text-base"
 //                     >
 //                         <Phone className="w-4 h-4 sm:w-5 sm:h-5" />

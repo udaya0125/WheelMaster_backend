@@ -22,7 +22,7 @@ return new class extends Migration
             $table->decimal('balance', 10, 2);
             $table->enum('status', ['active', 'used', 'expired', 'cancelled'])->default('active');
             $table->string('recipient_email')->nullable();
-            $table->text('message')->nullable();
+            $table->longText('message')->nullable();
             $table->string('redeemed_by')->nullable();
             $table->timestamp('redeemed_at')->nullable();
             $table->timestamp('expires_at')->nullable();
