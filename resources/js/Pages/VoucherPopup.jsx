@@ -199,7 +199,6 @@ const VoucherPopup = ({ voucher, copied, onCopy, onEdit, onClose }) => {
         <FormModal
             title="Voucher Details"
             subtitle={packageName}
-            icon={<FiGift />}
             onClose={onClose}
             maxWidth="max-w-3xl"
             footer={
