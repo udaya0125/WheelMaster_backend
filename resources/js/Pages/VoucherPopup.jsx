@@ -261,10 +261,8 @@ const VoucherPopup = ({ voucher, copied, onCopy, onEdit, onClose }) => {
                     </div>
                 </div>
 
-
-
-                                {/* Personal note (same as the Create page) */}
-                 {voucher.message && (
+                {/* Personal note (same as the Create page) */}
+                {voucher.message && (
                      <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-5">
                         <p className="mb-2 text-xs font-bold uppercase tracking-wider text-blue-700">
                             A note from {voucher.buyer_name || "the buyer"}
@@ -273,7 +271,7 @@ const VoucherPopup = ({ voucher, copied, onCopy, onEdit, onClose }) => {
                             {voucher.message}
                         </p>
                    </div>
-                 )}
+                )}
 
                 {/* Usage */}
                 <div className="rounded-2xl border border-gray-200 p-4">
